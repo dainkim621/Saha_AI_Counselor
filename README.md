@@ -5,6 +5,6 @@
 -화요일: 팀플 회의
 
 ## 🛠️ 개발 환경
-- OS: WSL2 (Ubuntu 22.04)
+- OS: WSL2 (Ubuntu 22.04, 24.04)
 - Language: Python 3.10+
-- Tools: Git, GitHub, Docker
+- Tools: Git, GitHub, Docker, vscode
