@@ -6,5 +6,5 @@
 
 ## 🛠️ 개발 환경
 - OS: WSL2 (Ubuntu 22.04, 24.04)
-- Language: Python 3.10+
+- Language: Python 3.10(recommanded)
 - Tools: Git, GitHub, Docker, vscode
