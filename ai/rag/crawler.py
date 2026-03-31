@@ -23,7 +23,7 @@ ALLOWED_DOMAINS = {"www.saha.go.kr", "m.saha.go.kr"}
 OUTPUT_DIR = "data/raw"
 OUTPUT_JSONL = os.path.join(OUTPUT_DIR, "saha_docs.jsonl")
 
-MAX_PAGES = 30   # 테스트용
+MAX_PAGES = 80
 REQUEST_DELAY = 0.8
 TIMEOUT = 15
 
@@ -44,19 +44,28 @@ DENY_URL_KEYWORDS = [
     "calendar",
     "bbs/list.do",
     "board/list.do",
+    "board/view.do",
+    "photo",
+    "gallery",
+    "youtube",
+    "blog",
+    "facebook",
+    "instagram",
+    "twitter",
 ]
 
-# contents.do 상세 페이지 위주
+# contents.do 상세 페이지 위주 저장
 ALLOW_SAVE_KEYWORDS = [
     "contents.do",
 ]
 
-# 링크 탐색은 조금 넓게 허용
+# 링크 탐색 허용 범위
 ALLOW_VISIT_KEYWORDS = [
     "contents.do",
     "/main.do",
 ]
 
+# HTML 블록 단위 제거
 NOISE_SELECTORS = [
     "header", "footer", "nav", "aside",
     "#header", "#footer", "#gnb", "#lnb", "#snb",
@@ -64,10 +73,24 @@ NOISE_SELECTORS = [
     ".skip", ".breadcrumbs", ".location", ".quick",
     ".quickMenu", "#quickMenu", ".subMenu", ".menuArea",
     ".snsArea", ".shareArea", ".printArea",
+    ".relation", ".related", ".attach", ".file",
+    ".satisfaction", ".survey", ".comment", ".reply",
+    ".prevNext", ".boardBtn", ".btnArea", ".pagination",
+    ".searchArea", ".tabMenu", ".banner", ".popupZone",
+    ".department", ".charge", ".contact", ".infoBox",
+    ".viewer", ".copy", ".copyright",
+    ".familySite", ".siteLink", ".util", ".topBanner",
 ]
 
 TITLE_SELECTORS = [
-    "h1", "h2", ".tit", ".title", ".subTitle", ".contTitle", ".pageTitle"
+    "h1",
+    "h2",
+    ".tit",
+    ".title",
+    ".subTitle",
+    ".contTitle",
+    ".pageTitle",
+    ".subject",
 ]
 
 CONTENT_SELECTORS = [
@@ -79,13 +102,68 @@ CONTENT_SELECTORS = [
     ".sub_content",
     ".contArea",
     ".article",
+    ".board_view",
+    ".view_cont",
+    ".conBox",
     "main",
     "article",
 ]
 
 PRIORITY_KEYWORDS = [
     "전입", "전입신고", "민원", "주민등록", "등본", "초본", "정부24",
-    "무인민원", "발급", "신청", "서류", "수수료", "복지", "쓰레기", "배출"
+    "무인민원", "발급", "신청", "서류", "수수료", "복지", "쓰레기", "배출",
+    "구비서류", "처리기간", "신고기한", "문의처", "신청방법", "방문", "온라인"
+]
+
+STRONG_CIVIL_KEYWORDS = [
+    "전입신고", "주민등록", "민원", "신청", "구비서류",
+    "처리기간", "수수료", "문의처", "신고기한", "신청방법",
+    "방문", "온라인", "처리절차", "제출서류"
+]
+
+NOISE_LINE_PATTERNS = [
+    r"^이전글.*",
+    r"^다음글.*",
+    r"^목록.*",
+    r"^SNS.*공유.*",
+    r"^공유.*",
+    r"^프린트.*",
+    r"^저작권.*",
+    r"^개인정보처리방침.*",
+    r"^만족도 조사.*",
+    r"^페이지 만족도.*",
+    r"^담당부서.*",
+    r"^조회수.*",
+    r"^등록일.*",
+    r"^수정일.*",
+    r"^첨부파일.*",
+    r"^뷰어다운로드.*",
+    r"^주메뉴.*",
+    r"^통합검색.*",
+    r"^홈페이지 의견수렴.*",
+    r"^관련사이트.*",
+    r"^콘텐츠 관리부서.*",
+    r"^최종수정일.*",
+]
+
+BAD_TEXT_SIGNALS = [
+    "주메뉴", "사하구 홈페이지", "저작권", "개인정보처리방침",
+    "만족도 조사", "이전글", "다음글", "목록", "공유", "프린트",
+    "비주얼 홍보 이미지", "이전 이미지", "다음 이미지",
+]
+
+MENU_SIGNALS = [
+    "비주얼 홍보 이미지", "이전 이미지", "다음 이미지", "퀵아이콘",
+    "우리동 소식", "등록된 게시물이 없습니다", "사하구 홈페이지",
+    "전자민원", "정보공개", "분야별 정보", "주메뉴",
+    "만족도 조사", "개인정보처리방침", "저작권", "사이트맵",
+    "이전글", "다음글", "목록", "공유", "프린트"
+]
+
+SECTION_HINTS = [
+    "신청대상", "신청방법", "처리절차", "처리기간", "수수료",
+    "구비서류", "제출서류", "유의사항", "문의처", "신고기한",
+    "온라인 신청", "방문 신청"
 ]
 
 
@@ -132,7 +210,10 @@ def should_visit(url: str) -> bool:
     if any(x in lower_url for x in DENY_URL_KEYWORDS):
         return False
 
-    return any(x in lower_url for x in ALLOW_VISIT_KEYWORDS)
+    if not any(x in lower_url for x in ALLOW_VISIT_KEYWORDS):
+        return False
+
+    return True
 
 
 def should_save(url: str) -> bool:
@@ -197,21 +278,67 @@ def extract_title(soup: BeautifulSoup) -> str:
     return ""
 
 
+def score_node_text(text: str) -> int:
+    score = 0
+
+    for kw in PRIORITY_KEYWORDS:
+        if kw in text:
+            score += 3
+
+    for kw in SECTION_HINTS:
+        if kw in text:
+            score += 2
+
+    for kw in BAD_TEXT_SIGNALS:
+        if kw in text:
+            score -= 2
+
+    score += min(len(text) // 200, 10)
+    return score
+
+
 def select_main_content(soup: BeautifulSoup):
-    best_node = None
-    best_len = 0
+    candidates = []
 
     for selector in CONTENT_SELECTORS:
-        node = soup.select_one(selector)
-        if not node:
+        for node in soup.select(selector):
+            text = clean_text(node.get_text("\n", strip=True))
+            if len(text) < 120:
+                continue
+
+            score = score_node_text(text)
+            candidates.append((score, len(text), node))
+
+    if not candidates:
+        return None
+
+    candidates.sort(key=lambda x: (x[0], x[1]), reverse=True)
+    return candidates[0][2]
+
+
+def remove_noise_lines(text: str) -> str:
+    lines = []
+
+    for line in text.split("\n"):
+        line = clean_text(line)
+        if not line:
             continue
 
-        text_len = len(clean_text(node.get_text("\n", strip=True)))
-        if text_len > best_len:
-            best_len = text_len
-            best_node = node
+        skip = False
+        for pattern in NOISE_LINE_PATTERNS:
+            if re.match(pattern, line):
+                skip = True
+                break
 
-    return best_node
+        if skip:
+            continue
+
+        if len(line) <= 2:
+            continue
+
+        lines.append(line)
+
+    return "\n".join(lines).strip()
 
 
 def split_paragraphs(text: str):
@@ -227,32 +354,52 @@ def split_paragraphs(text: str):
 
 
 def is_menu_like_text(text: str) -> bool:
-    menu_signals = [
-        "비주얼 홍보 이미지", "이전 이미지", "다음 이미지", "퀵아이콘",
-        "우리동 소식", "등록된 게시물이 없습니다", "사하구 홈페이지",
-        "전자민원", "정보공개", "분야별 정보", "주메뉴"
-    ]
-    hit = sum(1 for x in menu_signals if x in text)
-    return hit >= 2 and len(text) < 3000
+    hit = sum(1 for x in MENU_SIGNALS if x in text)
+
+    lines = [line.strip() for line in text.splitlines() if line.strip()]
+    line_count = len(lines)
+    short_line_count = sum(1 for line in lines if len(line) <= 12)
+
+    if hit >= 2:
+        return True
+
+    if line_count > 0 and (short_line_count / line_count) > 0.45:
+        return True
+
+    return False
 
 
 def is_meaningful_text(title: str, text: str) -> bool:
-    if not text or len(text) < 150:
+    if not text or len(text) < 200:
         return False
 
     if is_menu_like_text(text):
         return False
 
     merged = f"{title}\n{text}"
-    hit_count = sum(1 for kw in PRIORITY_KEYWORDS if kw in merged)
 
-    if hit_count >= 1:
+    hit_count = sum(1 for kw in STRONG_CIVIL_KEYWORDS if kw in merged)
+    structure_hit = sum(1 for kw in SECTION_HINTS if kw in merged)
+
+    if hit_count >= 2:
         return True
 
-    if len(text) >= 800:
+    if hit_count >= 1 and structure_hit >= 2:
         return True
 
     return False
+
+
+def build_structured_text(title: str, raw_text: str) -> str:
+    """
+    제목과 본문을 합쳐서 임베딩 검색에 더 잘 걸리도록 구성
+    """
+    text = raw_text.strip()
+
+    if title and title not in text[:200]:
+        text = f"{title}\n\n{text}"
+
+    return clean_text(text)
 
 
 def extract_text(html: str):
@@ -266,6 +413,9 @@ def extract_text(html: str):
         return title, "", []
 
     raw_text = clean_text(main_node.get_text("\n", strip=True))
+    raw_text = remove_noise_lines(raw_text)
+    raw_text = build_structured_text(title, raw_text)
+
     paragraphs = split_paragraphs(raw_text)
     return title, raw_text, paragraphs
 
