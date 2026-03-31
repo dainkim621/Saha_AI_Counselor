@@ -1,0 +1,24 @@
+# ===== Core =====
+numpy
+
+# ===== Crawling =====
+requests
+beautifulsoup4
+
+# ===== NLP / Embedding =====
+sentence-transformers
+torch
+
+# ===== RAG / Vector DB =====
+chromadb
+
+# ===== LangChain =====
+langchain
+langchain-community
+
+# ===== Backend =====
+fastapi
+uvicorn
+
+# ===== Utils =====
+tqdm
