@@ -1,13 +1,16 @@
-# app/main.py
 from fastapi import FastAPI
-from .database import engine, Base
-from . import models  # 👈 이 줄이 있어야 models.py의 설정을 읽어옵니다.
+from .database import engine
+from . import models
+from .api import chat
 
-# 서버가 켜질 때 DB에 접속해서 테이블이 없으면 생성하는 명령어
+# DB 테이블 생성
 models.Base.metadata.create_all(bind=engine)
 
 app = FastAPI()
 
+# 위에서 만든 chat 라우터를 등록함
+app.include_router(chat.router)
+
 @app.get("/")
-def read_root():
-    return {"status": "Server Running", "db": "Check completed"}
+def root():
+    return {"status": "Saha AI Server is running!"}
