@@ -1,14 +1,37 @@
-# --- Python & Virtual Env ---
+# 공통: 로그
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# 공통: 환경변수 / 로컬 설정
+.env
+.env.*
+!.env.example
+*.local
+
+# 프론트엔드에서만 특히 중요한 무시 대상
+node_modules/
+dist/
+dist-ssr/
+.vite/
+coverage/
+
+# 백엔드에서만 특히 중요한 무시 대상
+postgres_data/
+
+# AI / Python에서만 특히 중요한 무시 대상
 __pycache__/
 *.py[cod]
 *$py.class
 venv/
 .venv/
 env/
-.env
 
-# --- AI & Data (용량/보안 관리) ---
-# 대용량 데이터는 깃허브에 올리지 않고 각자 로컬이나 서버에서 관리합니다.
+# 전체 브랜치 공통: 대용량 데이터 / DB / 산출물
 data/
 *.csv
 *.json
@@ -16,20 +39,18 @@ data/
 *.npy
 *.db
 *.sqlite3
-
-# --- Build & OS ---
-dist/
 build/
+
+# 전체 브랜치 공통: OS 파일
 .DS_Store
 Thumbs.db
 
-# --- Editor & IDE ---
-# 개인 설정 파일이 팀원 간에 충돌하는 것을 방지합니다.
+# 전체 브랜치 공통: 에디터 / IDE
 .vscode/
+!.vscode/extensions.json
 .idea/
-
-# --- Log files ---
-*.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
