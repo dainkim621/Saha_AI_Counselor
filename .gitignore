@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 # 공통: 로그
+=======
+# Logs
+>>>>>>> 32d1d4ad5ecf4c8b931beab4ee6bcfdb6dca61aa
 logs/
 *.log
 npm-debug.log*
@@ -7,6 +11,7 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
+<<<<<<< HEAD
 # 공통: 환경변수 / 로컬 설정
 .env
 .env.*
@@ -14,16 +19,23 @@ lerna-debug.log*
 *.local
 
 # 프론트엔드에서만 특히 중요한 무시 대상
+=======
+# Node / Frontend
+>>>>>>> 32d1d4ad5ecf4c8b931beab4ee6bcfdb6dca61aa
 node_modules/
 dist/
 dist-ssr/
 .vite/
 coverage/
 
+<<<<<<< HEAD
 # 백엔드에서만 특히 중요한 무시 대상
 postgres_data/
 
 # AI / Python에서만 특히 중요한 무시 대상
+=======
+# Python / AI
+>>>>>>> 32d1d4ad5ecf4c8b931beab4ee6bcfdb6dca61aa
 __pycache__/
 *.py[cod]
 *$py.class
@@ -31,7 +43,17 @@ venv/
 .venv/
 env/
 
+<<<<<<< HEAD
 # 전체 브랜치 공통: 대용량 데이터 / DB / 산출물
+=======
+# Environment variables
+.env
+.env.*
+!.env.example
+*.local
+
+# AI & Data (용량/보안)
+>>>>>>> 32d1d4ad5ecf4c8b931beab4ee6bcfdb6dca61aa
 data/
 *.csv
 *.json
@@ -39,6 +61,7 @@ data/
 *.npy
 *.db
 *.sqlite3
+<<<<<<< HEAD
 build/
 
 # 전체 브랜치 공통: OS 파일
@@ -46,6 +69,17 @@ build/
 Thumbs.db
 
 # 전체 브랜치 공통: 에디터 / IDE
+=======
+
+# Build
+build/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor / IDE
+>>>>>>> 32d1d4ad5ecf4c8b931beab4ee6bcfdb6dca61aa
 .vscode/
 !.vscode/extensions.json
 .idea/
@@ -53,4 +87,8 @@ Thumbs.db
 *.ntvs*
 *.njsproj
 *.sln
+<<<<<<< HEAD
 *.sw?
+=======
+*.sw?
+>>>>>>> 32d1d4ad5ecf4c8b931beab4ee6bcfdb6dca61aa
