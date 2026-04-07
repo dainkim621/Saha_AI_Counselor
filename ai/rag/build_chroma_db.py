@@ -115,10 +115,7 @@ def is_noisy_text(text: str, title: str = "", section: str = "") -> bool:
     return False
 
 
-def build_embedding_text(title: str, section: str, chunk_text: str) -> str:
-    """
-    제목 + 섹션 + 본문을 함께 임베딩해서 검색 품질 개선
-    """
+def build_embedding_text(title: str, section: str, chunk_text: str, author: str = "", date: str = "", views=None) -> str:
     parts = []
 
     if title:
@@ -126,6 +123,15 @@ def build_embedding_text(title: str, section: str, chunk_text: str) -> str:
 
     if section and section != "일반":
         parts.append(f"섹션: {section}")
+
+    if author:
+        parts.append(f"작성자: {author}")
+
+    if date:
+        parts.append(f"날짜: {date}")
+
+    if views is not None and views != "":
+        parts.append(f"조회수: {views}")
 
     parts.append(f"본문: {chunk_text}")
 
@@ -139,7 +145,6 @@ def load_chunks(file_path):
     total_lines = 0
     skipped_json = 0
     skipped_empty = 0
-    skipped_noise = 0
     skipped_dup = 0
 
     with open(file_path, "r", encoding="utf-8") as f:
@@ -157,22 +162,27 @@ def load_chunks(file_path):
                 continue
 
             chunk_text = clean_text(item.get("chunk_text", ""))
-            title = clean_inline_text(item.get("title", ""))
-            section = clean_inline_text(item.get("section", ""))
-            url = clean_inline_text(item.get("url", ""))
+            title = clean_inline_text(str(item.get("title", "")))
+            section = clean_inline_text(str(item.get("section", "")))
+            author = clean_inline_text(str(item.get("author", "")))
+            date = clean_inline_text(str(item.get("date", "")))
+            views = item.get("views", None)
+            url = clean_inline_text(str(item.get("url", "")))
 
-            if not chunk_text:
+            if not chunk_text or len(chunk_text) < 20:
                 skipped_empty += 1
                 continue
 
-            if is_noisy_text(chunk_text, title, section):
-                skipped_noise += 1
-                continue
+            combined_text = build_embedding_text(
+                title=title,
+                section=section,
+                chunk_text=chunk_text,
+                author=author,
+                date=date,
+                views=views,
+            )
 
-            combined_text = build_embedding_text(title, section, chunk_text)
             text_hash = make_text_hash(combined_text)
-
-            # 중복 제거
             if text_hash in seen_hashes:
                 skipped_dup += 1
                 continue
@@ -183,6 +193,9 @@ def load_chunks(file_path):
                 "doc_id": item.get("doc_id"),
                 "title": title,
                 "section": section,
+                "author": author,
+                "date": date,
+                "views": views,
                 "url": url,
                 "source": item.get("source"),
                 "chunk_index": item.get("chunk_index"),
@@ -195,7 +208,6 @@ def load_chunks(file_path):
     print(f"[로딩 완료] 전체 라인 수: {total_lines}")
     print(f"[로딩 완료] JSON 스킵: {skipped_json}")
     print(f"[로딩 완료] 빈 텍스트 스킵: {skipped_empty}")
-    print(f"[로딩 완료] 노이즈 스킵: {skipped_noise}")
     print(f"[로딩 완료] 중복 스킵: {skipped_dup}")
     print(f"[로딩 완료] 최종 문서 수: {len(docs)}")
 

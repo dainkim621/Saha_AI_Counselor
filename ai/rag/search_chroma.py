@@ -87,12 +87,11 @@ def print_result(i: int, doc, score: float):
 
 
 def search_with_fallback(vectordb, query: str, k: int = TOP_K):
-    """
-    1차: 원문 질문 검색
-    2차: 질문 확장 검색
-    중복 chunk_id 제거 후 상위 결과 반환
-    """
     query_candidates = normalize_query(query)
+
+    # 키워드 fallback 추가
+    if "전입" in query or "전입신고" in query:
+        query_candidates.extend(["전입", "전입신고", "주민등록", "주소이전"])
 
     all_results = []
     seen_chunk_ids = set()
@@ -110,7 +109,6 @@ def search_with_fallback(vectordb, query: str, k: int = TOP_K):
             seen_chunk_ids.add(dedup_key)
             all_results.append((doc, score, q))
 
-    # score 오름차순 정렬
     all_results.sort(key=lambda x: x[1])
 
     return all_results[:k]
