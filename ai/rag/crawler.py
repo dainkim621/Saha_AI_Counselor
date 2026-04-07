@@ -23,7 +23,7 @@ ALLOWED_DOMAINS = {"www.saha.go.kr", "m.saha.go.kr"}
 OUTPUT_DIR = "data/raw"
 OUTPUT_JSONL = os.path.join(OUTPUT_DIR, "saha_docs.jsonl")
 
-MAX_PAGES = 80
+MAX_PAGES = 200
 REQUEST_DELAY = 0.8
 TIMEOUT = 15
 
@@ -164,6 +164,19 @@ SECTION_HINTS = [
     "신청대상", "신청방법", "처리절차", "처리기간", "수수료",
     "구비서류", "제출서류", "유의사항", "문의처", "신고기한",
     "온라인 신청", "방문 신청"
+]
+
+# 작성자 추출(메타데이터용)
+META_AUTHOR_SELECTORS = [            
+    ".writer", ".author", ".name", ".user", ".department", ".charge", ".manager"
+]
+# 날짜 추출(메타데이터용)
+META_DATE_SELECTORS = [
+    ".date", ".regDate", ".writeDate", ".created", ".updated", ".day"
+]
+#조회수 추출(메타데이터용)
+META_VIEWS_SELECTORS = [
+    ".view", ".views", ".hit", ".count", ".readCnt"
 ]
 
 
@@ -370,7 +383,7 @@ def is_menu_like_text(text: str) -> bool:
 
 
 def is_meaningful_text(title: str, text: str) -> bool:
-    if not text or len(text) < 200:
+    if not text or len(text) < 120:
         return False
 
     if is_menu_like_text(text):
@@ -381,10 +394,14 @@ def is_meaningful_text(title: str, text: str) -> bool:
     hit_count = sum(1 for kw in STRONG_CIVIL_KEYWORDS if kw in merged)
     structure_hit = sum(1 for kw in SECTION_HINTS if kw in merged)
 
-    if hit_count >= 2:
+    # 너무 엄격하지 않게 완화
+    if hit_count >= 1:
         return True
 
-    if hit_count >= 1 and structure_hit >= 2:
+    if structure_hit >= 1 and len(text) >= 250:
+        return True
+
+    if len(text) >= 400:
         return True
 
     return False
@@ -401,6 +418,121 @@ def build_structured_text(title: str, raw_text: str) -> str:
 
     return clean_text(text)
 
+def clean_meta_value(value: str) -> str:
+    if not value:
+        return ""
+    value = clean_text(value)
+    value = re.sub(r"\s+", " ", value)
+    return value.strip()
+
+
+def normalize_date(value: str) -> str:
+    """
+    날짜 문자열을 최대한 정리
+    예: 2026-04-05, 2026.04.05, 2026/04/05
+    """
+    value = clean_meta_value(value)
+    if not value:
+        return ""
+
+    m = re.search(r"(20\d{2})[./-]\s*(\d{1,2})[./-]\s*(\d{1,2})", value)
+    if m:
+        y, mo, d = m.groups()
+        return f"{y}-{int(mo):02d}-{int(d):02d}"
+
+    return value
+
+
+def normalize_views(value: str):
+    """
+    조회수 숫자만 추출
+    예: 조회수 123 -> 123
+    """
+    value = clean_meta_value(value)
+    if not value:
+        return None
+
+    m = re.search(r"(\d[\d,]*)", value)
+    if not m:
+        return None
+
+    try:
+        return int(m.group(1).replace(",", ""))
+    except ValueError:
+        return None
+
+
+def extract_first_by_selectors(soup: BeautifulSoup, selectors):
+    for selector in selectors:
+        node = soup.select_one(selector)
+        if node:
+            txt = clean_meta_value(node.get_text(" ", strip=True))
+            if txt:
+                return txt
+    return ""
+
+
+def extract_meta_by_regex(full_text: str, patterns):
+    """
+    full_text에서 정규식 기반으로 메타데이터 추출
+    """
+    if not full_text:
+        return ""
+
+    for pattern in patterns:
+        m = re.search(pattern, full_text, flags=re.IGNORECASE)
+        if m:
+            value = clean_meta_value(m.group(1))
+            if value:
+                return value
+    return ""
+
+# 작성자, 날짜, 조회수 메타데이터 추출
+def extract_metadata(soup: BeautifulSoup):
+    """
+    작성자(author), 날짜(date), 조회수(views) 추출
+    selector + 전체 텍스트 정규식 혼합 방식
+    """
+    full_text = soup.get_text("\n", strip=True)
+
+    author = extract_first_by_selectors(soup, META_AUTHOR_SELECTORS)
+    date = extract_first_by_selectors(soup, META_DATE_SELECTORS)
+    views_raw = extract_first_by_selectors(soup, META_VIEWS_SELECTORS)
+
+    if not author:
+        author = extract_meta_by_regex(full_text, [
+            r"작성자\s*[:：]?\s*([^\n|]+)",
+            r"담당부서\s*[:：]?\s*([^\n|]+)",
+            r"부서\s*[:：]?\s*([^\n|]+)",
+        ])
+
+    if not date:
+        date = extract_meta_by_regex(full_text, [
+            r"(등록일|작성일|게시일|최종수정일)\s*[:：]?\s*((?:20\d{2})[./-]\s*\d{1,2}[./-]\s*\d{1,2})",
+        ])
+        if date:
+            # 위 패턴은 그룹 2가 날짜라서 다시 추출
+            m = re.search(
+                r"(등록일|작성일|게시일|최종수정일)\s*[:：]?\s*((?:20\d{2})[./-]\s*\d{1,2}[./-]\s*\d{1,2})",
+                full_text,
+                flags=re.IGNORECASE
+            )
+            date = m.group(2) if m else date
+
+    if not views_raw:
+        views_raw = extract_meta_by_regex(full_text, [
+            r"조회수\s*[:：]?\s*([\d,]+)",
+            r"조회\s*[:：]?\s*([\d,]+)",
+        ])
+
+    date = normalize_date(date)
+    views = normalize_views(views_raw)
+
+    return {
+        "author": author,
+        "date": date,
+        "views": views,
+    }
 
 def extract_text(html: str):
     soup = BeautifulSoup(html, "html.parser")
@@ -471,15 +603,24 @@ def crawl():
             else:
                 try:
                     title, raw_text, paragraphs = extract_text(html)
+
+                    soup_for_meta = BeautifulSoup(html, "html.parser")
+                    metadata = extract_metadata(soup_for_meta)
                 except Exception as e:
                     print(f"  파싱 실패: {e}")
                     raw_text, paragraphs, title = "", [], ""
-
+                    print(f"  제목: {title}")
+                    print(f"  본문 길이: {len(raw_text)}")
+                    print(f"  문단 수: {len(paragraphs)}")
+                    print(f"  의미 있는 문서 여부: {is_meaningful_text(title, raw_text)}")
                 if raw_text and paragraphs and is_meaningful_text(title, raw_text):
                     doc = {
                         "doc_id": url_to_id(url),
                         "url": url,
                         "title": title,
+                        "author": metadata.get("author", ""),
+                        "date": metadata.get("date", ""),
+                        "views": metadata.get("views"),
                         "text": raw_text,
                         "paragraphs": paragraphs,
                         "source": "saha.go.kr",
@@ -504,6 +645,10 @@ def crawl():
     print(f"- 방문 페이지 수: {len(visited)}")
     print(f"- 저장 문서 수: {saved_count}")
     print(f"- 출력 파일: {OUTPUT_JSONL}")
+
+    print(f"  제목: {title}")
+    print(f"  본문 길이: {len(raw_text)}")
+    print(f"  문단 수: {len(paragraphs)}")
 
 
 if __name__ == "__main__":

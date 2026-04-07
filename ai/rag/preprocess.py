@@ -7,8 +7,8 @@ INPUT_FILE = "data/raw/saha_docs.jsonl"
 OUTPUT_DIR = "data/processed"
 OUTPUT_FILE = os.path.join(OUTPUT_DIR, "saha_chunks.jsonl")
 
-MIN_CHUNK_LEN = 180
-MAX_CHUNK_LEN = 650
+MIN_CHUNK_LEN = 80
+MAX_CHUNK_LEN = 500
 OVERLAP_SENTENCES = 1
 
 SECTION_HINTS = [
@@ -314,6 +314,10 @@ def preprocess_document(doc: Dict, doc_index: int) -> List[Dict]:
     text = clean_text(doc.get("text", ""))
     url = doc.get("url", "")
 
+    author = clean_inline_text(str(doc.get("author", "")))
+    date = clean_inline_text(str(doc.get("date", "")))
+    views = doc.get("views", None)
+
     if not text or len(text) < 40:
         return []
 
@@ -362,6 +366,9 @@ def preprocess_document(doc: Dict, doc_index: int) -> List[Dict]:
                 "doc_id": doc.get("doc_id", f"doc{doc_index}"),
                 "title": title,
                 "section": section_name,
+                "author": author,
+                "date": date,
+                "views": views,
                 "url": url,
                 "source": doc.get("source", "saha.go.kr"),
                 "chunk_index": global_chunk_idx,
@@ -372,6 +379,35 @@ def preprocess_document(doc: Dict, doc_index: int) -> List[Dict]:
             chunks.append(chunk)
             global_chunk_idx += 1
 
+
+        # fallback: 섹션 분리/문장 분리 실패 시 문서 전체를 기준으로라도 chunk 생성
+    if not chunks:
+        fallback_text = text
+        if title and not fallback_text.startswith(title):
+            fallback_text = f"{title}\n\n{fallback_text}"
+
+        fallback_units = [clean_inline_text(x) for x in fallback_text.split("\n") if clean_inline_text(x)]
+        fallback_chunk_texts = build_chunks(fallback_units, min_len=80, max_len=500)
+
+        for local_idx, chunk_text in enumerate(fallback_chunk_texts):
+            chunk = {
+                "chunk_id": f"doc{doc_index}_chunk{global_chunk_idx}",
+                "doc_id": doc.get("doc_id", f"doc{doc_index}"),
+                "title": title,
+                "section": "일반",
+                "author": author,
+                "date": date,
+                "views": views,
+                "url": url,
+                "source": doc.get("source", "saha.go.kr"),
+                "chunk_index": global_chunk_idx,
+                "section_chunk_index": local_idx,
+                "chunk_text": chunk_text,
+                "length": len(chunk_text),
+            }
+            chunks.append(chunk)
+            global_chunk_idx += 1
+            
     return chunks
 
 
@@ -397,6 +433,7 @@ def run_preprocess():
 
             total_docs += 1
             chunks = preprocess_document(doc, doc_index)
+            print(f"[DOC {doc_index}] title={doc.get('title', '')[:40]} / chunks={len(chunks)}")
 
             for chunk in chunks:
                 outfile.write(json.dumps(chunk, ensure_ascii=False) + "\n")
