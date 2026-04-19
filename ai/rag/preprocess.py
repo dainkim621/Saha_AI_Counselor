@@ -1,57 +1,34 @@
 import os
 import re
 import json
-from typing import List, Dict, Tuple
+from typing import List, Dict
 
-INPUT_FILE = "data/raw/saha_docs.jsonl"
+# ==============================
+# 설정
+# ==============================
+INPUT_JSONL = "data/raw/saha_docs.jsonl"
 OUTPUT_DIR = "data/processed"
-OUTPUT_FILE = os.path.join(OUTPUT_DIR, "saha_chunks.jsonl")
+OUTPUT_JSONL = os.path.join(OUTPUT_DIR, "saha_chunks.jsonl")
 
-MIN_CHUNK_LEN = 80
-MAX_CHUNK_LEN = 500
-OVERLAP_SENTENCES = 1
+MIN_CHUNK_LEN = 50
+MAX_CHUNK_LEN = 700
+OVERLAP = 120
 
 SECTION_HINTS = [
     "신청대상", "신청방법", "처리절차", "처리기간", "수수료",
     "구비서류", "제출서류", "유의사항", "문의처", "신고기한",
-    "온라인 신청", "방문 신청", "지원대상", "지원내용",
-    "이용방법", "이용시간", "접수처", "신청기한"
+    "온라인 신청", "방문 신청"
 ]
 
-NOISE_LINE_PATTERNS = [
-    r"^이전글.*",
-    r"^다음글.*",
-    r"^목록.*",
-    r"^SNS.*공유.*",
-    r"^공유.*",
-    r"^프린트.*",
-    r"^저작권.*",
-    r"^개인정보처리방침.*",
-    r"^만족도 조사.*",
-    r"^페이지 만족도.*",
-    r"^담당부서.*",
-    r"^조회수.*",
-    r"^등록일.*",
-    r"^수정일.*",
-    r"^첨부파일.*",
-    r"^뷰어다운로드.*",
-    r"^주메뉴.*",
-    r"^통합검색.*",
-    r"^홈페이지 의견수렴.*",
-    r"^관련사이트.*",
-    r"^콘텐츠 관리부서.*",
-    r"^최종수정일.*",
-]
-
-BULLET_PATTERNS = [
-    r"^[○●•▪■□▶▷☞※]\s*",
-    r"^\d+\.\s*",
-    r"^\d+\)\s*",
-    r"^[가-힣A-Za-z]\.\s*",
-    r"^-\s*",
+MENU_SIGNALS = [
+    "주메뉴", "사하구 홈페이지", "만족도 조사", "개인정보처리방침",
+    "저작권", "공유", "프린트", "이전글", "다음글", "목록"
 ]
 
 
+# ==============================
+# 유틸
+# ==============================
 def ensure_dir(path: str):
     os.makedirs(path, exist_ok=True)
 
@@ -59,391 +36,198 @@ def ensure_dir(path: str):
 def clean_text(text: str) -> str:
     if not text:
         return ""
-
     text = text.replace("\xa0", " ")
-    text = text.replace("\r", "\n")
     text = re.sub(r"[ \t]+", " ", text)
+    text = re.sub(r"\r", "\n", text)
     text = re.sub(r"\n[ \t]*\n+", "\n\n", text)
     text = re.sub(r"[ \t]+\n", "\n", text)
     return text.strip()
 
 
-def clean_inline_text(text: str) -> str:
-    text = clean_text(text)
-    text = re.sub(r"\s+", " ", text)
-    return text.strip()
+def is_menu_like_chunk(text: str) -> bool:
+    hit = sum(1 for x in MENU_SIGNALS if x in text)
 
+    lines = [line.strip() for line in text.splitlines() if line.strip()]
+    short_lines = sum(1 for line in lines if len(line) <= 10)
 
-def remove_noise_lines(text: str) -> str:
-    lines = []
-    for line in text.split("\n"):
-        line = clean_inline_text(line)
-        if not line:
-            continue
-
-        skip = False
-        for pattern in NOISE_LINE_PATTERNS:
-            if re.match(pattern, line):
-                skip = True
-                break
-
-        if skip:
-            continue
-
-        if len(line) <= 1:
-            continue
-
-        lines.append(line)
-
-    return "\n".join(lines).strip()
-
-
-def normalize_bullet(line: str) -> str:
-    line = clean_inline_text(line)
-    for pattern in BULLET_PATTERNS:
-        line = re.sub(pattern, "", line)
-    return clean_inline_text(line)
-
-
-def is_section_header(line: str) -> bool:
-    line = clean_inline_text(line)
-
-    if not line:
-        return False
-
-    if line in SECTION_HINTS:
+    if hit >= 2:
         return True
-
-    if any(hint in line for hint in SECTION_HINTS) and len(line) <= 30:
+    if lines and short_lines / len(lines) > 0.65:
         return True
-
-    if line.endswith(":") and len(line) <= 30:
-        return True
-
     return False
 
 
-def split_korean_sentences(text: str) -> List[str]:
+# ==============================
+# chunk 분리
+# ==============================
+def split_by_structure(text: str) -> List[str]:
     """
-    한국어 문장형 텍스트 분리
-    - 종결 부호
-    - 행정문서의 '...함', '...됨', '...다', '...요' 등도 어느 정도 반영
+    문서를 먼저 구조 단위로 나눈다.
+    - 제목/본문/구조정보
+    - [표], [목록], [정의목록]
+    - 신청방법, 구비서류 같은 섹션 제목
     """
+    text = clean_text(text)
     if not text:
         return []
 
-    text = clean_inline_text(text)
-
-    parts = re.split(r'(?<=[.!?])\s+|(?<=[다요죠음함됨])\s+', text)
+    # 구조 블록 기준 우선 분리
+    blocks = re.split(r"\n(?=\[(?:본문|구조정보|표|목록|정의목록)\])", text)
 
     results = []
-    for s in parts:
-        s = clean_inline_text(s)
-        if len(s) >= 8:
-            results.append(s)
-
-    return results
-
-
-def split_long_sentence(sentence: str, max_len: int = MAX_CHUNK_LEN) -> List[str]:
-    sentence = clean_inline_text(sentence)
-
-    if len(sentence) <= max_len:
-        return [sentence]
-
-    parts = re.split(r'(?<=[,])\s+|(?<=[·:;])\s+|\s+', sentence)
-
-    chunks = []
-    current = ""
-
-    for part in parts:
-        part = clean_inline_text(part)
-        if not part:
-            continue
-
-        candidate = f"{current} {part}".strip()
-        if len(candidate) <= max_len:
-            current = candidate
-        else:
-            if current:
-                chunks.append(current)
-            current = part
-
-    if current:
-        chunks.append(current)
-
-    return chunks
-
-
-def split_into_sections(text: str) -> List[Tuple[str, str]]:
-    """
-    줄바꿈 기반으로 섹션 분리
-    반환: [(section_name, section_text), ...]
-    """
-    text = clean_text(text)
-    blocks = re.split(r"\n{2,}", text)
-
-    sections = []
-    current_section = "일반"
-    current_lines = []
-
     for block in blocks:
         block = clean_text(block)
         if not block:
             continue
 
-        block_lines = [clean_inline_text(line) for line in block.split("\n") if clean_inline_text(line)]
-        if not block_lines:
-            continue
+        # 섹션 힌트 앞에서 한 번 더 나눔
+        section_pattern = r"\n(?=(?:%s)\s*[:：]?)" % "|".join(map(re.escape, SECTION_HINTS))
+        sub_blocks = re.split(section_pattern, block)
 
-        first_line = block_lines[0]
+        for sb in sub_blocks:
+            sb = clean_text(sb)
+            if sb:
+                results.append(sb)
 
-        if is_section_header(first_line):
-            if current_lines:
-                sections.append((current_section, "\n".join(current_lines).strip()))
-            current_section = normalize_bullet(first_line).rstrip(":")
-            current_lines = block_lines[1:] if len(block_lines) > 1 else []
-        else:
-            current_lines.extend(block_lines)
-
-    if current_lines:
-        sections.append((current_section, "\n".join(current_lines).strip()))
-
-    if not sections:
-        sections.append(("일반", text))
-
-    return sections
+    return results
 
 
-def section_text_to_units(section_text: str) -> List[str]:
+def sliding_window_split(text: str, max_len=MAX_CHUNK_LEN, overlap=OVERLAP) -> List[str]:
     """
-    섹션 텍스트를 chunk 빌드용 단위들로 변환
-    - 항목형 줄은 항목별로 살리고
-    - 문장형 문단은 문장 분리
+    긴 텍스트는 문장 경계 비슷하게 나눈다.
     """
-    units = []
-
-    for raw_line in section_text.split("\n"):
-        line = clean_inline_text(raw_line)
-        if not line:
-            continue
-
-        normalized = normalize_bullet(line)
-
-        # 짧은 항목형 라인 보존
-        if raw_line.strip().startswith(("○", "●", "•", "▪", "■", "□", "▶", "▷", "☞", "※", "-")):
-            if len(normalized) >= 6:
-                units.append(normalized)
-            continue
-
-        if re.match(r"^\d+[\.\)]\s*", raw_line.strip()):
-            if len(normalized) >= 6:
-                units.append(normalized)
-            continue
-
-        # 일반 문장형 텍스트 분해
-        sentences = split_korean_sentences(line)
-        if sentences:
-            units.extend(sentences)
-        elif len(normalized) >= 6:
-            units.append(normalized)
-
-    return units
-
-
-def build_chunks(units: List[str], min_len: int = MIN_CHUNK_LEN, max_len: int = MAX_CHUNK_LEN) -> List[str]:
-    processed_units = []
-
-    for unit in units:
-        unit = clean_inline_text(unit)
-        if not unit:
-            continue
-
-        if len(unit) > max_len:
-            processed_units.extend(split_long_sentence(unit, max_len))
-        else:
-            processed_units.append(unit)
+    text = clean_text(text)
+    if len(text) <= max_len:
+        return [text]
 
     chunks = []
-    current_chunk = []
+    start = 0
+    n = len(text)
 
-    for unit in processed_units:
-        joined = " ".join(current_chunk + [unit]).strip()
+    while start < n:
+        end = min(start + max_len, n)
+        piece = text[start:end]
 
-        if len(joined) <= max_len:
-            current_chunk.append(unit)
-        else:
-            if current_chunk:
-                chunk_text = " ".join(current_chunk).strip()
-                if len(chunk_text) >= min_len:
-                    chunks.append(chunk_text)
-                else:
-                    if chunks:
-                        chunks[-1] = f"{chunks[-1]} {chunk_text}".strip()
-                    else:
-                        chunks.append(chunk_text)
+        # 가능하면 줄바꿈이나 마침표 부근에서 끊기
+        if end < n:
+            cut_candidates = [
+                piece.rfind("\n\n"),
+                piece.rfind("\n"),
+                piece.rfind(". "),
+                piece.rfind("다. "),
+            ]
+            cut = max(cut_candidates)
+            if cut > max_len // 2:
+                end = start + cut + 1
+                piece = text[start:end]
 
-            if OVERLAP_SENTENCES > 0 and len(current_chunk) > 0:
-                overlap = current_chunk[-OVERLAP_SENTENCES:]
-                current_chunk = overlap + [unit]
-            else:
-                current_chunk = [unit]
+        piece = clean_text(piece)
+        if piece:
+            chunks.append(piece)
 
-    if current_chunk:
-        chunk_text = " ".join(current_chunk).strip()
-        if len(chunk_text) >= min_len:
-            chunks.append(chunk_text)
-        else:
-            if chunks:
-                chunks[-1] = f"{chunks[-1]} {chunk_text}".strip()
-            else:
-                chunks.append(chunk_text)
+        if end >= n:
+            break
 
-    # 최종 정리
-    normalized_chunks = []
-    for chunk in chunks:
-        chunk = clean_inline_text(chunk)
-        if len(chunk) >= 40:
-            normalized_chunks.append(chunk)
+        start = max(end - overlap, start + 1)
 
-    return normalized_chunks
-
-
-def preprocess_document(doc: Dict, doc_index: int) -> List[Dict]:
-    title = clean_inline_text(doc.get("title", ""))
-    text = clean_text(doc.get("text", ""))
-    url = doc.get("url", "")
-
-    author = clean_inline_text(str(doc.get("author", "")))
-    date = clean_inline_text(str(doc.get("date", "")))
-    views = doc.get("views", None)
-
-    if not text or len(text) < 40:
-        return []
-
-    text = remove_noise_lines(text)
-
-    if title and not text.startswith(title):
-        text = f"{title}\n\n{text}"
-
-    sections = split_into_sections(text)
-    if not sections:
-        return []
-
-    chunks = []
-    global_chunk_idx = 0
-
-    for section_name, section_text in sections:
-        section_name = clean_inline_text(section_name) or "일반"
-        section_text = clean_text(section_text)
-
-        if not section_text:
-            continue
-
-        units = section_text_to_units(section_text)
-        if not units:
-            continue
-
-        chunk_texts = build_chunks(units)
-
-        for local_idx, chunk_text in enumerate(chunk_texts):
-            chunk_text = clean_inline_text(chunk_text)
-
-            # 제목 + 섹션을 chunk 앞에 붙여 검색 강화
-            prefix_parts = []
-            if title:
-                prefix_parts.append(f"[문서제목] {title}")
-            if section_name and section_name != "일반":
-                prefix_parts.append(f"[섹션] {section_name}")
-
-            if prefix_parts:
-                final_text = "\n".join(prefix_parts) + "\n" + chunk_text
-            else:
-                final_text = chunk_text
-
-            chunk = {
-                "chunk_id": f"doc{doc_index}_chunk{global_chunk_idx}",
-                "doc_id": doc.get("doc_id", f"doc{doc_index}"),
-                "title": title,
-                "section": section_name,
-                "author": author,
-                "date": date,
-                "views": views,
-                "url": url,
-                "source": doc.get("source", "saha.go.kr"),
-                "chunk_index": global_chunk_idx,
-                "section_chunk_index": local_idx,
-                "chunk_text": final_text,
-                "length": len(final_text),
-            }
-            chunks.append(chunk)
-            global_chunk_idx += 1
-
-
-        # fallback: 섹션 분리/문장 분리 실패 시 문서 전체를 기준으로라도 chunk 생성
-    if not chunks:
-        fallback_text = text
-        if title and not fallback_text.startswith(title):
-            fallback_text = f"{title}\n\n{fallback_text}"
-
-        fallback_units = [clean_inline_text(x) for x in fallback_text.split("\n") if clean_inline_text(x)]
-        fallback_chunk_texts = build_chunks(fallback_units, min_len=80, max_len=500)
-
-        for local_idx, chunk_text in enumerate(fallback_chunk_texts):
-            chunk = {
-                "chunk_id": f"doc{doc_index}_chunk{global_chunk_idx}",
-                "doc_id": doc.get("doc_id", f"doc{doc_index}"),
-                "title": title,
-                "section": "일반",
-                "author": author,
-                "date": date,
-                "views": views,
-                "url": url,
-                "source": doc.get("source", "saha.go.kr"),
-                "chunk_index": global_chunk_idx,
-                "section_chunk_index": local_idx,
-                "chunk_text": chunk_text,
-                "length": len(chunk_text),
-            }
-            chunks.append(chunk)
-            global_chunk_idx += 1
-            
     return chunks
 
 
-def run_preprocess():
+def build_chunk_text(doc, section_text: str) -> str:
+    title = doc.get("title", "")
+    menu_path = " > ".join(doc.get("menu_path", []))
+
+    prefix_parts = []
+    if title:
+        prefix_parts.append(f"제목: {title}")
+    if menu_path:
+        prefix_parts.append(f"메뉴경로: {menu_path}")
+
+    prefix = "\n".join(prefix_parts).strip()
+
+    if prefix:
+        return clean_text(prefix + "\n\n" + section_text)
+    return clean_text(section_text)
+
+# prefix를 너무 많이 넣으면 결과가 다 비슷해짐, title, menu_path만 남기고 단순화
+def make_chunks(doc: Dict) -> List[Dict]:
+    text = clean_text(doc.get("text", ""))
+    if not text:
+        return []
+
+    structured_blocks = split_by_structure(text)
+
+    raw_chunks = []
+    for block in structured_blocks:
+        if len(block) <= MAX_CHUNK_LEN:
+            raw_chunks.append(block)
+        else:
+            raw_chunks.extend(sliding_window_split(block))
+
+    results = []
+    chunk_index = 0
+
+    for chunk in raw_chunks:
+        chunk = clean_text(chunk)
+        if len(chunk) < MIN_CHUNK_LEN:
+            continue
+        if is_menu_like_chunk(chunk):
+            continue
+
+        chunk_text = build_chunk_text(doc, chunk)
+
+        results.append({
+            "chunk_id": f"{doc.get('doc_id', 'unknown')}_{chunk_index}",
+            "doc_id": doc.get("doc_id", ""),
+            "url": doc.get("url", ""),
+            "title": doc.get("title", ""),
+            "author": doc.get("author", ""),
+            "date": doc.get("date", ""),
+            "views": doc.get("views"),
+            "page_type": doc.get("page_type", ""),
+            "parent_url": doc.get("parent_url", ""),
+            "anchor_text": doc.get("anchor_text", ""),
+            "menu_path": doc.get("menu_path", []),
+            "chunk_index": chunk_index,
+            "chunk_text": chunk_text,
+            "source": doc.get("source", "saha.go.kr"),
+        })
+        chunk_index += 1
+
+    return results
+
+
+# ==============================
+# 실행
+# ==============================
+def preprocess():
     ensure_dir(OUTPUT_DIR)
 
     total_docs = 0
     total_chunks = 0
 
-    with open(INPUT_FILE, "r", encoding="utf-8") as infile, \
-         open(OUTPUT_FILE, "w", encoding="utf-8") as outfile:
+    with open(INPUT_JSONL, "r", encoding="utf-8") as fin, \
+         open(OUTPUT_JSONL, "w", encoding="utf-8") as fout:
 
-        for doc_index, line in enumerate(infile):
+        for line in fin:
             line = line.strip()
             if not line:
                 continue
 
-            try:
-                doc = json.loads(line)
-            except json.JSONDecodeError:
-                print(f"[SKIP] JSON 파싱 실패 - line {doc_index + 1}")
-                continue
-
+            doc = json.loads(line)
             total_docs += 1
-            chunks = preprocess_document(doc, doc_index)
-            print(f"[DOC {doc_index}] title={doc.get('title', '')[:40]} / chunks={len(chunks)}")
+
+            chunks = make_chunks(doc)
+            total_chunks += len(chunks)
 
             for chunk in chunks:
-                outfile.write(json.dumps(chunk, ensure_ascii=False) + "\n")
-                total_chunks += 1
+                fout.write(json.dumps(chunk, ensure_ascii=False) + "\n")
 
     print("전처리 완료")
-    print(f"- 문서 수: {total_docs}")
-    print(f"- 생성된 chunk 수: {total_chunks}")
-    print(f"- 저장 파일: {OUTPUT_FILE}")
+    print(f"- 입력 문서 수: {total_docs}")
+    print(f"- 생성 chunk 수: {total_chunks}")
+    print(f"- 출력 파일: {OUTPUT_JSONL}")
 
 
 if __name__ == "__main__":
-    run_preprocess()
+    preprocess()

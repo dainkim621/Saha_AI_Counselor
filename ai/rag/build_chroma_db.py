@@ -8,52 +8,25 @@ from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_community.vectorstores import Chroma
 from langchain_core.documents import Document
 
+# ==============================
+# 설정
+# ==============================
 INPUT_FILE = "data/processed/saha_chunks.jsonl"
 PERSIST_DIR = "data/vector/chroma_db"
 
 MODEL_NAME = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
 
+# 너무 짧은 chunk는 검색 가치가 낮아서 제외
 MIN_TEXT_LEN = 60
 
-NOISY_KEYWORDS = [
-    "본문 바로가기",
-    "주메뉴 바로가기",
-    "하단 바로가기",
-    "홈",
-    "로그인",
-    "사이트맵",
-    "개인정보처리방침",
-    "저작권보호정책",
-    "행정전화번호",
-    "뷰어다운로드",
-    "이전글",
-    "다음글",
-    "목록",
-    "공유",
-    "프린트",
-    "만족도 조사",
-    "페이지 만족도",
-]
 
-MENU_SIGNALS = [
-    "주메뉴",
-    "전자민원",
-    "정보공개",
-    "분야별 정보",
-    "사하구 홈페이지",
-    "비주얼 홍보 이미지",
-    "이전 이미지",
-    "다음 이미지",
-]
-
-CIVIL_KEYWORDS = [
-    "전입", "전입신고", "민원", "주민등록", "신청", "구비서류",
-    "처리기간", "수수료", "문의처", "신고기한", "신청방법",
-    "방문", "온라인", "처리절차", "제출서류", "발급", "복지"
-]
-
-
+# ==============================
+# 텍스트 정리 유틸
+# ==============================
 def clean_text(text: str) -> str:
+    """
+    줄바꿈 구조는 유지하면서 기본 정리
+    """
     if not text:
         return ""
     text = text.replace("\xa0", " ")
@@ -65,6 +38,9 @@ def clean_text(text: str) -> str:
 
 
 def clean_inline_text(text: str) -> str:
+    """
+    한 줄 비교/중복 체크용 정리
+    """
     text = clean_text(text)
     text = re.sub(r"\s+", " ", text)
     return text.strip()
@@ -73,13 +49,20 @@ def clean_inline_text(text: str) -> str:
 def normalize_for_dedup(text: str) -> str:
     """
     중복 판별용 정규화
+    - 제목/메뉴경로/링크문맥/페이지유형 같은 prefix 차이보다
+      실제 본문이 같은지를 더 잘 보기 위해 일부 라벨 제거
     """
     text = clean_inline_text(text).lower()
-    text = re.sub(r"\[문서제목\]\s*", "", text)
-    text = re.sub(r"\[섹션\]\s*", "", text)
+
     text = re.sub(r"제목:\s*", "", text)
-    text = re.sub(r"섹션:\s*", "", text)
+    text = re.sub(r"메뉴경로:\s*", "", text)
+    text = re.sub(r"링크문맥:\s*", "", text)
+    text = re.sub(r"페이지유형:\s*", "", text)
+    text = re.sub(r"작성자:\s*", "", text)
+    text = re.sub(r"날짜:\s*", "", text)
+    text = re.sub(r"조회수:\s*", "", text)
     text = re.sub(r"본문:\s*", "", text)
+
     text = re.sub(r"\s+", " ", text)
     return text.strip()
 
@@ -89,62 +72,97 @@ def make_text_hash(text: str) -> str:
     return hashlib.md5(normalized.encode("utf-8")).hexdigest()
 
 
-def is_noisy_text(text: str, title: str = "", section: str = "") -> bool:
-    merged = f"{title}\n{section}\n{text}"
+# ==============================
+# 노이즈 판별
+# ==============================
+def is_menu_like_text(text: str) -> bool:
+    """
+    크롤러/전처리 단계에서 이미 많이 걸렀지만,
+    벡터DB 저장 직전에 한 번 더 방어적으로 체크
+    """
+    text = clean_text(text)
+    if not text:
+        return True
+
+    menu_signals = [
+        "주메뉴", "사하구 홈페이지", "만족도 조사", "개인정보처리방침",
+        "저작권", "공유", "프린트", "이전글", "다음글", "목록"
+    ]
+
+    hit = sum(1 for x in menu_signals if x in text)
+
+    lines = [line.strip() for line in text.splitlines() if line.strip()]
+    short_lines = sum(1 for line in lines if len(line) <= 10)
+
+    if hit >= 2:
+        return True
+
+    if lines and short_lines / len(lines) > 0.65:
+        return True
+
+    return False
+
+
+def is_noisy_chunk(chunk_text: str, title: str = "", menu_path=None, anchor_text: str = "") -> bool:
+    """
+    키워드 하드코딩보다,
+    '검색 가치가 있는 chunk인가'를 최소 기준으로 판별
+    """
+    menu_path = menu_path or []
+    merged = "\n".join([
+        title or "",
+        " > ".join(menu_path),
+        anchor_text or "",
+        chunk_text or "",
+    ])
     merged_inline = clean_inline_text(merged)
 
     if len(merged_inline) < MIN_TEXT_LEN:
         return True
 
-    noisy_hit = sum(1 for kw in NOISY_KEYWORDS if kw in merged_inline)
-    menu_hit = sum(1 for kw in MENU_SIGNALS if kw in merged_inline)
-    civil_hit = sum(1 for kw in CIVIL_KEYWORDS if kw in merged_inline)
-
-    if noisy_hit >= 2:
+    if is_menu_like_text(merged):
         return True
-
-    if menu_hit >= 2 and civil_hit == 0:
-        return True
-
-    lines = [line.strip() for line in merged.splitlines() if line.strip()]
-    if lines:
-        short_lines = sum(1 for line in lines if len(line) <= 10)
-        if short_lines / len(lines) > 0.5 and civil_hit == 0:
-            return True
 
     return False
 
 
-def build_embedding_text(title: str, section: str, chunk_text: str, author: str = "", date: str = "", views=None) -> str:
+# ==============================
+# 임베딩용 텍스트 구성, 본문 비중을 더 높여서 단순화
+# ==============================
+def build_embedding_text(
+    title: str,
+    menu_path,
+    anchor_text: str,
+    page_type: str,
+    chunk_text: str,
+    author: str = "",
+    date: str = "",
+    views=None,
+) -> str:
     parts = []
 
     if title:
         parts.append(f"제목: {title}")
 
-    if section and section != "일반":
-        parts.append(f"섹션: {section}")
-
-    if author:
-        parts.append(f"작성자: {author}")
-
-    if date:
-        parts.append(f"날짜: {date}")
-
-    if views is not None and views != "":
-        parts.append(f"조회수: {views}")
+    if menu_path:
+        parts.append(f"메뉴경로: {' > '.join(menu_path)}")
 
     parts.append(f"본문: {chunk_text}")
 
     return "\n".join(parts).strip()
 
 
-def load_chunks(file_path):
+# ==============================
+# chunk 로딩
+# ==============================
+def load_chunks(file_path: str):
     docs = []
     seen_hashes = set()
 
     total_lines = 0
     skipped_json = 0
     skipped_empty = 0
+    skipped_noisy = 0
     skipped_dup = 0
 
     with open(file_path, "r", encoding="utf-8") as f:
@@ -163,19 +181,36 @@ def load_chunks(file_path):
 
             chunk_text = clean_text(item.get("chunk_text", ""))
             title = clean_inline_text(str(item.get("title", "")))
-            section = clean_inline_text(str(item.get("section", "")))
             author = clean_inline_text(str(item.get("author", "")))
             date = clean_inline_text(str(item.get("date", "")))
-            views = item.get("views", None)
             url = clean_inline_text(str(item.get("url", "")))
+            parent_url = clean_inline_text(str(item.get("parent_url", "")))
+            anchor_text = clean_inline_text(str(item.get("anchor_text", "")))
+            page_type = clean_inline_text(str(item.get("page_type", "")))
+            menu_path = item.get("menu_path", [])
+            views = item.get("views", None)
 
-            if not chunk_text or len(chunk_text) < 20:
+            if not isinstance(menu_path, list):
+                menu_path = []
+
+            if not chunk_text:
                 skipped_empty += 1
+                continue
+
+            if is_noisy_chunk(
+                chunk_text=chunk_text,
+                title=title,
+                menu_path=menu_path,
+                anchor_text=anchor_text,
+            ):
+                skipped_noisy += 1
                 continue
 
             combined_text = build_embedding_text(
                 title=title,
-                section=section,
+                menu_path=menu_path,
+                anchor_text=anchor_text,
+                page_type=page_type,
                 chunk_text=chunk_text,
                 author=author,
                 date=date,
@@ -192,34 +227,47 @@ def load_chunks(file_path):
                 "chunk_id": item.get("chunk_id"),
                 "doc_id": item.get("doc_id"),
                 "title": title,
-                "section": section,
                 "author": author,
                 "date": date,
                 "views": views,
                 "url": url,
+                "parent_url": parent_url,
+                "anchor_text": anchor_text,
+                "menu_path": " > ".join(menu_path),
+                "page_type": page_type,
                 "source": item.get("source"),
                 "chunk_index": item.get("chunk_index"),
-                "section_chunk_index": item.get("section_chunk_index"),
-                "length": item.get("length"),
             }
 
-            docs.append(Document(page_content=combined_text, metadata=metadata))
+            docs.append(
+                Document(
+                    page_content=combined_text,
+                    metadata=metadata
+                )
+            )
 
     print(f"[로딩 완료] 전체 라인 수: {total_lines}")
     print(f"[로딩 완료] JSON 스킵: {skipped_json}")
     print(f"[로딩 완료] 빈 텍스트 스킵: {skipped_empty}")
+    print(f"[로딩 완료] 메뉴성/노이즈 스킵: {skipped_noisy}")
     print(f"[로딩 완료] 중복 스킵: {skipped_dup}")
     print(f"[로딩 완료] 최종 문서 수: {len(docs)}")
 
     return docs
 
 
+# ==============================
+# Chroma 초기화
+# ==============================
 def reset_chroma_dir(path: str):
     if os.path.exists(path):
         shutil.rmtree(path)
     os.makedirs(path, exist_ok=True)
 
 
+# ==============================
+# 실행
+# ==============================
 def main():
     if not os.path.exists(INPUT_FILE):
         print(f"입력 파일이 없습니다: {INPUT_FILE}")
