@@ -136,18 +136,16 @@ def sliding_window_split(text: str, max_len=MAX_CHUNK_LEN, overlap=OVERLAP) -> L
 def build_chunk_text(doc, section_text: str) -> str:
     title = doc.get("title", "")
     menu_path = " > ".join(doc.get("menu_path", []))
-
-    prefix_parts = []
-    if title:
-        prefix_parts.append(f"제목: {title}")
-    if menu_path:
-        prefix_parts.append(f"메뉴경로: {menu_path}")
-
-    prefix = "\n".join(prefix_parts).strip()
-
-    if prefix:
-        return clean_text(prefix + "\n\n" + section_text)
-    return clean_text(section_text)
+    
+    # [개선] section_text 내부에서 소제목(예: ## 구비서류)을 추출하여 맥락 보강
+    # 정규표현식으로 첫 줄이 소제목인지 확인하는 로직 추가 가능
+    
+    prefix = f"### {title} ({menu_path}) ###"
+    
+    # 챗봇이 답변할 때 참고할 수 있도록 명확한 구분자 제공
+    formatted_text = f"{prefix}\n\n[세부내용]\n{section_text}"
+    
+    return clean_text(formatted_text)
 
 # prefix를 너무 많이 넣으면 결과가 다 비슷해짐, title, menu_path만 남기고 단순화
 def make_chunks(doc: Dict) -> List[Dict]:
