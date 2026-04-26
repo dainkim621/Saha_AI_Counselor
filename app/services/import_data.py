@@ -11,19 +11,24 @@ def import_jsonl_to_db(file_path: str):
     try:
         with open(file_path, "r", encoding="utf-8") as f:
             for line in f:
+                # 1. 여기서 변수명을 'data'로 설정함
                 data = json.loads(line)
                 
-                # 중복 데이터 체크 (이미 들어있는 doc_id면 스킵)
+                # 중복 데이터 체크
                 existing = db.query(Notice).filter(Notice.doc_id == data["doc_id"]).first()
                 if existing:
                     continue
                 
-                # 데이터 매핑
+                # 2. 아래 Notice 객체 생성 시 모든 변수명을 'data'로 통일!
                 notice = Notice(
-                    doc_id=data["doc_id"],
-                    url=data["url"],
-                    title=data["title"],
-                    content=data["text"], # JSON의 text를 DB의 content로!
+                    doc_id=data.get("doc_id"),
+                    url=data.get("url"),
+                    title=data.get("title"),
+                    author=data.get("author", ""),
+                    published_at=data.get("date", ""), # 친구의 date 필드를 published_at에 매칭
+                    views=int(data.get("views")) if data.get("views") else 0,
+                    text=data.get("text", ""),
+                    paragraphs=data.get("paragraphs", []),
                     source=data.get("source", "saha.go.kr")
                 )
                 
@@ -39,5 +44,5 @@ def import_jsonl_to_db(file_path: str):
         db.close()
 
 if __name__ == "__main__":
-    # 파일 경로가 맞는지 확인하세요!
+    # 데이터 파일 경로가 정확한지 다시 한 번 확인!
     import_jsonl_to_db("data/raw/saha_docs.jsonl")

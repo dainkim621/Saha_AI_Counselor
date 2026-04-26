@@ -1,24 +1,33 @@
-# app/models.py
-from sqlalchemy import Column, Integer, String, Text, DateTime
+from sqlalchemy import Column, Integer, String, Text, DateTime, JSON
+from pgvector.sqlalchemy import Vector  # 추가
 from sqlalchemy.sql import func
-from .database import Base
+from app.database import Base
 
 class Notice(Base):
     __tablename__ = "notices"
 
-    # 기본 정보
-    id = Column(Integer, primary_key=True, index=True)
-    doc_id = Column(String, unique=True, index=True)  # 친구가 만든 해시값 (중복 방지)
+    # 1. 고유 식별자 (청크 단위 관리를 위해 수정)
+    # 기존 id 대신 JSONL에 있는 chunk_id를 PK로 쓰거나, 별도 PK를 둡니다.
+    id = Column(Integer, primary_key=True, index=True) 
+    chunk_id = Column(String, unique=True, index=True, nullable=False) # 예: doc_id_0
+    doc_id = Column(String, index=True, nullable=False)               # 원본 문서 ID
     
-    # 크롤링 데이터
+    # 2. 메타데이터 (검색 및 필터링용)
     url = Column(String, nullable=False)
-    title = Column(String, nullable=False)
-    content = Column(Text, nullable=False)  # 전체 본문 (text 필드)
     source = Column(String, default="saha.go.kr")
-    
-    # 메타데이터 (있으면 좋고 없으면 일단 비워둘 것)
-    author = Column(String, nullable=True)  # 담당부서
-    published_at = Column(String, nullable=True) # 작성일 (문자열로 우선 저장)
-    
-    # 관리용 데이터
-    created_at = Column(DateTime(timezone=True), server_default=func.now()) # DB에 들어온 시각
+    title = Column(String, nullable=False)
+    author = Column(String)
+    published_at = Column(String)  # 정렬을 위해 사용
+    views = Column(Integer, default=0)
+    menu_path = Column(JSON)       # ['전자민원', '사하구에 바란다'] 형태 저장
+
+    # 3. 데이터 본체 (가장 중요!)
+    chunk_text = Column(Text, nullable=False) # AI가 읽을 핵심 텍스트
+    chunk_index = Column(Integer)             # 문서 내 몇 번째 조각인지
+    full_text = Column(Text, nullable=True)   # (선택) 필요한 경우 원문 전체 저장
+
+    # 4. 시스템 날짜
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    # 5. 벡터 검색 위한 컬럼 (1536차원)
+    embedding = Column(Vector(1536))

@@ -22,3 +22,9 @@ def get_db():
         yield db
     finally:
         db.close()
+        
+# 파일 맨 아래에 추가
+if __name__ == "__main__":
+    from app.models import Notice  # Notice 모델을 인식시켜야 함
+    Base.metadata.create_all(bind=engine)
+    print("✅ 테이블 생성 완료!")

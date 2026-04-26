@@ -925,10 +925,7 @@ def crawl():
                         "views": metadata.get("views"),
                         "text": raw_text,
                         "paragraphs": paragraphs,
-                        "source": "saha.go.kr",
-                        "author": meta["author"],  # ⭐ 추가
-                        "date": meta["date"],      # ⭐ 추가
-                        "views": meta["views"],    # ⭐ 추가
+                        "source": "saha.go.kr"
                     }
                     f.write(json.dumps(doc, ensure_ascii=False) + "\n")
                     saved_count += 1

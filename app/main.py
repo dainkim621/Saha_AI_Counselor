@@ -2,11 +2,12 @@ from fastapi import FastAPI, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List
 
-from .database import engine, get_db
+from app.database import engine, get_db
 from . import models
 from .api import chat  # 기존 챗봇 라우터
 from .models import Notice
 from pydantic import BaseModel
+from app.services.chat_service import ask_saha_ai
 
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -21,13 +22,15 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# 1. DB 테이블 생성 (이미 생성했지만 안전하게 유지)
+#DB 테이블 생성 (이미 생성했지만 안전하게 유지)
 models.Base.metadata.create_all(bind=engine)
 
 
 
-# 2. Pydantic 모델 (API 응답 규격)
-class NoticeResponse(BaseModel):
+#Pydantic 모델 (API 응답 규격)
+#서버가 사용자에게 결과를 돌려줄 때의 규격 
+# db에서 찾은 공지사항 정보를 줄 때 id, title, author 등의 형식에 맞춰서 줌
+class NoticeResponse(BaseModel): 
     id: int
     doc_id: str
     title: str
@@ -38,6 +41,11 @@ class NoticeResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+#요청 데이터를 담을 규격 정의
+#사용자가 서버에 보내는 데이터의 규격/ 나한테 질문 할때는 question을 담아서 보내야됨. 
+class ChatRequest(BaseModel):
+    question: str
 
 # 3. 기존 챗봇 라우터 등록
 app.include_router(chat.router, prefix="/chat", tags=["Chat"])
@@ -87,3 +95,13 @@ def search_notices(
 @app.get("/", tags=["Root"])
 def root():
     return {"status": "Saha AI Server is running!", "version": "1.0.0"}
+
+#챗봇 api 엔드포인트 
+@app.post("/ai-chat", tags=["Chat"])
+async def chat_endpoint(request: ChatRequest):
+    try:
+        # 우리가 만든 RAG 로직 호출
+        answer = ask_saha_ai(request.question)
+        return {"question": request.question, "answer": answer}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
