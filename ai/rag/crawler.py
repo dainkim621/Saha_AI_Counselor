@@ -26,7 +26,7 @@ ALLOWED_DOMAINS = {"www.saha.go.kr", "m.saha.go.kr"}
 OUTPUT_DIR = "data/raw"
 OUTPUT_JSONL = os.path.join(OUTPUT_DIR, "saha_docs.jsonl")
 
-MAX_PAGES = 500
+MAX_PAGES = 100    # 여기 양 조절하기
 REQUEST_DELAY = 0.8
 TIMEOUT = 15
 
@@ -95,9 +95,6 @@ TITLE_SELECTORS = [
     "h1",
     "h2",
     "h3",
-    ".tit",
-    ".title",
-    ".subTitle",
     ".contTitle",
     ".pageTitle",
     ".subject",
@@ -107,6 +104,21 @@ TITLE_SELECTORS = [
     ".bbsTitle",
     ".titArea h3",
     ".contents h3",
+]
+#작성자
+AUTHOR_SELECTORS = [
+    ".writer", ".author", ".name", ".user",
+    ".view_writer", ".board_writer"
+]
+#날짜
+DATE_SELECTORS = [
+    ".date", ".regDate", ".writeDate", ".view_date",
+    ".board_date", ".bbs_date"
+]
+#조회수
+VIEWS_SELECTORS = [
+    ".view", ".hit", ".count", ".views",
+    ".board_hit", ".view_count"
 ]
 
 CONTENT_SELECTORS = [
@@ -295,6 +307,7 @@ def classify_page_type(url: str) -> str:
     return "other"
 
 # 저장 여부 판단을 위해 URL 저장하는 함수
+# 대표 제목만 확인하고 저장하지 않은 뒤 넘어가고, 게시글 전체 목록을 깊게 타지 않음
 def should_visit(url: str) -> bool:
     lower_url = url.lower()
 
@@ -309,29 +322,38 @@ def should_visit(url: str) -> bool:
 
     page_type = classify_page_type(url)
 
-    # contents 페이지는 mId 기준으로만 판단
     if page_type == "contents":
         return has_allowed_mid(url)
 
-    return True
+    # 목록 페이지는 방문만 허용, 저장은 should_save에서 막음
+    if page_type in ("bbs_list", "civil_list"):
+        return True
 
-# 문서형 페이지면 저장
+    # 상세 게시글은 현재 단계에서는 탐색하지 않음
+    return False
+
+# 목록 페이지는 저장하지 않음
+# 단, crawl()에서 링크 수집은 계속 하므로 하위 링크 탐색은 가능
 def should_save(url: str) -> bool:
-    lower_url = url.lower()
+    page_type = classify_page_type(url)
 
-    if not any(x in lower_url for x in SAVE_CANDIDATE_KEYWORDS):
+    if page_type in ("bbs_list", "civil_list"):
         return False
 
-    if classify_page_type(url) == "contents":
+    # 상세/일반 안내 페이지만 저장 후보
+    if page_type in ("bbs_view", "civil_view"):
+        return True
+
+    if page_type == "contents":
         return has_allowed_mid(url)
 
-    return True
+    return False
 
 # ==============================
 # 링크 수집
 # ==============================
 
-"""    
+"""
 링크를 수집할 때, URL만 저장하지 않고
 - 부모 URL
 - 앵커 텍스트
@@ -344,6 +366,7 @@ def extract_links_from_raw_html(html: str, current_url: str, parent_menu_path=No
         parent_menu_path = []
 
     soup = BeautifulSoup(html, "html.parser")
+
     links = []
 
     for a in soup.find_all("a", href=True):
@@ -366,7 +389,7 @@ def extract_links_from_raw_html(html: str, current_url: str, parent_menu_path=No
             "menu_path": menu_path,
         })
 
-    # 같은 URL이 여러 번 나오면 더 구체적인 menu_path를 우선 사용
+    # dedup
     dedup = {}
     for item in links:
         url = item["url"]
@@ -375,14 +398,10 @@ def extract_links_from_raw_html(html: str, current_url: str, parent_menu_path=No
             dedup[url] = item
         else:
             prev = dedup[url]
-            prev_len = len(prev.get("menu_path", []))
-            new_len = len(item.get("menu_path", []))
-
-            if new_len > prev_len:
+            if len(item["menu_path"]) > len(prev["menu_path"]):
                 dedup[url] = item
 
-    return list(dedup.values()) 
-
+    return list(dedup.values())
 
 # ==============================
 # 본문 추출
@@ -405,30 +424,123 @@ def is_generic_site_title(title: str) -> bool:
     return any(p in lower_title for p in generic_patterns)
 
 
+def is_generic_site_title(title: str) -> bool:
+    if not title:
+        return True
+
+    lower = title.lower()
+    generic_patterns = [
+        "saha district office",
+        "사하구 홈페이지",
+        "부산광역시 사하구",
+    ]
+
+    # "구민참여 Saha District Office" 같은 공통 제목 제거
+    return any(p in lower for p in generic_patterns) and "|" not in title
+
+def is_bad_title(title: str) -> bool:
+    bad_titles = [
+        "서브 메뉴",
+        "메뉴",
+        "주메뉴",
+        "사이트맵",
+        "검색",
+        "공유",
+        "프린트",
+    ]
+
+    if not title:
+        return True
+
+    title = title.strip()
+
+    # 완전 동일한 경우
+    if title in bad_titles:
+        return True
+
+    # 사이트 공통 제목 제거
+    if "Saha District Office" in title:
+        return True
+
+    return False
+
+
+def extract_title_from_browser_title(soup: BeautifulSoup) -> str:
+    """
+    <title>주민참여예산 알림방 목록 | 주민참여예산 | 구민참여 | 부산광역시 사하구</title>
+    같은 경우 첫 번째 항목만 대표 제목으로 사용
+    """
+    if not soup.title:
+        return ""
+
+    raw = clean_text(soup.title.get_text(" ", strip=True))
+    if not raw:
+        return ""
+
+    parts = [clean_text(p) for p in raw.split("|") if clean_text(p)]
+    if parts:
+        title = parts[0]
+        title = re.sub(r"\s*목록\s*$", "", title).strip()
+        title = re.sub(r"\s*상세\s*$", "", title).strip()
+        if 2 <= len(title) <= 120:
+            return title
+
+    if not is_generic_site_title(raw) and 2 <= len(raw) <= 120:
+        return raw
+
+    return ""
+
+
 def extract_title(soup: BeautifulSoup) -> str:
+    # 1. title 태그에서 먼저 실제 제목 추출
+    # 예: 주요행사안내 | 정보공개 | 부산광역시 사하구
+    if soup.title:
+        raw_title = clean_text(soup.title.get_text(" ", strip=True))
+        parts = [p.strip() for p in raw_title.split("|") if p.strip()]
+
+        if parts:
+            candidate = parts[0]
+            candidate = re.sub(r"\s*목록\s*$", "", candidate).strip()
+            candidate = re.sub(r"\s*상세\s*$", "", candidate).strip()
+
+            if 2 <= len(candidate) <= 120 and not is_bad_title(candidate):
+                return candidate
+
+    # 2. 본문 제목 selector 탐색
     for selector in TITLE_SELECTORS:
         node = soup.select_one(selector)
         if node:
             txt = clean_text(node.get_text(" ", strip=True))
-            if 2 <= len(txt) <= 120:
+            txt = re.sub(r"\s*목록\s*$", "", txt).strip()
+            txt = re.sub(r"\s*상세\s*$", "", txt).strip()
+
+            if 2 <= len(txt) <= 120 and not is_bad_title(txt):
                 return txt
 
-    if soup.title:
-        fallback = clean_text(soup.title.get_text(" ", strip=True))
-        if fallback and not is_generic_site_title(fallback):
-            return fallback
-
-    # 마지막 fallback: 본문 첫 줄을 제목 후보로 사용
+    # 3. 마지막 fallback: 본문 첫 줄
     main_node = select_main_content(soup)
     if main_node:
         lines = [
             clean_text(x)
             for x in main_node.get_text("\n", strip=True).split("\n")
         ]
-        lines = [x for x in lines if x and 2 <= len(x) <= 80]
-        if lines:
-            return lines[0]
 
+        for line in lines:
+            line = re.sub(r"\s*목록\s*$", "", line).strip()
+            line = re.sub(r"\s*상세\s*$", "", line).strip()
+
+            if 2 <= len(line) <= 80 and not is_bad_title(line):
+                return line
+
+    return ""
+
+def extract_first_match_text(soup, selectors, min_len=1, max_len=100):
+    for selector in selectors:
+        node = soup.select_one(selector)
+        if node:
+            txt = clean_text(node.get_text(" ", strip=True))
+            if min_len <= len(txt) <= max_len:
+                return txt
     return ""
 
 
@@ -454,42 +566,69 @@ def extract_meta_by_regex(full_text: str, patterns):
                 return value
     return ""
 
-
 def extract_metadata(soup: BeautifulSoup):
+    """
+    하단 담당자 / 최근업데이트 / 조회수 추출
+    - contents 페이지: 하단의 담당자, 최근업데이트 중심
+    - bbs view 페이지: 작성자/등록일/조회수 중심
+    """
     full_text = soup.get_text("\n", strip=True)
 
-    author = extract_first_by_selectors(soup, META_AUTHOR_SELECTORS)
-    date = extract_first_by_selectors(soup, META_DATE_SELECTORS)
-    views_raw = extract_first_by_selectors(soup, META_VIEWS_SELECTORS)
+    author = ""
+    date = ""
+    views = ""
 
-    if not author:
-        author = extract_meta_by_regex(full_text, [
-            r"작성자\s*[:：]?\s*([^\n|]+)",
-            r"담당부서\s*[:：]?\s*([^\n|]+)",
-            r"부서\s*[:：]?\s*([^\n|]+)",
-        ])
+    # 1. 하단 담당자 추출
+    # 예: 담당자 : 홍길동 / 담당부서 : 민원여권과 / 콘텐츠 관리부서 : ...
+    author_patterns = [
+        r"담당자\s*[:：]?\s*([^\n|]+)",
+        r"콘텐츠\s*관리부서\s*[:：]?\s*([^\n|]+)",
+        r"담당부서\s*[:：]?\s*([^\n|]+)",
+        r"부서\s*[:：]?\s*([^\n|]+)",
+        r"작성자\s*[:：]?\s*([^\n|]+)",
+    ]
 
-    if not date:
-        m = re.search(
-            r"(등록일|작성일|게시일|최종수정일)\s*[:：]?\s*((?:20\d{2})[./-]\s*\d{1,2}[./-]\s*\d{1,2})",
-            full_text,
-            flags=re.IGNORECASE
-        )
+    for pattern in author_patterns:
+        m = re.search(pattern, full_text)
         if m:
-            date = m.group(2)
+            author = clean_meta_value(m.group(1))
+            break
 
-    if not views_raw:
-        views_raw = extract_meta_by_regex(full_text, [
-            r"조회수\s*[:：]?\s*([\d,]+)",
-            r"조회\s*[:：]?\s*([\d,]+)",
-        ])
+    # 2. 최근업데이트 / 최종수정일 / 등록일 추출
+    # "최근업데이트" 같은 라벨만 저장하지 않고 실제 날짜만 저장
+    date_patterns = [
+        r"최근업데이트\s*[:：]?\s*((?:20\d{2})[./-]\s*\d{1,2}[./-]\s*\d{1,2})",
+        r"최종수정일\s*[:：]?\s*((?:20\d{2})[./-]\s*\d{1,2}[./-]\s*\d{1,2})",
+        r"수정일\s*[:：]?\s*((?:20\d{2})[./-]\s*\d{1,2}[./-]\s*\d{1,2})",
+        r"등록일\s*[:：]?\s*((?:20\d{2})[./-]\s*\d{1,2}[./-]\s*\d{1,2})",
+        r"작성일\s*[:：]?\s*((?:20\d{2})[./-]\s*\d{1,2}[./-]\s*\d{1,2})",
+        r"게시일\s*[:：]?\s*((?:20\d{2})[./-]\s*\d{1,2}[./-]\s*\d{1,2})",
+    ]
+
+    for pattern in date_patterns:
+        m = re.search(pattern, full_text)
+        if m:
+            date = normalize_date(m.group(1))
+            break
+
+    # 3. 조회수 추출
+    view_patterns = [
+        r"조회수\s*[:：]?\s*([\d,]+)",
+        r"조회\s*[:：]?\s*([\d,]+)",
+        r"조회\s+([\d,]+)",
+    ]
+
+    for pattern in view_patterns:
+        m = re.search(pattern, full_text)
+        if m:
+            views = normalize_views(m.group(1))
+            break
 
     return {
         "author": author,
-        "date": normalize_date(date),
-        "views": normalize_views(views_raw),
+        "date": date,
+        "views": views,
     }
-
 
 def score_node_text(text: str) -> int:
     """
@@ -796,7 +935,15 @@ def extract_text(html: str, menu_path=None):
 
     return title, raw_text, paragraphs
 
-
+# 메뉴이름, 3개만 하드코딩된
+def get_menu_name_from_url(url: str):
+    if "mId=01" in url:
+        return "전자민원"
+    elif "mId=02" in url:
+        return "구민참여"
+    elif "mId=03" in url:
+        return "정보공개"
+    return "기타"
 # ==============================
 # 크롤링
 # ==============================
@@ -810,13 +957,13 @@ def crawl():
     queued = set()
     queue = deque()
 
-    # queue에는 URL 문자열이 아니라 문맥 정보까지 함께 넣음
     for url in START_URLS:
+        menu_name = get_menu_name_from_url(url)
         item = {
             "url": url,
             "parent_url": "",
-            "anchor_text": "전자민원",
-            "menu_path": ["전자민원"],
+            "anchor_text": menu_name,
+            "menu_path": [menu_name],
         }
         queue.append(item)
         queued.add(url)
@@ -850,15 +997,24 @@ def crawl():
 
             html = response.text
 
-            # 링크는 원본 HTML 기준 수집
-            links = extract_links_from_raw_html(html, url, parent_menu_path=menu_path)
+            # 링크는 저장 여부와 상관없이 먼저 수집
+            links = extract_links_from_raw_html(html, url, parent_menu_path=menu_path) or []
 
-            # 저장 후보면 추출 시도
             if not should_save(url):
-                print("  저장 안 함: 목록/허브 페이지")
+                try:
+                    soup_tmp = BeautifulSoup(html, "html.parser")
+                    page_title = extract_title(soup_tmp)
+
+                    print("  저장 안 함: 목록/허브 페이지")
+                    print(f"  대표 제목: {page_title}")
+
+                except Exception as e:
+                    print(f"  저장 안 함 (파싱 실패): {e}")
+
             else:
                 try:
                     title, raw_text, paragraphs = extract_text(html, menu_path=menu_path)
+
                     soup_for_meta = BeautifulSoup(html, "html.parser")
                     metadata = extract_metadata(soup_for_meta)
 
@@ -875,34 +1031,36 @@ def crawl():
                     print(f"  문단 수: {len(paragraphs)}")
                     print(f"  문서 점수: {score}")
 
+                    # ✅ 실제 저장 코드
+                    # 지금은 먼저 저장이 되는지 확인하는 단계라 조건을 너무 빡세게 잡지 않음
+                    if raw_text and len(raw_text) >= 80:
+                        doc = {
+                            "doc_id": url_to_id(url),
+                            "url": url,
+                            "parent_url": parent_url,
+                            "anchor_text": anchor_text,
+                            "menu_path": menu_path,
+                            "page_type": classify_page_type(url),
+                            "title": title,
+                            "author": metadata.get("author", ""),
+                            "date": metadata.get("date", ""),
+                            "views": metadata.get("views", ""),
+                            "text": raw_text,
+                            "paragraphs": paragraphs,
+                            "source": "saha.go.kr",
+                        }
+
+                        f.write(json.dumps(doc, ensure_ascii=False) + "\n")
+                        f.flush()
+
+                        saved_count += 1
+                        print(f"  저장 완료 ({saved_count}): {title if title else '제목없음'}")
+
+                    else:
+                        print("  저장 안 함: 본문 부족")
+
                 except Exception as e:
                     print(f"  파싱 실패: {e}")
-                    title, raw_text, paragraphs = "", "", []
-                    metadata = {"author": "", "date": "", "views": None}
-                    score = -999
-
-                # 점수 기반 저장
-                if raw_text and paragraphs and score >= 3:
-                    doc = {
-                        "doc_id": url_to_id(url),
-                        "url": url,
-                        "parent_url": parent_url,
-                        "anchor_text": anchor_text,
-                        "menu_path": menu_path,
-                        "page_type": classify_page_type(url),
-                        "title": title,
-                        "author": metadata.get("author", ""),
-                        "date": metadata.get("date", ""),
-                        "views": metadata.get("views"),
-                        "text": raw_text,
-                        "paragraphs": paragraphs,
-                        "source": "saha.go.kr",
-                    }
-                    f.write(json.dumps(doc, ensure_ascii=False) + "\n")
-                    saved_count += 1
-                    print(f"  저장 완료 ({saved_count}): {title[:80] if title else '제목없음'}")
-                else:
-                    print("  저장 안 함: 문서형 점수 부족")
 
             added = 0
             for link in links:
@@ -920,5 +1078,5 @@ def crawl():
     print(f"- 저장 문서 수: {saved_count}")
     print(f"- 출력 파일: {OUTPUT_JSONL}")
 
-if __name__ == "__main__":
+if __name__ == "__main__": 
     crawl()
