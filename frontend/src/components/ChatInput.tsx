@@ -1,38 +1,41 @@
 import { useState } from "react";
 
 type ChatInputProps = {
-  onSendMessage: (message: string) => void;
+  onSend: (message: string) => void;
+  isLoading: boolean;
 };
 
-function ChatInput({ onSendMessage }: ChatInputProps) {
+function ChatInput({ onSend, isLoading }: ChatInputProps) {
   const [input, setInput] = useState("");
 
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-
+  const handleSend = () => {
     if (!input.trim()) return;
+    if (isLoading) return;
 
-    onSendMessage(input);
+    onSend(input);
     setInput("");
   };
 
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
+      handleSend();
+    }
+  };
+
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-3 sm:flex-row">
+    <div className="chat-input-box">
       <input
-        type="text"
         value={input}
         onChange={(e) => setInput(e.target.value)}
-        placeholder="궁금한 내용을 입력하세요."
-        className="flex-1 rounded-2xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-blue-400"
+        onKeyDown={handleKeyDown}
+        placeholder="궁금한 민원 내용을 입력하세요"
+        disabled={isLoading}
       />
 
-      <button
-        type="submit"
-        className="rounded-2xl bg-blue-500 px-5 py-3 text-sm font-semibold text-white hover:bg-blue-600"
-      >
-        전송
+      <button onClick={handleSend} disabled={isLoading}>
+        {isLoading ? "답변 중..." : "전송"}
       </button>
-    </form>
+    </div>
   );
 }
 

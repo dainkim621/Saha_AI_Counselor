@@ -1,29 +1,23 @@
 type QuickMenuProps = {
-  onMenuClick: (message: string) => void;
+  onSelect: (message: string) => void;
 };
 
-const menuItems = [
-  "전입신고",
-  "주민센터 위치",
-  "복지 서비스",
-  "서류 발급",
-  "교통/주차",
-  "시설 예약",
+const quickQuestions = [
+  "전입신고는 어떻게 하나요?",
+  "여권 발급에 필요한 서류는 무엇인가요?",
+  "무인민원발급기는 어디에 있나요?",
+  "대형폐기물 배출은 어떻게 신청하나요?",
 ];
 
-function QuickMenu({ onMenuClick }: QuickMenuProps) {
+function QuickMenu({ onSelect }: QuickMenuProps) {
   return (
-    <div className="rounded-3xl bg-white p-5 shadow">
-      <h3 className="text-lg font-bold text-slate-800">자주 찾는 메뉴</h3>
+    <div className="quick-menu">
+      <h3>자주 묻는 질문</h3>
 
-      <div className="mt-4 grid grid-cols-2 gap-3">
-        {menuItems.map((item) => (
-          <button
-            key={item}
-            onClick={() => onMenuClick(item)}  
-            className="rounded-2xl bg-slate-100 px-3 py-4 text-sm hover:bg-blue-100"
-          >
-            {item}
+      <div className="quick-button-list">
+        {quickQuestions.map((question) => (
+          <button key={question} onClick={() => onSelect(question)}>
+            {question}
           </button>
         ))}
       </div>

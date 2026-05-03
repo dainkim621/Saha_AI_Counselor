@@ -1,30 +1,41 @@
-type Message = {
-  id: number;
-  text: string;
-  sender: "user" | "bot";
-};
+import type { Message } from "../App";
 
 type ChatWindowProps = {
   messages: Message[];
+  isLoading: boolean;
 };
 
-function ChatWindow({ messages }: ChatWindowProps) {
+function ChatWindow({ messages, isLoading }: ChatWindowProps) {
   return (
-    <div className="mb-4 h-96 overflow-y-auto rounded-2xl bg-slate-50 p-4">
-      <div className="flex flex-col gap-3">
-        {messages.map((message) => (
+    <div className="chat-window">
+      {messages.map((message, index) => (
+        <div
+          key={index}
+          className={
+            message.role === "user"
+              ? "message-row user-row"
+              : "message-row assistant-row"
+          }
+        >
           <div
-            key={message.id}
-            className={`max-w-xs rounded-2xl p-3 text-sm shadow ${
-              message.sender === "user"
-                ? "ml-auto rounded-tr-md bg-blue-500 text-white"
-                : "rounded-tl-md bg-white text-slate-700"
-            }`}
+            className={
+              message.role === "user"
+                ? "message-bubble user-bubble"
+                : "message-bubble assistant-bubble"
+            }
           >
-            {message.text}
+            {message.content}
           </div>
-        ))}
-      </div>
+        </div>
+      ))}
+
+      {isLoading && (
+        <div className="message-row assistant-row">
+          <div className="message-bubble assistant-bubble">
+            답변을 생성하고 있어요...
+          </div>
+        </div>
+      )}
     </div>
   );
 }
