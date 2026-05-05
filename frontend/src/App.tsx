@@ -21,6 +21,7 @@ function App() {
   ]);
 
   const [isLoading, setIsLoading] = useState(false);
+  const [isLargeText, setIsLargeText] = useState(false);
 
   // 현재는 백엔드 없이 mock 답변으로 프론트 동작 확인
   const sendMessage = async (question: string) => {
@@ -48,8 +49,13 @@ function App() {
   };
 
   return (
-    <div className="app">
+    <div className={isLargeText ? "app large-text" : "app"}>
       <Header />
+      <div className="accessibility-bar">
+  <button onClick={() => setIsLargeText(!isLargeText)}>
+    {isLargeText ? "기본 글씨" : "큰 글씨"}
+  </button>
+</div>
 
       <main className="main-layout">
         <section className="left-section">

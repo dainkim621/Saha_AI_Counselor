@@ -206,3 +206,49 @@
     max-width: 85%;
   }
 }
+/* 접근성 큰 글씨 모드 */
+
+.accessibility-bar {
+  display: flex;
+  justify-content: flex-end;
+  padding: 10px 20px;
+}
+
+.accessibility-bar button {
+  padding: 10px 16px;
+  border: none;
+  border-radius: 10px;
+  background-color: #2563eb;
+  color: white;
+  cursor: pointer;
+  font-weight: bold;
+}
+
+.accessibility-bar button:hover {
+  background-color: #1d4ed8;
+}
+
+/* 큰 글씨 모드 */
+
+.large-text {
+  font-size: 1.2rem;
+}
+
+.large-text .message-bubble {
+  font-size: 1.15rem;
+  line-height: 1.8;
+}
+
+.large-text input {
+  font-size: 1.1rem;
+}
+
+.large-text button {
+  font-size: 1.05rem;
+}
+
+.large-text h1,
+.large-text h2,
+.large-text h3 {
+  font-size: 1.4em;
+}
