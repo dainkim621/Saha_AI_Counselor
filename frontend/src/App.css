@@ -44,7 +44,65 @@
   overflow: hidden;
 }
 
-.mascot-card,
+.mascot-card {
+  text-align: center;
+  overflow: hidden;
+}
+
+.mascot-glow {
+  width: 150px;
+  height: 150px;
+  margin: 0 auto 14px;
+  border-radius: 50%;
+  background: radial-gradient(circle, #dbeafe 0%, transparent 70%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.gouni-main {
+  width: 128px;
+  animation: gouni-dance 1.6s ease-in-out infinite;
+  transform-origin: bottom center;
+}
+
+.chat-avatar {
+  width: 42px;
+  height: 42px;
+  object-fit: cover;
+  border-radius: 50%;
+  background-color: white;
+  border: 1px solid #e5e7eb;
+  margin-right: 8px;
+  align-self: flex-end;
+  box-shadow: 0 4px 10px rgba(15, 23, 42, 0.08);
+}
+
+.dancing {
+  animation: gouni-dance 1.2s ease-in-out infinite;
+}
+
+@keyframes gouni-dance {
+  0% {
+    transform: translateY(0) rotate(0deg);
+  }
+
+  25% {
+    transform: translateY(-4px) rotate(-3deg);
+  }
+
+  50% {
+    transform: translateY(0) rotate(0deg);
+  }
+
+  75% {
+    transform: translateY(-4px) rotate(3deg);
+  }
+
+  100% {
+    transform: translateY(0) rotate(0deg);
+  }
+}
 .mascot-image {
   width: 130px;
   display: block;

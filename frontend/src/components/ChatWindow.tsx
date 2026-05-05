@@ -1,26 +1,17 @@
-import {
-  useEffect,
-  useRef,
-} from "react";
-
+import { useEffect, useRef } from "react";
 import type { Message } from "../App";
+import gouni from "../assets/gouni.png";
 
 type ChatWindowProps = {
   messages: Message[];
   isLoading: boolean;
 };
 
-function ChatWindow({
-  messages,
-  isLoading,
-}: ChatWindowProps) {
-  const bottomRef =
-    useRef<HTMLDivElement | null>(null);
+function ChatWindow({ messages, isLoading }: ChatWindowProps) {
+  const bottomRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({
-      behavior: "smooth",
-    });
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isLoading]);
 
   return (
@@ -34,6 +25,10 @@ function ChatWindow({
               : "message-row assistant-row"
           }
         >
+          {message.role === "assistant" && (
+            <img src={gouni} alt="고우니" className="chat-avatar" />
+          )}
+
           <div
             className={
               message.role === "user"
@@ -48,8 +43,9 @@ function ChatWindow({
 
       {isLoading && (
         <div className="message-row assistant-row">
+          <img src={gouni} alt="고우니" className="chat-avatar dancing" />
           <div className="message-bubble assistant-bubble">
-            답변을 생성하고 있어요...
+            고우니가 답변을 준비하고 있어요...
           </div>
         </div>
       )}
