@@ -1,5 +1,6 @@
 type QuickMenuProps = {
   onSelect: (message: string) => void;
+  disabled: boolean;
 };
 
 const quickQuestions = [
@@ -9,14 +10,18 @@ const quickQuestions = [
   "대형폐기물 배출은 어떻게 신청하나요?",
 ];
 
-function QuickMenu({ onSelect }: QuickMenuProps) {
+function QuickMenu({ onSelect, disabled }: QuickMenuProps) {
   return (
     <div className="quick-menu">
       <h3>자주 묻는 질문</h3>
 
       <div className="quick-button-list">
         {quickQuestions.map((question) => (
-          <button key={question} onClick={() => onSelect(question)}>
+          <button
+            key={question}
+            onClick={() => onSelect(question)}
+            disabled={disabled}
+          >
             {question}
           </button>
         ))}

@@ -64,6 +64,7 @@
 .mascot-card p {
   color: #666;
   margin: 0;
+  line-height: 1.5;
 }
 
 .quick-button-list {
@@ -79,10 +80,16 @@
   border-radius: 10px;
   cursor: pointer;
   text-align: left;
+  line-height: 1.4;
 }
 
 .quick-button-list button:hover {
   background-color: #eef2ff;
+}
+
+.quick-button-list button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .chat-window {
@@ -110,6 +117,7 @@
   border-radius: 14px;
   line-height: 1.5;
   white-space: pre-wrap;
+  word-break: keep-all;
 }
 
 .user-bubble {
@@ -122,6 +130,27 @@
   background-color: #f1f5f9;
   color: #222;
   border-bottom-left-radius: 4px;
+}
+
+.loading-bubble {
+  color: #555;
+}
+
+.loading-dots {
+  display: inline-block;
+  animation: blink 1.2s infinite;
+}
+
+@keyframes blink {
+  0% {
+    opacity: 0.2;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0.2;
+  }
 }
 
 .chat-input-box {
@@ -146,6 +175,11 @@
   background-color: #2563eb;
   color: white;
   cursor: pointer;
+  font-weight: 600;
+}
+
+.chat-input-box button:hover {
+  background-color: #1d4ed8;
 }
 
 .chat-input-box button:disabled,
@@ -166,5 +200,9 @@
 
   .chat-section {
     height: 70vh;
+  }
+
+  .message-bubble {
+    max-width: 85%;
   }
 }

@@ -9,10 +9,12 @@ function ChatInput({ onSend, isLoading }: ChatInputProps) {
   const [input, setInput] = useState("");
 
   const handleSend = () => {
-    if (!input.trim()) return;
+    const trimmedInput = input.trim();
+
+    if (!trimmedInput) return;
     if (isLoading) return;
 
-    onSend(input);
+    onSend(trimmedInput);
     setInput("");
   };
 
@@ -32,7 +34,7 @@ function ChatInput({ onSend, isLoading }: ChatInputProps) {
         disabled={isLoading}
       />
 
-      <button onClick={handleSend} disabled={isLoading}>
+      <button onClick={handleSend} disabled={isLoading || !input.trim()}>
         {isLoading ? "답변 중..." : "전송"}
       </button>
     </div>

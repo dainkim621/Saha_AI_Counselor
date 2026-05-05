@@ -22,8 +22,10 @@ function App() {
 
   const [isLoading, setIsLoading] = useState(false);
 
+  // 현재는 백엔드 없이 mock 답변으로 프론트 동작 확인
   const sendMessage = async (question: string) => {
     if (!question.trim()) return;
+    if (isLoading) return;
 
     const userMessage: Message = {
       role: "user",
@@ -33,42 +35,16 @@ function App() {
     setMessages((prev) => [...prev, userMessage]);
     setIsLoading(true);
 
-    try {
-      const response = await fetch("http://localhost:8000/ai-chat", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          question: question,
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error("백엔드 응답 오류");
-      }
-
-      const data = await response.json();
-
-      const aiMessage: Message = {
+    setTimeout(() => {
+      const mockAnswer: Message = {
         role: "assistant",
-        content: data.answer,
+        content:
+          "현재는 프론트엔드 테스트용 임시 답변입니다.\n\n백엔드 연결 후에는 이곳에 실제 사하구 민원 안내 답변이 표시됩니다.",
       };
 
-      setMessages((prev) => [...prev, aiMessage]);
-    } catch (error) {
-      console.error(error);
-
-      setMessages((prev) => [
-        ...prev,
-        {
-          role: "assistant",
-          content: "서버와 연결하는 중 문제가 발생했어요. 잠시 후 다시 시도해주세요.",
-        },
-      ]);
-    } finally {
+      setMessages((prev) => [...prev, mockAnswer]);
       setIsLoading(false);
-    }
+    }, 800);
   };
 
   return (
@@ -78,7 +54,7 @@ function App() {
       <main className="main-layout">
         <section className="left-section">
           <MascotCard />
-          <QuickMenu onSelect={sendMessage} />
+          <QuickMenu onSelect={sendMessage} disabled={isLoading} />
         </section>
 
         <section className="chat-section">
