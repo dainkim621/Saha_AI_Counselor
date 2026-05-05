@@ -1,4 +1,8 @@
-import { useEffect, useRef } from "react";
+import {
+  useEffect,
+  useRef,
+} from "react";
+
 import type { Message } from "../App";
 
 type ChatWindowProps = {
@@ -6,12 +10,17 @@ type ChatWindowProps = {
   isLoading: boolean;
 };
 
-function ChatWindow({ messages, isLoading }: ChatWindowProps) {
-  const bottomRef = useRef<HTMLDivElement | null>(null);
+function ChatWindow({
+  messages,
+  isLoading,
+}: ChatWindowProps) {
+  const bottomRef =
+    useRef<HTMLDivElement | null>(null);
 
-  // 메시지가 추가되거나 로딩 상태가 바뀌면 맨 아래로 자동 스크롤
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    bottomRef.current?.scrollIntoView({
+      behavior: "smooth",
+    });
   }, [messages, isLoading]);
 
   return (
@@ -39,13 +48,13 @@ function ChatWindow({ messages, isLoading }: ChatWindowProps) {
 
       {isLoading && (
         <div className="message-row assistant-row">
-          <div className="message-bubble assistant-bubble loading-bubble">
-            답변을 생성하고 있어요<span className="loading-dots">...</span>
+          <div className="message-bubble assistant-bubble">
+            답변을 생성하고 있어요...
           </div>
         </div>
       )}
 
-      <div ref={bottomRef} />
+      <div ref={bottomRef}></div>
     </div>
   );
 }

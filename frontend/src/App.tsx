@@ -12,6 +12,22 @@ export type Message = {
   content: string;
 };
 
+const fontModes = [
+  "font-xsmall",
+  "font-small",
+  "font-normal",
+  "font-large",
+  "font-xlarge",
+];
+
+const fontLabels = [
+  "아주 작게",
+  "작게",
+  "기본",
+  "크게",
+  "아주 크게",
+];
+
 function App() {
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -21,9 +37,10 @@ function App() {
   ]);
 
   const [isLoading, setIsLoading] = useState(false);
-  const [isLargeText, setIsLargeText] = useState(false);
 
-  // 현재는 백엔드 없이 mock 답변으로 프론트 동작 확인
+  // 기본 = 2
+  const [fontLevel, setFontLevel] = useState(2);
+
   const sendMessage = async (question: string) => {
     if (!question.trim()) return;
     if (isLoading) return;
@@ -36,36 +53,62 @@ function App() {
     setMessages((prev) => [...prev, userMessage]);
     setIsLoading(true);
 
+    // mock 답변
     setTimeout(() => {
-      const mockAnswer: Message = {
+      const aiMessage: Message = {
         role: "assistant",
         content:
-          "현재는 프론트엔드 테스트용 임시 답변입니다.\n\n백엔드 연결 후에는 이곳에 실제 사하구 민원 안내 답변이 표시됩니다.",
+          "현재는 프론트엔드 테스트용 임시 답변입니다.\n\n백엔드 연결 후 실제 민원 안내 답변이 표시됩니다.",
       };
 
-      setMessages((prev) => [...prev, mockAnswer]);
+      setMessages((prev) => [...prev, aiMessage]);
       setIsLoading(false);
     }, 800);
   };
 
+  const decreaseFont = () => {
+    setFontLevel((prev) => Math.max(prev - 1, 0));
+  };
+
+  const increaseFont = () => {
+    setFontLevel((prev) => Math.min(prev + 1, 4));
+  };
+
   return (
-    <div className={isLargeText ? "app large-text" : "app"}>
+    <div className={`app ${fontModes[fontLevel]}`}>
       <Header />
+
       <div className="accessibility-bar">
-  <button onClick={() => setIsLargeText(!isLargeText)}>
-    {isLargeText ? "기본 글씨" : "큰 글씨"}
-  </button>
-</div>
+        <span>글자 크기</span>
+
+        <button onClick={decreaseFont}>－</button>
+
+        <div className="font-label">
+          {fontLabels[fontLevel]}
+        </div>
+
+        <button onClick={increaseFont}>＋</button>
+      </div>
 
       <main className="main-layout">
         <section className="left-section">
           <MascotCard />
-          <QuickMenu onSelect={sendMessage} disabled={isLoading} />
+          <QuickMenu
+            onSelect={sendMessage}
+            disabled={isLoading}
+          />
         </section>
 
         <section className="chat-section">
-          <ChatWindow messages={messages} isLoading={isLoading} />
-          <ChatInput onSend={sendMessage} isLoading={isLoading} />
+          <ChatWindow
+            messages={messages}
+            isLoading={isLoading}
+          />
+
+          <ChatInput
+            onSend={sendMessage}
+            isLoading={isLoading}
+          />
         </section>
       </main>
     </div>

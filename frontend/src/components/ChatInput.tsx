@@ -5,7 +5,10 @@ type ChatInputProps = {
   isLoading: boolean;
 };
 
-function ChatInput({ onSend, isLoading }: ChatInputProps) {
+function ChatInput({
+  onSend,
+  isLoading,
+}: ChatInputProps) {
   const [input, setInput] = useState("");
 
   const handleSend = () => {
@@ -18,7 +21,9 @@ function ChatInput({ onSend, isLoading }: ChatInputProps) {
     setInput("");
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+  const handleKeyDown = (
+    e: React.KeyboardEvent<HTMLInputElement>
+  ) => {
     if (e.key === "Enter") {
       handleSend();
     }
@@ -34,7 +39,10 @@ function ChatInput({ onSend, isLoading }: ChatInputProps) {
         disabled={isLoading}
       />
 
-      <button onClick={handleSend} disabled={isLoading || !input.trim()}>
+      <button
+        onClick={handleSend}
+        disabled={isLoading || !input.trim()}
+      >
         {isLoading ? "답변 중..." : "전송"}
       </button>
     </div>
