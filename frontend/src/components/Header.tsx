@@ -3,10 +3,13 @@ import gouni from "../assets/gouni.png";
 function Header() {
   return (
     <header className="header">
+      <div className="header-bg-circle circle-left"></div>
+      <div className="header-bg-circle circle-right"></div>
+
       <div className="header-pattern pattern-1">💬</div>
       <div className="header-pattern pattern-2">📄</div>
       <div className="header-pattern pattern-3">✨</div>
-      <div className="header-pattern pattern-4">🏢</div>
+      <div className="header-pattern pattern-4">⋯</div>
 
       <div className="header-content">
         <div className="header-text">
@@ -19,31 +22,14 @@ function Header() {
           </p>
 
           <div className="header-badge-list">
-            <span className="header-badge">AI 민원 안내</span>
-            <span className="header-badge">서류·절차 안내</span>
-            <span className="header-badge">24시간 상담 가능</span>
-          </div>
-
-          <div className="header-info-cards">
-            <div className="info-card">
-              <span>📄</span>
-              <p>민원 안내</p>
-            </div>
-
-            <div className="info-card">
-              <span>🤖</span>
-              <p>AI 상담</p>
-            </div>
-
-            <div className="info-card">
-              <span>🕒</span>
-              <p>24시간</p>
-            </div>
+            <span className="header-badge">🤖 AI 민원 안내</span>
+            <span className="header-badge">📄 서류 · 절차 안내</span>
+            <span className="header-badge">🕒 24시간 상담 가능</span>
           </div>
         </div>
 
         <div className="header-visual">
-          <img src={gouni} alt="고우니" className="header-gouni" />
+          <img src={gouni} alt="인사하는 고우니" className="header-gouni" />
         </div>
       </div>
     </header>
