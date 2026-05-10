@@ -46,24 +46,56 @@
 
 .mascot-card {
   text-align: center;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .mascot-glow {
-  width: 150px;
-  height: 150px;
-  margin: 0 auto 14px;
+  width: 170px;
+  height: 180px;
+  margin: 0 auto 18px;
+  padding-top: 16px;
+
   border-radius: 50%;
   background: radial-gradient(circle, #dbeafe 0%, transparent 70%);
+
   display: flex;
   align-items: center;
   justify-content: center;
+
+  overflow: visible;
 }
 
 .gouni-main {
-  width: 128px;
-  animation: gouni-dance 1.6s ease-in-out infinite;
-  transform-origin: bottom center;
+  width: 130px;
+  object-fit: contain;
+  animation: gouni-float 2.5s ease-in-out infinite;
+}
+
+@keyframes gouni-float {
+  0%, 100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(-4px);
+  }
+}
+
+.gouni-main {
+  width: 130px;
+  object-fit: contain;
+
+  animation: gouni-float 2.5s ease-in-out infinite;
+}
+
+@keyframes gouni-float {
+  0%, 100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(-4px) scale(1.02);
+  }
 }
 
 .chat-avatar {
@@ -82,27 +114,6 @@
   animation: gouni-dance 1.2s ease-in-out infinite;
 }
 
-@keyframes gouni-dance {
-  0% {
-    transform: translateY(0) rotate(0deg);
-  }
-
-  25% {
-    transform: translateY(-4px) rotate(-3deg);
-  }
-
-  50% {
-    transform: translateY(0) rotate(0deg);
-  }
-
-  75% {
-    transform: translateY(-4px) rotate(3deg);
-  }
-
-  100% {
-    transform: translateY(0) rotate(0deg);
-  }
-}
 .mascot-image {
   width: 130px;
   display: block;
