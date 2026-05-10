@@ -11,7 +11,9 @@ function ChatWindow({ messages, isLoading }: ChatWindowProps) {
   const bottomRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    bottomRef.current?.scrollIntoView({
+      behavior: "smooth",
+    });
   }, [messages, isLoading]);
 
   return (
@@ -43,7 +45,12 @@ function ChatWindow({ messages, isLoading }: ChatWindowProps) {
 
       {isLoading && (
         <div className="message-row assistant-row">
-          <img src={gouni} alt="고우니" className="chat-avatar dancing" />
+          <img
+            src={gouni}
+            alt="고우니"
+            className="chat-avatar chat-avatar-active"
+          />
+
           <div className="message-bubble assistant-bubble">
             고우니가 답변을 준비하고 있어요...
           </div>

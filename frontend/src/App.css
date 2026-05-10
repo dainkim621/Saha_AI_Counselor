@@ -4,65 +4,60 @@
   color: #222;
 }
 
+/* Header */
+
 .header {
-  padding: 22px 36px;
+  padding: 34px 32px 30px;
   background: linear-gradient(135deg, #ffffff 0%, #eff6ff 100%);
   border-bottom: 1px solid #dbeafe;
+  text-align: center;
 }
 
-.header-left {
-  display: flex;
-  align-items: center;
-  gap: 18px;
+.header-text {
+  max-width: 760px;
+  margin: 0 auto;
 }
 
-.header-icon-box {
-  width: 74px;
-  height: 74px;
-  border-radius: 22px;
-  background-color: white;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 8px 20px rgba(37, 99, 235, 0.12);
-  flex-shrink: 0;
-}
-
-.header-gouni {
-  width: 62px;
-  height: 62px;
-  object-fit: contain;
-  animation: gouni-float 2.5s ease-in-out infinite;
+.header-kicker {
+  margin: 0 0 8px;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 1.8px;
+  color: #2563eb;
 }
 
 .header-text h1 {
   margin: 0;
-  font-size: 30px;
-  font-weight: 800;
+  font-size: 36px;
+  font-weight: 900;
   color: #111827;
-  letter-spacing: -0.5px;
+  letter-spacing: -0.8px;
 }
 
-.header-text p {
-  margin: 7px 0 11px;
+.header-description {
+  margin: 12px 0 16px;
   color: #4b5563;
-  font-size: 15px;
+  font-size: 17px;
+  line-height: 1.6;
 }
 
 .header-badge-list {
   display: flex;
+  justify-content: center;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 10px;
 }
 
 .header-badge {
-  padding: 6px 10px;
+  padding: 7px 13px;
   border-radius: 999px;
   background-color: #dbeafe;
   color: #1d4ed8;
-  font-size: 13px;
-  font-weight: 700;
+  font-size: 14px;
+  font-weight: 800;
 }
+
+/* Layout */
 
 .main-layout {
   display: flex;
@@ -88,51 +83,45 @@
   overflow: hidden;
 }
 
+/* Mascot */
+
 .mascot-card {
+  background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+  border-radius: 24px;
+  padding: 28px 20px;
+  border: 1px solid #e5e7eb;
   text-align: center;
   overflow: visible;
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.05);
 }
+
 .mascot-glow {
-  width: 170px;
-  height: 180px;
+  width: 190px;
+  height: 190px;
   margin: 0 auto 18px;
-  padding-top: 16px;
-
+  padding-top: 18px;
   border-radius: 50%;
-  background: radial-gradient(circle, #dbeafe 0%, transparent 70%);
-
+  background: radial-gradient(
+    circle,
+    #dbeafe 0%,
+    rgba(219, 234, 254, 0.35) 45%,
+    transparent 72%
+  );
   display: flex;
   align-items: center;
   justify-content: center;
-
   overflow: visible;
 }
 
 .gouni-main {
-  width: 130px;
+  width: 145px;
   object-fit: contain;
-  animation: gouni-float 2.5s ease-in-out infinite;
+  animation: gouni-float 2.8s ease-in-out infinite;
 }
 
 @keyframes gouni-float {
-  0%, 100% {
-    transform: translateY(0);
-  }
-
-  50% {
-    transform: translateY(-4px);
-  }
-}
-
-.gouni-main {
-  width: 130px;
-  object-fit: contain;
-
-  animation: gouni-float 2.5s ease-in-out infinite;
-}
-
-@keyframes gouni-float {
-  0%, 100% {
+  0%,
+  100% {
     transform: translateY(0);
   }
 
@@ -141,38 +130,36 @@
   }
 }
 
-.chat-avatar {
-  width: 42px;
-  height: 42px;
-  object-fit: cover;
-  border-radius: 50%;
-  background-color: white;
-  border: 1px solid #e5e7eb;
-  margin-right: 8px;
-  align-self: flex-end;
-  box-shadow: 0 4px 10px rgba(15, 23, 42, 0.08);
+.mascot-text {
+  max-width: 260px;
+  margin: 0 auto;
 }
 
-.dancing {
-  animation: gouni-dance 1.2s ease-in-out infinite;
+.mascot-label {
+  display: inline-block;
+  margin-bottom: 8px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  background-color: #eff6ff;
+  color: #2563eb;
+  font-size: 13px;
+  font-weight: 800;
 }
 
-.mascot-image {
-  width: 130px;
-  display: block;
-  margin: 0 auto 12px;
-  animation: mascot-bounce 2.2s ease-in-out infinite;
+.mascot-card h2 {
+  margin: 0 0 10px;
+  font-size: 26px;
+  font-weight: 900;
+  color: #111827;
 }
 
-@keyframes mascot-bounce {
-  0%, 100% {
-    transform: translateY(0);
-  }
-
-  50% {
-    transform: translateY(-6px);
-  }
+.mascot-card p {
+  margin: 0;
+  color: #4b5563;
+  line-height: 1.7;
 }
+
+/* Quick Menu */
 
 .quick-menu {
   background-color: white;
@@ -181,19 +168,8 @@
   border: 1px solid #e5e7eb;
 }
 
-.mascot {
-  font-size: 48px;
-}
-
-.mascot-card h2,
 .quick-menu h3 {
   margin: 8px 0;
-}
-
-.mascot-card p {
-  color: #666;
-  margin: 0;
-  line-height: 1.5;
 }
 
 .quick-button-list {
@@ -221,6 +197,8 @@
   cursor: not-allowed;
 }
 
+/* Chat */
+
 .chat-window {
   flex: 1;
   padding: 20px;
@@ -238,6 +216,23 @@
 
 .assistant-row {
   justify-content: flex-start;
+}
+
+.chat-avatar {
+  width: 46px;
+  height: 46px;
+  object-fit: cover;
+  object-position: center 18%;
+  border-radius: 50%;
+  background: #ffffff;
+  border: 2px solid #e0edff;
+  margin-right: 10px;
+  align-self: flex-end;
+  box-shadow: 0 6px 16px rgba(37, 99, 235, 0.12);
+}
+
+.chat-avatar-active {
+  animation: gouni-float 1.4s ease-in-out infinite;
 }
 
 .message-bubble {
@@ -274,13 +269,17 @@
   0% {
     opacity: 0.2;
   }
+
   50% {
     opacity: 1;
   }
+
   100% {
     opacity: 0.2;
   }
 }
+
+/* Input */
 
 .chat-input-box {
   display: flex;
@@ -317,99 +316,7 @@
   cursor: not-allowed;
 }
 
-@media (max-width: 768px) {
-  .header {
-    padding: 18px 16px;
-  }
-  .header-left {
-    align-items: flex-start;
-    gap: 12px;
-  }
-  .header-icon-box {
-    width: 58px;
-    height: 58px;
-    border-radius: 18px;
-  }
-  .header-gouni {
-    width: 50px;
-    height: 50px;
-  }
-  .header-text h1 {
-    font-size: 22px;
-  }
-
-  .header-text p {
-    font-size: 14px;
-  }
-  .header-badge {
-    font-size: 12px;
-  }
-  
-  .main-layout {
-    flex-direction: column;
-    padding: 16px;
-  }
-
-  .left-section {
-    width: 100%;
-  }
-
-  .chat-section {
-    height: 70vh;
-  }
-
-  .message-bubble {
-    max-width: 85%;
-  }
-}
-/* 접근성 큰 글씨 모드 */
-
-.accessibility-bar {
-  display: flex;
-  justify-content: flex-end;
-  padding: 10px 20px;
-}
-
-.accessibility-bar button {
-  padding: 10px 16px;
-  border: none;
-  border-radius: 10px;
-  background-color: #2563eb;
-  color: white;
-  cursor: pointer;
-  font-weight: bold;
-}
-
-.accessibility-bar button:hover {
-  background-color: #1d4ed8;
-}
-
-/* 큰 글씨 모드 */
-
-.large-text {
-  font-size: 1.2rem;
-}
-
-.large-text .message-bubble {
-  font-size: 1.15rem;
-  line-height: 1.8;
-}
-
-.large-text input {
-  font-size: 1.1rem;
-}
-
-.large-text button {
-  font-size: 1.05rem;
-}
-
-.large-text h1,
-.large-text h2,
-.large-text h3 {
-  font-size: 1.4em;
-}
-
-/* 글자 크기 조절 바 */
+/* Font Size Control */
 
 .accessibility-bar {
   display: flex;
@@ -428,26 +335,20 @@
 .accessibility-bar button {
   width: 34px;
   height: 34px;
-
   display: flex;
   justify-content: center;
   align-items: center;
-
   border: 1px solid #d1d5db;
   border-radius: 999px;
-
   background-color: #ffffff;
   color: #2563eb;
-
   cursor: pointer;
-
   font-size: 20px;
   font-weight: 700;
-
   box-shadow: 0 2px 6px rgba(15, 23, 42, 0.08);
-
   padding: 0;
 }
+
 .accessibility-bar button:hover {
   background-color: #eff6ff;
   border-color: #2563eb;
@@ -464,7 +365,7 @@
   text-align: center;
 }
 
-/* 글자 크기 단계 */
+/* Font Size Steps */
 
 .font-xsmall {
   font-size: 13px;
@@ -486,8 +387,6 @@
   font-size: 22px;
 }
 
-/* 말풍선 */
-
 .font-xsmall .message-bubble {
   font-size: 0.9rem;
 }
@@ -506,4 +405,55 @@
 
 .font-xlarge .message-bubble {
   font-size: 1.3rem;
+}
+
+/* Mobile */
+
+@media (max-width: 768px) {
+  .header {
+    padding: 26px 18px 24px;
+  }
+
+  .header-text h1 {
+    font-size: 28px;
+  }
+
+  .header-description {
+    font-size: 15px;
+  }
+
+  .header-badge {
+    font-size: 12px;
+  }
+
+  .main-layout {
+    flex-direction: column;
+    padding: 16px;
+  }
+
+  .left-section {
+    width: 100%;
+  }
+
+  .chat-section {
+    height: 70vh;
+  }
+
+  .message-bubble {
+    max-width: 85%;
+  }
+
+  .mascot-glow {
+    width: 150px;
+    height: 150px;
+  }
+
+  .gouni-main {
+    width: 120px;
+  }
+
+  .chat-avatar {
+    width: 40px;
+    height: 40px;
+  }
 }

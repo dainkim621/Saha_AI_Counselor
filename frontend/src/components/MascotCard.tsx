@@ -11,8 +11,13 @@ function MascotCard() {
         />
       </div>
 
-      <h2>고우니 챗봇</h2>
-      <p>사하구 민원 정보를 쉽고 친절하게 안내해드릴게요.</p>
+      <div className="mascot-text">
+        <span className="mascot-label">사하구 AI 챗봇</span>
+        <h2>고우니</h2>
+        <p>
+          필요한 민원 정보를 찾기 쉽게 정리해서 안내해드릴게요.
+        </p>
+      </div>
     </div>
   );
 }
