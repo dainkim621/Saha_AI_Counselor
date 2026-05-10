@@ -16,7 +16,7 @@ RECENT_YEAR_LIMIT = 5   # 최근 몇년간 자료를 검색할건지
 CURRENT_YEAR = 2026
 MIN_YEAR = CURRENT_YEAR - RECENT_YEAR_LIMIT
 
-MAX_LIST_PAGES = 30       # 너무많아서 일단 조금만, 밑에 범위설정 또 있음
+MAX_LIST_PAGES = 30       # 안씀
 REQUEST_DELAY = 0.5
 TIMEOUT = 15
 

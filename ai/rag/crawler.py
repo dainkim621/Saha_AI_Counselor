@@ -26,7 +26,7 @@ ALLOWED_DOMAINS = {"www.saha.go.kr", "m.saha.go.kr"}
 OUTPUT_DIR = "data/raw"
 OUTPUT_JSONL = os.path.join(OUTPUT_DIR, "saha_docs.jsonl")
 
-MAX_PAGES = 100    # 여기 양 조절하기
+MAX_PAGES = 1000   # 여기 양 조절하기
 REQUEST_DELAY = 0.8
 TIMEOUT = 15
 
