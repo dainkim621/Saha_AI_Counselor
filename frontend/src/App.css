@@ -5,19 +5,63 @@
 }
 
 .header {
-  padding: 24px 32px;
+  padding: 22px 36px;
+  background: linear-gradient(135deg, #ffffff 0%, #eff6ff 100%);
+  border-bottom: 1px solid #dbeafe;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+
+.header-icon-box {
+  width: 74px;
+  height: 74px;
+  border-radius: 22px;
   background-color: white;
-  border-bottom: 1px solid #e5e7eb;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 8px 20px rgba(37, 99, 235, 0.12);
+  flex-shrink: 0;
 }
 
-.header h1 {
+.header-gouni {
+  width: 62px;
+  height: 62px;
+  object-fit: contain;
+  animation: gouni-float 2.5s ease-in-out infinite;
+}
+
+.header-text h1 {
   margin: 0;
-  font-size: 28px;
+  font-size: 30px;
+  font-weight: 800;
+  color: #111827;
+  letter-spacing: -0.5px;
 }
 
-.header p {
-  margin: 8px 0 0;
-  color: #666;
+.header-text p {
+  margin: 7px 0 11px;
+  color: #4b5563;
+  font-size: 15px;
+}
+
+.header-badge-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.header-badge {
+  padding: 6px 10px;
+  border-radius: 999px;
+  background-color: #dbeafe;
+  color: #1d4ed8;
+  font-size: 13px;
+  font-weight: 700;
 }
 
 .main-layout {
@@ -48,7 +92,6 @@
   text-align: center;
   overflow: visible;
 }
-
 .mascot-glow {
   width: 170px;
   height: 180px;
@@ -275,6 +318,33 @@
 }
 
 @media (max-width: 768px) {
+  .header {
+    padding: 18px 16px;
+  }
+  .header-left {
+    align-items: flex-start;
+    gap: 12px;
+  }
+  .header-icon-box {
+    width: 58px;
+    height: 58px;
+    border-radius: 18px;
+  }
+  .header-gouni {
+    width: 50px;
+    height: 50px;
+  }
+  .header-text h1 {
+    font-size: 22px;
+  }
+
+  .header-text p {
+    font-size: 14px;
+  }
+  .header-badge {
+    font-size: 12px;
+  }
+  
   .main-layout {
     flex-direction: column;
     padding: 16px;
