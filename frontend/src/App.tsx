@@ -41,10 +41,11 @@ function App() {
   // 기본 = 2
   const [fontLevel, setFontLevel] = useState(2);
 
-  const sendMessage = async (question: string) => {
+ const sendMessage = async (question: string) => {
     if (!question.trim()) return;
     if (isLoading) return;
 
+    // 1. 사용자가 입력한 메시지를 화면에 추가
     const userMessage: Message = {
       role: "user",
       content: question,
@@ -53,17 +54,41 @@ function App() {
     setMessages((prev) => [...prev, userMessage]);
     setIsLoading(true);
 
-    // mock 답변
-    setTimeout(() => {
+    try {
+      // 2. 수빈님이 만든 FastAPI 백엔드 API 호출
+      const response = await fetch("http://127.0.0.1:8000/ai-chat", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ question: question }), // ChatRequest 규격 (question)
+      });
+
+      if (!response.ok) {
+        throw new Error("서버 응답 오류");
+      }
+
+      const data = await response.json();
+
+      // 3. 백엔드에서 받아온 실제 AI 답변을 화면에 추가
       const aiMessage: Message = {
         role: "assistant",
-        content:
-          "현재는 프론트엔드 테스트용 임시 답변입니다.\n\n백엔드 연결 후 실제 민원 안내 답변이 표시됩니다.",
+        content: data.answer, // 수빈님 백엔드 응답 규격 (answer)
       };
 
       setMessages((prev) => [...prev, aiMessage]);
+    } catch (error) {
+      console.error("백엔드 통신 실패:", error);
+      
+      // 에러 발생 시 화면에 표시할 안내 메시지
+      const errorMessage: Message = {
+        role: "assistant",
+        content: "죄송합니다. 현재 서버 연결에 문제가 발생했습니다. 백엔드가 켜져 있는지 확인해 주세요.",
+      };
+      setMessages((prev) => [...prev, errorMessage]);
+    } finally {
       setIsLoading(false);
-    }, 800);
+    }
   };
 
   const decreaseFont = () => {
