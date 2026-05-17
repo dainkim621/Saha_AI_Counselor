@@ -11,7 +11,7 @@ load_dotenv()
 api_key = os.getenv("OPENAI_API_KEY")
 client = OpenAI(api_key=api_key)
 
-def get_similar_chunks(query: str, top_k: int = 3):
+def get_similar_chunks(query: str, top_k: int = 5): # k값을 조금 늘려주면 더 정확해집니다.
     db: Session = SessionLocal()
     
     # 1. 사용자의 질문을 벡터로 변환
@@ -21,16 +21,33 @@ def get_similar_chunks(query: str, top_k: int = 3):
     )
     query_embedding = response.data[0].embedding
 
-    # 2. pgvector의 <-> (L2 distance) 또는 <=> (Cosine distance) 연산자로 유사도 검색
-    # 여기서는 코사인 유사도 거리를 기준으로 정렬합니다.
+    # 2. 필터링(threshold) 없이 일단 가장 가까운 top_k개를 가져옵니다.
     results = db.query(Notice).order_by(
         Notice.embedding.cosine_distance(query_embedding)
     ).limit(top_k).all()
-    print(f"DEBUG: 검색된 제목들 -> {[r.title for r in results]}")
     
+    # 디버깅: 실제 검색된 본문이 있는지 확인
+    print(f"DEBUG: 검색된 제목들 -> {[r.title for r in results]}")
+    if results:
+        print(f"DEBUG: 첫 번째 검색결과 본문 -> {results[0].chunk_text[:50]}...")
+    else:
+        print("DEBUG: ❌ 검색 결과가 하나도 없습니다!")
+
     db.close()
     return results
 
+def search_notices(query_embedding, db):
+    # 유사도 임계값(Threshold) 설정 
+    # 0에 가까울수록 정답에 가깝고, 1에 가까울수록 먼 내용
+    threshold = 0.5 
+
+    results = db.query(Notice).filter(
+        Notice.embedding.cosine_distance(query_embedding) < threshold
+    ).order_by(
+        Notice.embedding.cosine_distance(query_embedding)
+    ).limit(3).all()
+    
+    return results
 # 테스트용 코드
 if __name__ == "__main__":
     test_query = "장학금 신청 기간 알려줘"

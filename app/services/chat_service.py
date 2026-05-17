@@ -8,13 +8,12 @@ from app.services.search_service import get_similar_chunks
 load_dotenv()
 # os.getenv를 통해 안전하게 키를 가져옴
 api_key = os.getenv("OPENAI_API_KEY")
-
 # 클라이언트를 생성할 때 변수를 넣어줌.
 client = OpenAI(api_key=api_key)
 
 def ask_saha_ai(user_question: str):
-    # DB에서 관련 정보 3개 찾아오기
-    relevant_chunks = get_similar_chunks(user_question, top_k=3)
+    # DB에서 관련 정보 7개 찾아오기
+    relevant_chunks = get_similar_chunks(user_question, top_k=7)
     
     # 참고할 본문 데이터 합치기
     context_text = "\n\n".join([
@@ -27,10 +26,11 @@ def ask_saha_ai(user_question: str):
         {
             "role": "system", 
             "content": (
-                "너는 부산 사하구청의 친절한 AI 상담사 '사하챗봇'야. "
-                "반드시 아래 제공된 [참고 정보]만을 바탕으로 답변해줘. "
-                "만약 참고 정보에 답이 없다면, '죄송하지만 해당 정보는 현재 공지사항에서 찾을 수 없습니다.'라고 답해줘."
-            )
+            "너는 부산 사하구청의 친절한 AI 상담사 '사하챗봇'이야. "
+            "반드시 아래 제공된 [참고 정보]를 바탕으로 구민에게 도움이 되는 답변을 해줘. "
+            "참고 정보에는 민원 안내, 구청 이용 방법, 공지사항 등이 포함되어 있어. " # 범위 확장
+            "만약 참고 정보에 질문과 관련된 내용이 전혀 없다면, '죄송하지만 해당 정보에 대한 내용을 찾을 수 없습니다. 구체적인 사항은 사하구청 대표번호(051-220-4000)로 문의해 주세요.'라고 답해줘."
+        )
         },
         {"role": "user", "content": f"[참고 정보]:\n{context_text}\n\n[질문]: {user_question}"}
     ]
@@ -46,7 +46,9 @@ def ask_saha_ai(user_question: str):
 
 if __name__ == "__main__":
     # 아까 검색 결과에 나왔던 '전자민원' 관련 질문으로 테스트
-    q = "전자민원 서비스에 대해 설명해줘" 
+    q = "주민등록등·초본, 전입세대열람 발급하려면 어떻게 해?" 
     print(f"\n💬 질문: {q}")
     print("-" * 30)
     print(ask_saha_ai(q))
+    
+    

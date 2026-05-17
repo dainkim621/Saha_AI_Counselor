@@ -4,7 +4,7 @@ import json
 from typing import List, Dict
 
 # ==============================
-# 설정
+# [1] 설정
 # ==============================
 INPUT_JSONL = "data/raw/saha_docs.jsonl"
 OUTPUT_DIR = "data/processed"
@@ -24,10 +24,14 @@ MENU_SIGNALS = [
     "주메뉴", "사하구 홈페이지", "만족도 조사", "개인정보처리방침",
     "저작권", "공유", "프린트", "이전글", "다음글", "목록"
 ]
+# [1] 제목이 될 수 없는 '내용 라벨' 정의 (띄어쓰기 무시하고 검사할 용도)
+CONTENT_LABELS = ["구비서류", "수수료", "신청방법", "업무내용", "창구번호", "문의전화", "안내사항", "유의사항", "공통안내", "신청대상"]
 
+# [2] 확실한 대분류 키워드 명시
+MAJOR_KEYWORDS = ["일반·고충 민원", "어디서나 민원", "증명민원 통합발급", "편의시설", "가족관계등록 신고", "생활불편신고민원", "무인민원발급"]
 
 # ==============================
-# 유틸
+# [2] 유틸리티 및 전처리
 # ==============================
 def ensure_dir(path: str):
     os.makedirs(path, exist_ok=True)
@@ -58,149 +62,263 @@ def is_menu_like_chunk(text: str) -> bool:
 
 
 # ==============================
-# chunk 분리
+# [3] chunk 분리 및 조립 로직
 # ==============================
-def split_by_structure(text: str) -> List[str]:
-    """
-    문서를 먼저 구조 단위로 나눈다.
-    - 제목/본문/구조정보
-    - [표], [목록], [정의목록]
-    - 신청방법, 구비서류 같은 섹션 제목
-    """
-    text = clean_text(text)
-    if not text:
-        return []
 
-    # 구조 블록 기준 우선 분리
-    blocks = re.split(r"\n(?=\[(?:본문|구조정보|표|목록|정의목록)\])", text)
+def is_likely_major(line, lines, idx):
+    """
+    해당 줄이 대분류(Major)일 가능성을 점수로 계산합니다.
+    """
+    score = 0
+    
+    # 1. 길이 조건: 대분류는 보통 짧고 명료합니다 (20자 미만)
+    if len(line) < 20: score += 2
+    
+    # 2. 제외 조건: 데이터성 기호가 있으면 제목이 아님
+    if any(k in line for k in [":", "：", "http", "www", "→"]): return False
+    
+    # 3. 위치 조건: 대분류는 보통 섹션의 처음에 나옵니다.
+    # 바로 다음 줄(idx+1)에 '창구', '전화', '내용' 등의 데이터가 붙는다면 이건 100% 대분류입니다.
+    if idx + 1 < len(lines):
+        next_line = lines[idx+1]
+        if any(k in next_line for k in ["창구", "전화", "문의", "업무", "내용"]):
+            score += 5
 
+    # 4. 키워드 조건 (범용): '민원', '안내', '시설', '현황', '방법' 등으로 끝나는 경우
+    if line.endswith(("민원", "안내", "현황", "방법", "시설", "신고", "발급", "센터")):
+        score += 3
+
+    return score >= 5 # 5점 이상이면 대분류로 확정
+
+def make_chunks_automated(doc: Dict) -> List[Dict]:
+    content = doc.get("text", "")
+    # ... (본문 추출 생략) ...
+    lines = [l.strip() for l in content.splitlines() if l.strip()]
+    
     results = []
-    for block in blocks:
-        block = clean_text(block)
-        if not block:
+    current_major = "일반" # 기본값
+    current_minor = ""
+    major_common_info = []
+    chunk_buffer = []
+
+    for i, line in enumerate(lines):
+        # [자동화 핵심] 대분류 감지
+        if is_likely_major(line, lines, i):
+            if chunk_buffer:
+                save_chunk(results, doc, current_major, current_minor, major_common_info, chunk_buffer)
+                chunk_buffer = []
+            
+            # 만약 현재 줄이 '통합발급' 같은 큰 단위를 포함하면 Major로 격상
+            current_major = line
+            current_minor = ""
+            major_common_info = []
             continue
 
-        # 섹션 힌트 앞에서 한 번 더 나눔
-        section_pattern = r"\n(?=(?:%s)\s*[:：]?)" % "|".join(map(re.escape, SECTION_HINTS))
-        sub_blocks = re.split(section_pattern, block)
+        # [자동화 핵심] 중분류 감지 
+        # (이미 대분류가 잡힌 상태에서, 데이터는 아닌데 짧은 줄이 나오면 중분류)
+        elif len(line) < 25 and ":" not in line and not any(k in line for k in ["창구", "전화"]):
+            if chunk_buffer:
+                save_chunk(results, doc, current_major, current_minor, major_common_info, chunk_buffer)
+                chunk_buffer = []
+            current_minor = line
+            continue
 
-        for sb in sub_blocks:
-            sb = clean_text(sb)
-            if sb:
-                results.append(sb)
+        # 데이터 적재 (창구번호 등은 공통 정보로 빼기)
+        if any(k in line for k in ["창구", "전화", "문의"]) and not current_minor:
+            major_common_info.append(line)
+        else:
+            chunk_buffer.append(line)
+
+    # 마지막 버퍼 처리
+    if chunk_buffer:
+        save_chunk(results, doc, current_major, current_minor, major_common_info, chunk_buffer)
 
     return results
 
-
-def sliding_window_split(text: str, max_len=MAX_CHUNK_LEN, overlap=OVERLAP) -> List[str]:
-    """
-    긴 텍스트는 문장 경계 비슷하게 나눈다.
-    """
-    text = clean_text(text)
-    if len(text) <= max_len:
-        return [text]
-
-    chunks = []
-    start = 0
-    n = len(text)
-
-    while start < n:
-        end = min(start + max_len, n)
-        piece = text[start:end]
-
-        # 가능하면 줄바꿈이나 마침표 부근에서 끊기
-        if end < n:
-            cut_candidates = [
-                piece.rfind("\n\n"),
-                piece.rfind("\n"),
-                piece.rfind(". "),
-                piece.rfind("다. "),
-            ]
-            cut = max(cut_candidates)
-            if cut > max_len // 2:
-                end = start + cut + 1
-                piece = text[start:end]
-
-        piece = clean_text(piece)
-        if piece:
-            chunks.append(piece)
-
-        if end >= n:
-            break
-
-        start = max(end - overlap, start + 1)
-
-    return chunks
-
-
-def build_chunk_text(doc, section_text: str) -> str:
-    title = doc.get("title", "")
+def build_chunk_text(doc, section_text: str, current_context: str) -> str:
+    page_title = doc.get("title", "")
     menu_path = " > ".join(doc.get("menu_path", []))
     
-    # [개선] section_text 내부에서 소제목(예: ## 구비서류)을 추출하여 맥락 보강
-    # 정규표현식으로 첫 줄이 소제목인지 확인하는 로직 추가 가능
-    
-    prefix = f"### {title} ({menu_path}) ###"
-    
-    # 챗봇이 답변할 때 참고할 수 있도록 명확한 구분자 제공
-    formatted_text = f"{prefix}\n\n[세부내용]\n{section_text}"
-    
+    header = f"### [분류: {menu_path}] ###\n"
+    header += f"### [정보원: {page_title}"
+    if current_context and current_context != page_title:
+        header += f" - {current_context}"
+    header += " ] ###"
+
+    formatted_text = f"{header}\n\n[상세 내용]\n{section_text}"
     return clean_text(formatted_text)
 
-# prefix를 너무 많이 넣으면 결과가 다 비슷해짐, title, menu_path만 남기고 단순화
-def make_chunks(doc: Dict) -> List[Dict]:
-    text = clean_text(doc.get("text", ""))
-    if not text:
-        return []
+def save_chunk(results, doc, major, minor, common_info, buffer):
+    if not buffer: return
 
-    structured_blocks = split_by_structure(text)
+    page_title = doc.get("title", "안내")
+    source_context = f"{page_title} - {major}"
+    if minor:
+        source_context += f" - {minor}"
+    
+    content_parts = []
+    if common_info:
+        content_parts.append("[공통 안내]\n" + "\n".join(common_info))
+    content_parts.append("[상세 내용]\n" + "\n".join(buffer))
+    
+    full_text = f"### [분류: {'>'.join(doc.get('menu_path', []))}] ###\n" \
+                f"### [정보원: {source_context} ] ###\n\n" \
+                + "\n\n".join(content_parts)
 
-    raw_chunks = []
-    for block in structured_blocks:
-        if len(block) <= MAX_CHUNK_LEN:
-            raw_chunks.append(block)
-        else:
-            raw_chunks.extend(sliding_window_split(block))
+    results.append({
+        "chunk_id": f"{doc['doc_id']}_{len(results)}",
+        "doc_id": doc["doc_id"],
+        "url": doc.get("url", ""),
+        "title": page_title,
+        "menu_path": doc.get("menu_path", []),
+        "chunk_text": full_text,
+        "metadata": {
+            "major": major,
+            "minor": minor,
+            "context": source_context
+        },
+        "source": "saha.go.kr"
+    })
+    
+def is_likely_heading(line, lines, idx):
+    # [방어 로직] 1. 제목이 20자 넘어가면 일단 의심 (보통 제목은 짧음)
+    if not (2 <= len(line) <= 25): return False, False
+    
+    # [방어 로직] 2. 숫자로 시작하거나 "※", "①" 같은 기호는 99% 내용임
+    if re.match(r"^[0-9※①②③④⑤\-\s]", line): return False, False
 
+    # [방어 로직] 3. 문장 중간에 조사가 많으면 내용임 (잘린 문장 방지)
+    if any(k in line for k in ["는 ", "를 ", "은 ", "의 ", "에 "]): return False, False
+
+    # [방어 로직] 4. 데이터성 구분자 확인
+    if ":" in line or "：" in line or "→" in line: return False, False
+
+    # --- 여기서부터는 분류 판단 ---
+    is_major = False
+    next_line = lines[idx+1] if idx + 1 < len(lines) else ""
+    
+    # 강력한 대분류 신호: 다음 줄에 핵심 속성이 붙어있는 경우
+    # 예: 일반·고충 민원 (현재줄) -> 업무내용 (다음줄)
+    if any(k in next_line for k in ["업무내용", "창구번호", "문의전화", "구비서류"]):
+        is_major = True
+    
+    # 키워드 엔딩 (민원, 안내, 센터 등)
+    if line.endswith(("민원", "안내", "신고", "시설", "센터")):
+        is_major = True
+
+    return True, is_major
+
+def make_chunks_universal(doc):
+    raw_text = doc.get("text", "")
+    # [본문] 영역 추출
+    body_part = raw_text.split("[본문]")[1].split("[구조정보]")[0].strip() if "[본문]" in raw_text else raw_text
+    lines = [line.strip() for line in body_part.splitlines() if line.strip()]
+    
+    # UI 노이즈 제거
+    lines = [l for l in lines if l not in ["Home", "열기", "닫기", "인쇄하기", "전자민원"]]
+    
     results = []
-    chunk_index = 0
-
-    for chunk in raw_chunks:
-        chunk = clean_text(chunk)
-        if len(chunk) < MIN_CHUNK_LEN:
+    curr_major = doc.get("title", "일반 안내") # 페이지 제목을 기본 대분류로
+    curr_minor = ""
+    common_info = [] # 창구번호 등 섹션 공통 정보
+    buffer = []
+    
+    for i, line in enumerate(lines):
+        is_heading, is_major = is_likely_heading(line, lines, i)
+        
+        if is_heading:
+            if buffer:
+                save_chunk(results, doc, curr_major, curr_minor, common_info, buffer)
+                buffer = []
+            
+            if is_major:
+                curr_major = line
+                curr_minor = ""
+                common_info = [] # 대분류가 바뀌면 공통정보 초기화
+            else:
+                curr_minor = line
             continue
-        if is_menu_like_chunk(chunk):
-            continue
 
-        chunk_text = build_chunk_text(doc, chunk)
+        # [수정] 속성 정보(창구/전화)를 무조건 common_info로 빼지 말고,
+        # '내용(buffer)'에도 포함시켜야 문맥이 끊기지 않습니다.
+        if any(k in line for k in ["창구번호", "문의전화", "업무내용", "수수료"]):
+            common_info.append(line)
+        
+        buffer.append(line) # 무조건 본문에도 넣어서 AI가 읽게 함
 
-        results.append({
-            "chunk_id": f"{doc.get('doc_id', 'unknown')}_{chunk_index}",
-            "doc_id": doc.get("doc_id", ""),
-            "url": doc.get("url", ""),
-            "title": doc.get("title", ""),
-            "author": doc.get("author", ""),
-            "date": doc.get("date", ""),
-            "views": doc.get("views"),
-            "page_type": doc.get("page_type", ""),
-            "parent_url": doc.get("parent_url", ""),
-            "anchor_text": doc.get("anchor_text", ""),
-            "menu_path": doc.get("menu_path", []),
-            "chunk_index": chunk_index,
-            "chunk_text": chunk_text,
-            "source": doc.get("source", "saha.go.kr"),
-        })
-        chunk_index += 1
+    # 마지막 남은 덩어리 저장
+    if buffer:
+        save_chunk(results, doc, curr_major, curr_minor, common_info, buffer)
 
     return results
+# [3] chunk 분리 로직 (논리 구조 중심)
+def make_chunks(doc):
+    raw_text = doc.get("text", "")
+    content = raw_text.split("[본문]")[1].split("[구조정보]")[0].strip() if "[본문]" in raw_text else raw_text
+    lines = [line.strip() for line in content.splitlines() if line.strip()]
+    
+    results = []
+    curr_major = "안내 개요" # [수정] 인트로 텍스트가 날아가지 않도록 초기 방 이름 설정
+    curr_minor = ""
+    common_info = []
+    buffer = []
 
+    for i, line in enumerate(lines):
+        # 띄어쓰기를 없앤 클린 버전으로 내용 라벨 검사 ('수 수 료' 완벽 방어)
+        clean_line = line.replace(" ", "")
+        
+        # [Step 1] 제목 판별 로직 (더욱 정교하게)
+        is_content_label = any(label in clean_line for label in CONTENT_LABELS) and len(clean_line) < 15
+        # '번째'를 추가하여 "메뉴 첫번째" 같은 문장이 제목으로 잘리는 것 방지
+        ends_with_verb = line.endswith(("다.", "다", "요.", "요", "니다", "습니다", "바랍니다", "번째"))
+        has_colon = any(c in line for c in [":", "：", "→"])
+        is_long = len(line) > 25
+        
+        # 대분류 키워드가 포함되어 있으면 무조건 제목으로 인정
+        is_major_explicit = any(k in line for k in MAJOR_KEYWORDS)
 
+        if is_major_explicit:
+            is_heading = True
+        elif is_long or has_colon or ends_with_verb or is_content_label:
+            is_heading = False
+        else:
+            is_heading = True
+
+        if is_heading:
+            if buffer:
+                save_chunk(results, doc, curr_major, curr_minor, common_info, buffer)
+                buffer = []
+
+            # [Step 2] 대분류 vs 중분류 판별
+            is_new_major = is_major_explicit
+            # 키워드가 없더라도, 발급/안내 등으로 끝나면서 다음 줄에 창구가 나오면 대분류
+            if not is_new_major and line.endswith(("민원", "시설", "안내", "신고", "발급")) and i + 1 < len(lines):
+                if any(k in lines[i+1] for k in ["창구", "전화", "문의", "업무"]):
+                    is_new_major = True
+
+            if is_new_major:
+                curr_major = line
+                curr_minor = ""
+                common_info = [] 
+            else:
+                curr_minor = line
+            continue
+
+        # [Step 3] 데이터 적재
+        if not curr_minor and any(k in line for k in ["창구", "전화", "문의", "업무내용"]):
+            common_info.append(line)
+        else:
+            buffer.append(line)
+
+    if buffer:
+        save_chunk(results, doc, curr_major, curr_minor, common_info, buffer)
+
+    return results
 # ==============================
-# 실행
+# [4] 실행
 # ==============================
 def preprocess():
     ensure_dir(OUTPUT_DIR)
-
     total_docs = 0
     total_chunks = 0
 
@@ -225,7 +343,6 @@ def preprocess():
     print(f"- 입력 문서 수: {total_docs}")
     print(f"- 생성 chunk 수: {total_chunks}")
     print(f"- 출력 파일: {OUTPUT_JSONL}")
-
 
 if __name__ == "__main__":
     preprocess()

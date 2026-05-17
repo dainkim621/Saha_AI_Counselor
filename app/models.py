@@ -6,7 +6,7 @@ from app.database import Base
 class Notice(Base):
     __tablename__ = "notices"
 
-    # 1. 고유 식별자 (청크 단위 관리를 위해 수정)
+    #고유 식별자 (청크 단위 관리를 위해 수정)
     # 기존 id 대신 JSONL에 있는 chunk_id를 PK로 쓰거나, 별도 PK를 둡니다.
     id = Column(Integer, primary_key=True, index=True) 
     chunk_id = Column(String, unique=True, index=True, nullable=False) # 예: doc_id_0
