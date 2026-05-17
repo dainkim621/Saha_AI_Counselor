@@ -3,7 +3,6 @@ import "./App.css";
 
 import Header from "./components/Header";
 import MascotCard from "./components/MascotCard";
-import QuickMenu from "./components/QuickMenu";
 import ChatWindow from "./components/ChatWindow";
 import ChatInput from "./components/ChatInput";
 
@@ -121,10 +120,6 @@ function App() {
       <main className="main-layout">
         <section className="left-section">
           <MascotCard />
-          <QuickMenu
-            onSelect={sendMessage}
-            disabled={isLoading}
-          />
         </section>
 
         <section className="chat-section">
