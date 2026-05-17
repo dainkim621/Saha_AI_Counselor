@@ -6,7 +6,7 @@ from typing import List, Dict
 # ==============================
 # [1] 설정
 # ==============================
-INPUT_JSONL = "data/raw/saha_docs.jsonl"
+INPUT_DIR = "data/raw"
 OUTPUT_DIR = "data/processed"
 OUTPUT_JSONL = os.path.join(OUTPUT_DIR, "saha_chunks.jsonl")
 
@@ -62,7 +62,7 @@ def is_menu_like_chunk(text: str) -> bool:
 
 
 # ==============================
-# [3] chunk 분리 및 조립 로직
+# [3] chunk 분리 및 조립 로직(서식 별 함수 분리)
 # ==============================
 
 def is_likely_major(line, lines, idx):
@@ -252,7 +252,7 @@ def make_chunks_universal(doc):
 
     return results
 # [3] chunk 분리 로직 (논리 구조 중심)
-def make_chunks(doc):
+def make_chunks_format_docs(doc): #사하구청 전체 크롤러
     raw_text = doc.get("text", "")
     content = raw_text.split("[본문]")[1].split("[구조정보]")[0].strip() if "[본문]" in raw_text else raw_text
     lines = [line.strip() for line in content.splitlines() if line.strip()]
@@ -314,6 +314,58 @@ def make_chunks(doc):
         save_chunk(results, doc, curr_major, curr_minor, common_info, buffer)
 
     return results
+
+def make_chunks_format_forms(doc: Dict) -> List[Dict]: #민원 양식 전처리
+    results = []
+    
+    # 1. 딕셔너리에서 풍부한 속성값들을 안전하게 추출합니다.
+    title = doc.get("title", "민원 안내")
+    category = doc.get("category", "일반")
+    department = doc.get("department", "미지정")
+    phone = doc.get("phone", "비공개")
+    processing_period = doc.get("processing_period", "즉시")
+    required_documents = doc.get("required_documents", "없음")
+    submission_place = doc.get("submission_place", "행정복지센터")
+    fee = doc.get("fee", "없음")
+    notes = doc.get("notes", "")
+    review_criteria = doc.get("review_criteria", "")
+    workflow = doc.get("workflow", "")
+    
+    # 2. 고우니(AI)가 읽었을 때 한눈에 정보를 파악할 수 있도록 RAG 맞춤형 서식으로 재조립합니다.
+    full_text = f"### [민원명: {title}] ###\n"
+    full_text += f"- 분류/분야: {category}\n"
+    full_text += f"- 담당부서 및 문의처: {department} (☎ {phone})\n"
+    full_text += f"- 처리기간: {processing_period}\n"
+    full_text += f"- 신청 및 제출처: {submission_place}\n"
+    full_text += f"- 수수료 및 기타비용: {fee}\n\n"
+    
+    full_text += f"[구비 서류]\n{required_documents}\n\n"
+    
+    if review_criteria:
+        full_text += f"[행정기관 심사 기준]\n{review_criteria}\n\n"
+    if workflow:
+        full_text += f"[업무 처리 흐름도]\n{workflow}\n\n"
+    if notes:
+        full_text += f"[유의 사항]\n{notes}\n\n"
+        
+    # 3. 기존의 save_chunk와 구조적 호환성을 맞추어 청크 리스트에 적재합니다.
+    results.append({
+        "chunk_id": f"{doc['doc_id']}_0", # 이 데이터는 문서 1개가 하나의 완벽한 덩어리이므로 _0 고정
+        "doc_id": doc["doc_id"],
+        "url": doc.get("url", ""),
+        "title": title,
+        "menu_path": [category, title],
+        "chunk_text": clean_text(full_text), # 텍스트 공백 정제
+        "metadata": {
+            "major": category,
+            "minor": title,
+            "context": f"{title} 안내"
+        },
+        "source": "saha.go.kr"
+    })
+    
+    return results
+    return results
 # ==============================
 # [4] 실행
 # ==============================
@@ -321,28 +373,46 @@ def preprocess():
     ensure_dir(OUTPUT_DIR)
     total_docs = 0
     total_chunks = 0
-
-    with open(INPUT_JSONL, "r", encoding="utf-8") as fin, \
-         open(OUTPUT_JSONL, "w", encoding="utf-8") as fout:
-
-        for line in fin:
-            line = line.strip()
-            if not line:
+    #출력파일은 하나
+    with open(OUTPUT_JSONL, "w", encoding="utf-8") as fout:
+        #raw 폴더 안의 모든 파일을 가져옴
+        for file_name in os.listdir(INPUT_DIR):
+            file_path = os.path.join(INPUT_DIR, file_name)
+            
+            # 맥 디렉토리 숨김파일(.DS_Store 등) 예외 처리
+            if file_name.startswith('.'): 
                 continue
+                
+            print(f"📦 현재 처리 중인 파일: {file_name}")
+            
+            # 각 파일 내부를 열어서 한 줄씩 파싱
+            with open(file_path, "r", encoding="utf-8") as fin:
+                for line in fin:
+                    line = line.strip()
+                    if not line: 
+                        continue
+                        
+                    doc = json.loads(line)
+                    total_docs += 1
+                    
+                    # ⭐ [핵심 분기 처리] 파일 구조(컬럼)를 보고 처리 함수를 동적으로 지정합니다.
+                    if "page_type" in doc:
+                        # 새로 추가된 예쁜 JSON 형태의 데이터라면 -> 서식 B로 작동!
+                        chunks = make_chunks_format_forms(doc)
+                    else:
+                        # 예전의 통짜 text 위주의 데이터라면 -> 기존의 쪼개기(서식 A)로 작동!
+                        chunks = make_chunks_format_docs(doc)
+                        
+                    total_chunks += len(chunks)
+                    
+                    # 어떤 서식을 거쳤든 공통된 규격으로 출력 파일에 차곡차곡 기록!
+                    for chunk in chunks:
+                        fout.write(json.dumps(chunk, ensure_ascii=False) + "\n")
 
-            doc = json.loads(line)
-            total_docs += 1
-
-            chunks = make_chunks(doc)
-            total_chunks += len(chunks)
-
-            for chunk in chunks:
-                fout.write(json.dumps(chunk, ensure_ascii=False) + "\n")
-
-    print("전처리 완료")
-    print(f"- 입력 문서 수: {total_docs}")
-    print(f"- 생성 chunk 수: {total_chunks}")
-    print(f"- 출력 파일: {OUTPUT_JSONL}")
+    print("\n✨ 모든 크롤링 파일 통합 전처리 완료! ✨")
+    print(f"- 총 처리한 원본 문서 수: {total_docs}")
+    print(f"- 최종 생성된 RAG Chunk 수: {total_chunks}")
+    print(f"- 통합 저장 완료된 파일 주소: {OUTPUT_JSONL}")
 
 if __name__ == "__main__":
     preprocess()
