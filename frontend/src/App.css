@@ -1,0 +1,1023 @@
+.app {
+  min-height: 100vh;
+  background-color: #f5f7fb;
+  color: #222;
+  font-family: "Pretendard", "Noto Sans KR", sans-serif;
+}
+
+/* =========================
+   Header
+========================= */
+
+.header {
+  position: relative;
+  overflow: hidden;
+
+  width: calc(100% - 32px);
+  min-height: 360px;
+
+  margin: 16px auto 18px;
+  padding: 58px 90px 52px;
+
+  box-sizing: border-box;
+
+  background:
+    radial-gradient(circle at 6% 16%, rgba(147, 197, 253, 0.35) 0 44px, transparent 45px),
+    radial-gradient(circle at 96% 16%, rgba(147, 197, 253, 0.28) 0 75px, transparent 76px),
+    linear-gradient(135deg, #ffffff 0%, #eff6ff 42%, #d8ebff 100%);
+
+  border: 1px solid #dbeafe;
+  border-radius: 30px;
+
+  box-shadow: 0 12px 30px rgba(37, 99, 235, 0.08);
+}
+
+.header::before {
+  content: "";
+
+  position: absolute;
+
+  left: -70px;
+  bottom: -80px;
+
+  width: 720px;
+  height: 190px;
+
+  border-radius: 50%;
+
+  background: rgba(191, 219, 254, 0.38);
+
+  transform: rotate(4deg);
+}
+
+.header::after {
+  content: "";
+
+  position: absolute;
+
+  right: -90px;
+  top: 18px;
+
+  width: 650px;
+  height: 350px;
+
+  border-radius: 45% 0 0 55%;
+
+  background: rgba(147, 197, 253, 0.25);
+}
+
+.header-content {
+  position: relative;
+  z-index: 2;
+
+  width: 100%;
+  max-width: 1600px;
+
+  margin: 0 auto;
+
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  gap: 90px;
+}
+
+.header-text {
+  flex: 1;
+  min-width: 560px;
+
+  text-align: left;
+}
+
+.header-kicker {
+  margin: 0 0 22px;
+
+  font-size: 21px;
+  font-weight: 800;
+  letter-spacing: 3px;
+
+  color: #1677ff;
+}
+
+.header-text h1 {
+  margin: 0;
+
+  font-size: 72px;
+  font-weight: 900;
+  line-height: 1.12;
+  letter-spacing: -4px;
+
+  color: #071228;
+}
+
+.header-description {
+  margin: 28px 0 34px;
+
+  color: #1f2937;
+
+  font-size: 25px;
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+.header-badge-list {
+  display: flex;
+  flex-wrap: wrap;
+
+  gap: 18px;
+
+  justify-content: flex-start;
+}
+
+.header-badge {
+  height: 58px;
+  padding: 0 28px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 999px;
+
+  background-color: rgba(255, 255, 255, 0.92);
+
+  color: #1677ff;
+
+  font-size: 19px;
+  font-weight: 800;
+
+  border: 1px solid rgba(191, 219, 254, 0.95);
+
+  box-shadow: 0 10px 24px rgba(37, 99, 235, 0.12);
+
+  backdrop-filter: blur(10px);
+}
+
+.header-visual {
+  flex-shrink: 0;
+
+  width: 500px;
+  height: 310px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  position: relative;
+}
+
+.header-visual::before {
+  content: "";
+
+  position: absolute;
+
+  width: 390px;
+  height: 260px;
+
+  border-radius: 48% 52% 44% 56%;
+
+  background: rgba(147, 197, 253, 0.35);
+
+  right: 40px;
+  bottom: 8px;
+}
+
+.header-gouni {
+  position: relative;
+  z-index: 2;
+
+  width: 330px;
+
+  object-fit: contain;
+
+  animation: header-gouni-wave 2.8s ease-in-out infinite;
+
+  transform-origin: bottom center;
+}
+
+@keyframes header-gouni-wave {
+  0%,
+  100% {
+    transform: translateY(0) rotate(0deg);
+  }
+
+  25% {
+    transform: translateY(-5px) rotate(-2deg);
+  }
+
+  50% {
+    transform: translateY(0) rotate(2deg);
+  }
+
+  75% {
+    transform: translateY(-4px) rotate(-1deg);
+  }
+}
+
+.header-pattern {
+  position: absolute;
+
+  z-index: 1;
+
+  font-size: 42px;
+
+  opacity: 0.16;
+
+  user-select: none;
+
+  animation: floatPattern 6s ease-in-out infinite;
+}
+
+.pattern-1 {
+  top: 74px;
+  left: 58%;
+}
+
+.pattern-2 {
+  bottom: 72px;
+  left: 56%;
+}
+
+.pattern-3 {
+  top: 92px;
+  right: 17%;
+}
+
+.pattern-4 {
+  top: 90px;
+  right: 8%;
+
+  font-size: 82px;
+
+  color: #60a5fa;
+
+  letter-spacing: 8px;
+}
+
+.header-bg-circle {
+  position: absolute;
+
+  z-index: 1;
+
+  border-radius: 50%;
+
+  background: rgba(147, 197, 253, 0.28);
+}
+
+.circle-left {
+  width: 90px;
+  height: 90px;
+
+  left: 66px;
+  top: 46px;
+}
+
+.circle-right {
+  width: 120px;
+  height: 120px;
+
+  right: 72px;
+  bottom: 44px;
+}
+
+@keyframes floatPattern {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
+/* =========================
+   Layout
+========================= */
+
+.main-layout {
+  display: flex;
+  gap: 24px;
+  padding: 24px;
+}
+
+.left-section {
+  width: 280px;
+
+  display: flex;
+  flex-direction: column;
+
+  gap: 16px;
+}
+
+.chat-section {
+  flex: 1;
+
+  display: flex;
+  flex-direction: column;
+
+  height: calc(100vh - 130px);
+
+  background-color: white;
+
+  border-radius: 24px;
+
+  border: 1px solid #e5e7eb;
+
+  overflow: hidden;
+
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.04);
+}
+
+/* =========================
+   Mascot
+========================= */
+
+.mascot-card {
+  background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+
+  border-radius: 24px;
+
+  padding: 28px 20px;
+
+  border: 1px solid #e5e7eb;
+
+  text-align: center;
+
+  overflow: visible;
+
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.05);
+}
+
+.mascot-glow {
+  width: 190px;
+  height: 190px;
+
+  margin: 0 auto 18px;
+  padding-top: 18px;
+
+  border-radius: 50%;
+
+  background: radial-gradient(
+    circle,
+    #dbeafe 0%,
+    rgba(219, 234, 254, 0.35) 45%,
+    transparent 72%
+  );
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.gouni-main {
+  width: 145px;
+
+  object-fit: contain;
+
+  animation: gouni-float 2.8s ease-in-out infinite;
+}
+
+@keyframes gouni-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(-4px) scale(1.02);
+  }
+}
+
+.mascot-text {
+  max-width: 260px;
+  margin: 0 auto;
+}
+
+.mascot-label {
+  display: inline-block;
+
+  margin-bottom: 8px;
+
+  padding: 5px 10px;
+
+  border-radius: 999px;
+
+  background-color: #eff6ff;
+
+  color: #2563eb;
+
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.mascot-card h2 {
+  margin: 0 0 10px;
+
+  font-size: 26px;
+  font-weight: 900;
+
+  color: #111827;
+}
+
+.mascot-card p {
+  margin: 0;
+
+  color: #4b5563;
+
+  line-height: 1.7;
+}
+
+/* =========================
+   Quick Menu
+========================= */
+
+.quick-menu {
+  background-color: white;
+
+  border-radius: 20px;
+
+  padding: 20px;
+
+  border: 1px solid #e5e7eb;
+}
+
+.quick-menu h3 {
+  margin: 8px 0;
+}
+
+.quick-button-list {
+  display: flex;
+  flex-direction: column;
+
+  gap: 8px;
+}
+
+.quick-button-list button {
+  padding: 12px 14px;
+
+  border: 1px solid #d1d5db;
+
+  background-color: #f9fafb;
+
+  border-radius: 12px;
+
+  cursor: pointer;
+
+  text-align: left;
+
+  line-height: 1.5;
+
+  transition: 0.2s;
+}
+
+.quick-button-list button:hover {
+  background-color: #eef2ff;
+  border-color: #93c5fd;
+}
+
+/* =========================
+   Chat
+========================= */
+
+.chat-window {
+  flex: 1;
+
+  padding: 20px;
+
+  overflow-y: auto;
+
+  background: #ffffff;
+}
+
+.message-row {
+  display: flex;
+
+  margin-bottom: 14px;
+}
+
+.user-row {
+  justify-content: flex-end;
+}
+
+.assistant-row {
+  justify-content: flex-start;
+}
+
+.chat-avatar {
+  width: 46px;
+  height: 46px;
+
+  object-fit: cover;
+  object-position: center 18%;
+
+  border-radius: 50%;
+
+  background: #ffffff;
+
+  border: 2px solid #e0edff;
+
+  margin-right: 10px;
+
+  align-self: flex-end;
+
+  box-shadow: 0 6px 16px rgba(37, 99, 235, 0.12);
+}
+
+.chat-avatar-active {
+  animation: gouni-float 1.4s ease-in-out infinite;
+}
+
+.message-bubble {
+  max-width: 70%;
+
+  padding: 14px 16px;
+
+  border-radius: 18px;
+
+  line-height: 1.6;
+
+  white-space: pre-wrap;
+
+  word-break: keep-all;
+}
+
+.user-bubble {
+  background-color: #2563eb;
+
+  color: white;
+
+  border-bottom-right-radius: 6px;
+}
+
+.assistant-bubble {
+  background-color: #f1f5f9;
+
+  color: #222;
+
+  border-bottom-left-radius: 6px;
+}
+
+/* =========================
+   Input
+========================= */
+
+.chat-input-box {
+  display: flex;
+
+  gap: 10px;
+
+  padding: 18px;
+
+  border-top: 1px solid #e5e7eb;
+
+  background: white;
+}
+
+.chat-input-box input {
+  flex: 1;
+
+  padding: 14px 16px;
+
+  border: 1px solid #d1d5db;
+
+  border-radius: 14px;
+
+  font-size: 16px;
+}
+
+.chat-input-box button {
+  padding: 12px 20px;
+
+  border: none;
+
+  border-radius: 14px;
+
+  background-color: #2563eb;
+
+  color: white;
+
+  cursor: pointer;
+
+  font-weight: 700;
+}
+
+.chat-input-box button:hover {
+  background-color: #1d4ed8;
+}
+
+/* =========================
+   Accessibility
+========================= */
+
+.accessibility-bar {
+  display: flex;
+
+  justify-content: flex-end;
+  align-items: center;
+
+  gap: 8px;
+
+  padding: 10px 24px;
+}
+
+.accessibility-bar span {
+  font-size: 15px;
+  font-weight: 600;
+
+  color: #374151;
+}
+
+.accessibility-bar button {
+  width: 34px;
+  height: 34px;
+
+  display: flex;
+  justify-content: center;
+  align-items: center;
+
+  border: 1px solid #d1d5db;
+
+  border-radius: 999px;
+
+  background-color: #ffffff;
+
+  color: #2563eb;
+
+  cursor: pointer;
+
+  font-size: 20px;
+  font-weight: 700;
+
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.08);
+
+  padding: 0;
+}
+
+.font-label {
+  min-width: 72px;
+
+  padding: 6px 10px;
+
+  border-radius: 999px;
+
+  background-color: #f1f5f9;
+
+  color: #1f2937;
+
+  font-size: 14px;
+  font-weight: 700;
+
+  text-align: center;
+}
+
+/* =========================
+   Mobile
+========================= */
+
+@media (max-width: 768px) {
+  .header {
+    width: calc(100% - 20px);
+
+    padding: 42px 20px 48px;
+
+    border-radius: 24px;
+  }
+
+  .header-content {
+    flex-direction: column;
+
+    gap: 18px;
+
+    text-align: center;
+  }
+
+  .header-text {
+    min-width: auto;
+
+    text-align: center;
+  }
+
+  .header-text h1 {
+    font-size: 38px;
+  }
+
+  .header-description {
+    font-size: 16px;
+  }
+
+  .header-badge-list {
+    justify-content: center;
+  }
+
+  .header-badge {
+    height: 48px;
+    font-size: 15px;
+  }
+
+  .header-visual {
+    width: auto;
+    height: auto;
+  }
+
+  .header-visual::before {
+    width: 200px;
+    height: 150px;
+  }
+
+  .header-gouni {
+    width: 150px;
+  }
+
+  .header-pattern,
+  .header-bg-circle {
+    display: none;
+  }
+
+  .main-layout {
+    flex-direction: column;
+
+    padding: 16px;
+  }
+
+  .left-section {
+    width: 100%;
+  }
+
+  .chat-section {
+    height: 70vh;
+  }
+
+  .message-bubble {
+    max-width: 85%;
+  }
+
+  .mascot-glow {
+    width: 150px;
+    height: 150px;
+  }
+
+  .gouni-main {
+    width: 120px;
+  }
+
+  .chat-avatar {
+    width: 40px;
+    height: 40px;
+  }
+}
+
+/* =========================
+   Font Size Control
+========================= */
+
+/* 전체 기본 크기 */
+
+.app.font-xsmall {
+  font-size: 12px;
+}
+
+.app.font-small {
+  font-size: 15px;
+}
+
+.app.font-normal {
+  font-size: 18px;
+}
+
+.app.font-large {
+  font-size: 23px;
+}
+
+.app.font-xlarge {
+  font-size: 30px;
+}
+
+/* =========================
+   헤더
+========================= */
+
+.app.font-xsmall .header-text h1 {
+  font-size: 52px;
+}
+
+.app.font-small .header-text h1 {
+  font-size: 64px;
+}
+
+.app.font-normal .header-text h1 {
+  font-size: 76px;
+}
+
+.app.font-large .header-text h1 {
+  font-size: 92px;
+}
+
+.app.font-xlarge .header-text h1 {
+  font-size: 110px;
+}
+
+.app.font-xsmall .header-description {
+  font-size: 16px;
+}
+
+.app.font-small .header-description {
+  font-size: 20px;
+}
+
+.app.font-normal .header-description {
+  font-size: 25px;
+}
+
+.app.font-large .header-description {
+  font-size: 32px;
+}
+
+.app.font-xlarge .header-description {
+  font-size: 40px;
+}
+
+/* 헤더 버튼 */
+
+.app.font-xsmall .header-badge {
+  font-size: 13px;
+  height: 44px;
+}
+
+.app.font-small .header-badge {
+  font-size: 16px;
+  height: 52px;
+}
+
+.app.font-normal .header-badge {
+  font-size: 19px;
+  height: 58px;
+}
+
+.app.font-large .header-badge {
+  font-size: 24px;
+  height: 68px;
+}
+
+.app.font-xlarge .header-badge {
+  font-size: 30px;
+  height: 82px;
+}
+
+/* =========================
+   왼쪽 카드
+========================= */
+
+.app.font-xsmall .mascot-card h2 {
+  font-size: 22px;
+}
+
+.app.font-small .mascot-card h2 {
+  font-size: 28px;
+}
+
+.app.font-normal .mascot-card h2 {
+  font-size: 34px;
+}
+
+.app.font-large .mascot-card h2 {
+  font-size: 42px;
+}
+
+.app.font-xlarge .mascot-card h2 {
+  font-size: 52px;
+}
+
+.app.font-xsmall .mascot-card p {
+  font-size: 13px;
+}
+
+.app.font-small .mascot-card p {
+  font-size: 16px;
+}
+
+.app.font-normal .mascot-card p {
+  font-size: 18px;
+}
+
+.app.font-large .mascot-card p {
+  font-size: 24px;
+}
+
+.app.font-xlarge .mascot-card p {
+  font-size: 30px;
+}
+
+/* =========================
+   빠른 질문 버튼
+========================= */
+
+.app.font-xsmall .quick-button-list button {
+  font-size: 12px;
+}
+
+.app.font-small .quick-button-list button {
+  font-size: 15px;
+}
+
+.app.font-normal .quick-button-list button {
+  font-size: 18px;
+}
+
+.app.font-large .quick-button-list button {
+  font-size: 24px;
+}
+
+.app.font-xlarge .quick-button-list button {
+  font-size: 30px;
+}
+
+/* =========================
+   채팅
+========================= */
+
+.app.font-xsmall .message-bubble {
+  font-size: 14px;
+}
+
+.app.font-small .message-bubble {
+  font-size: 18px;
+}
+
+.app.font-normal .message-bubble {
+  font-size: 22px;
+}
+
+.app.font-large .message-bubble {
+  font-size: 30px;
+}
+
+.app.font-xlarge .message-bubble {
+  font-size: 40px;
+}
+
+/* =========================
+   입력창
+========================= */
+
+.app.font-xsmall .chat-input-box input {
+  font-size: 14px;
+}
+
+.app.font-small .chat-input-box input {
+  font-size: 18px;
+}
+
+.app.font-normal .chat-input-box input {
+  font-size: 22px;
+}
+
+.app.font-large .chat-input-box input {
+  font-size: 28px;
+}
+
+.app.font-xlarge .chat-input-box input {
+  font-size: 36px;
+}
+
+/* 입력 버튼 */
+
+.app.font-large .chat-input-box button {
+  font-size: 22px;
+}
+
+.app.font-xlarge .chat-input-box button {
+  font-size: 28px;
+}
+
+/* =========================
+   접근성 바
+========================= */
+
+.app.font-xsmall .accessibility-bar {
+  font-size: 12px;
+}
+
+.app.font-small .accessibility-bar {
+  font-size: 15px;
+}
+
+.app.font-normal .accessibility-bar {
+  font-size: 18px;
+}
+
+.app.font-large .accessibility-bar {
+  font-size: 24px;
+}
+
+.app.font-xlarge .accessibility-bar {
+  font-size: 30px;
+}
+
+.app.font-large .font-label {
+  font-size: 20px;
+}
+
+.app.font-xlarge .font-label {
+  font-size: 26px;
+}
