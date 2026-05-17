@@ -53,17 +53,45 @@ function App() {
     setMessages((prev) => [...prev, userMessage]);
     setIsLoading(true);
 
-    // mock 답변
-    setTimeout(() => {
-      const aiMessage: Message = {
-        role: "assistant",
-        content:
-          "현재는 프론트엔드 테스트용 임시 답변입니다.\n\n백엔드 연결 후 실제 민원 안내 답변이 표시됩니다.",
-      };
+    try {
+  const response = await fetch(
+    "http://localhost:8000/ai-chat",
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        question: question,
+      }),
+    }
+  );
 
-      setMessages((prev) => [...prev, aiMessage]);
-      setIsLoading(false);
-    }, 800);
+
+  // ✅ 추가: 백엔드 응답이 실패했는지 확인
+  if (!response.ok) {
+    throw new Error("백엔드 응답 오류");
+  }
+
+  const data = await response.json();
+
+  const aiMessage: Message = {
+    role: "assistant",
+    content: data.answer,
+  };
+
+  setMessages((prev) => [...prev, aiMessage]);
+} catch (error) {
+  const errorMessage: Message = {
+    role: "assistant",
+    content:
+      "서버 연결 중 오류가 발생했습니다.",
+  };
+
+  setMessages((prev) => [...prev, errorMessage]);
+} finally {
+  setIsLoading(false);
+}
   };
 
   const decreaseFont = () => {
