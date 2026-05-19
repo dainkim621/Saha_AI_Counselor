@@ -164,7 +164,16 @@ def save_chunk(results, doc, major, minor, common_info, buffer):
     full_text = f"### [분류: {'>'.join(doc.get('menu_path', []))}] ###\n" \
                 f"### [정보원: {source_context} ] ###\n\n" \
                 + "\n\n".join(content_parts)
-
+    # 원본 doc에서 date와 author를 안전하게 추출 (없으면 기본값)
+    origin_date = doc.get("date", "") or doc.get("published_at", "")
+    origin_author = doc.get("author", "미확인")
+    
+    raw_views = doc.get("views", 0)
+    try:
+        views_int = int(raw_views) if raw_views else 0
+    except ValueError:
+        views_int = 0
+        
     results.append({
         "chunk_id": f"{doc['doc_id']}_{len(results)}",
         "doc_id": doc["doc_id"],
@@ -172,10 +181,13 @@ def save_chunk(results, doc, major, minor, common_info, buffer):
         "title": page_title,
         "menu_path": doc.get("menu_path", []),
         "chunk_text": full_text,
+        "views": views_int,
         "metadata": {
             "major": major,
             "minor": minor,
-            "context": source_context
+            "context": source_context,
+            "date": origin_date,
+            "author": origin_author
         },
         "source": "saha.go.kr"
     })
@@ -252,68 +264,6 @@ def make_chunks_universal(doc):
 
     return results
 # [3] chunk 분리 로직 (논리 구조 중심)
-def make_chunks_format_docs(doc): #사하구청 전체 크롤러
-    raw_text = doc.get("text", "")
-    content = raw_text.split("[본문]")[1].split("[구조정보]")[0].strip() if "[본문]" in raw_text else raw_text
-    lines = [line.strip() for line in content.splitlines() if line.strip()]
-    
-    results = []
-    curr_major = "안내 개요" # [수정] 인트로 텍스트가 날아가지 않도록 초기 방 이름 설정
-    curr_minor = ""
-    common_info = []
-    buffer = []
-
-    for i, line in enumerate(lines):
-        # 띄어쓰기를 없앤 클린 버전으로 내용 라벨 검사 ('수 수 료' 완벽 방어)
-        clean_line = line.replace(" ", "")
-        
-        # [Step 1] 제목 판별 로직 (더욱 정교하게)
-        is_content_label = any(label in clean_line for label in CONTENT_LABELS) and len(clean_line) < 15
-        # '번째'를 추가하여 "메뉴 첫번째" 같은 문장이 제목으로 잘리는 것 방지
-        ends_with_verb = line.endswith(("다.", "다", "요.", "요", "니다", "습니다", "바랍니다", "번째"))
-        has_colon = any(c in line for c in [":", "：", "→"])
-        is_long = len(line) > 25
-        
-        # 대분류 키워드가 포함되어 있으면 무조건 제목으로 인정
-        is_major_explicit = any(k in line for k in MAJOR_KEYWORDS)
-
-        if is_major_explicit:
-            is_heading = True
-        elif is_long or has_colon or ends_with_verb or is_content_label:
-            is_heading = False
-        else:
-            is_heading = True
-
-        if is_heading:
-            if buffer:
-                save_chunk(results, doc, curr_major, curr_minor, common_info, buffer)
-                buffer = []
-
-            # [Step 2] 대분류 vs 중분류 판별
-            is_new_major = is_major_explicit
-            # 키워드가 없더라도, 발급/안내 등으로 끝나면서 다음 줄에 창구가 나오면 대분류
-            if not is_new_major and line.endswith(("민원", "시설", "안내", "신고", "발급")) and i + 1 < len(lines):
-                if any(k in lines[i+1] for k in ["창구", "전화", "문의", "업무"]):
-                    is_new_major = True
-
-            if is_new_major:
-                curr_major = line
-                curr_minor = ""
-                common_info = [] 
-            else:
-                curr_minor = line
-            continue
-
-        # [Step 3] 데이터 적재
-        if not curr_minor and any(k in line for k in ["창구", "전화", "문의", "업무내용"]):
-            common_info.append(line)
-        else:
-            buffer.append(line)
-
-    if buffer:
-        save_chunk(results, doc, curr_major, curr_minor, common_info, buffer)
-
-    return results
 
 def make_chunks_format_forms(doc: Dict) -> List[Dict]: #민원 양식 전처리
     results = []
@@ -385,7 +335,6 @@ def preprocess():
                 
             print(f"📦 현재 처리 중인 파일: {file_name}")
             
-            # 각 파일 내부를 열어서 한 줄씩 파싱
             with open(file_path, "r", encoding="utf-8") as fin:
                 for line in fin:
                     line = line.strip()
@@ -395,17 +344,17 @@ def preprocess():
                     doc = json.loads(line)
                     total_docs += 1
                     
-                    # ⭐ [핵심 분기 처리] 파일 구조(컬럼)를 보고 처리 함수를 동적으로 지정합니다.
-                    if "page_type" in doc:
-                        # 새로 추가된 예쁜 JSON 형태의 데이터라면 -> 서식 B로 작동!
+                    # ⭐ [수정] 분기 조건을 확실한 서식 필드로 변경합니다.
+                    # 처리기간(processing_period)이 딕셔너리에 들어있을 때만 서식 양식으로 처리합니다.
+                    if "processing_period" in doc:
+                        # 이미 컬럼이 다 쪼개진 예쁜 데이터 -> 서식 B 작동!
                         chunks = make_chunks_format_forms(doc)
                     else:
-                        # 예전의 통짜 text 위주의 데이터라면 -> 기존의 쪼개기(서식 A)로 작동!
-                        chunks = make_chunks_format_docs(doc)
+                        # 통짜 text 위주의 데이터 (page_type이 있더라도 일로 옴) -> 자동화 엔진(서식 A) 작동!
+                        chunks = make_chunks_universal(doc)
                         
                     total_chunks += len(chunks)
                     
-                    # 어떤 서식을 거쳤든 공통된 규격으로 출력 파일에 차곡차곡 기록!
                     for chunk in chunks:
                         fout.write(json.dumps(chunk, ensure_ascii=False) + "\n")
 

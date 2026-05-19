@@ -17,14 +17,22 @@ class Notice(Base):
     source = Column(String, default="saha.go.kr")
     title = Column(String, nullable=False)
     author = Column(String)
-    published_at = Column(String)  # 정렬을 위해 사용
+    
+    # 💡 [핵심] 두 파일의 날짜 속성을 통합하여 저장할 컬럼
+    # 일반 페이지의 'date'와 민원 양식의 'published_at'을 적재 스크립트가 이 컬럼 하나로 모아줌.
+    published_at = Column(String, nullable=True)  # 정렬을 위해 사용
+    
     views = Column(Integer, default=0)
     menu_path = Column(JSON)       # ['전자민원', '사하구에 바란다'] 형태 저장
 
+    major = Column(String, nullable=True)                             # 대분류 (예: 증명민원 통합발급)
+    minor = Column(String, nullable=True)                             # 중분류 (예: 인감증명발급)
+    context = Column(Text, nullable=True)
+    
     # 3. 데이터 본체 (가장 중요!)
     chunk_text = Column(Text, nullable=False) # AI가 읽을 핵심 텍스트
     chunk_index = Column(Integer)             # 문서 내 몇 번째 조각인지
-    full_text = Column(Text, nullable=True)   # (선택) 필요한 경우 원문 전체 저장
+    # full_text = Column(Text, nullable=True)   # (선택) 필요한 경우 원문 전체 저장
 
     # 4. 시스템 날짜
     created_at = Column(DateTime(timezone=True), server_default=func.now())
