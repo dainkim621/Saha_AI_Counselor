@@ -1,12 +1,10 @@
-import os
-from dotenv import load_dotenv
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
-load_dotenv()
-DATABASE_URL = os.getenv("DATABASE_URL")
+
 # 1. DB 접속 주소 설정 (도커 설정과 일치해야 함)
-SQLALCHEMY_DATABASE_URL = DATABASE_URL
+# postgresql://[사용자]:[비밀번호]@[호스트]:[포트]/[DB이름]
+SQLALCHEMY_DATABASE_URL = "postgresql://postgres:saha1234@localhost:5432/saha_db"
 
 # 2. 커넥션 엔진 생성
 engine = create_engine(SQLALCHEMY_DATABASE_URL)
@@ -24,9 +22,3 @@ def get_db():
         yield db
     finally:
         db.close()
-        
-# 파일 맨 아래에 추가
-if __name__ == "__main__":
-    from app.models import Notice  # Notice 모델을 인식시켜야 함
-    Base.metadata.create_all(bind=engine)
-    print("✅ 테이블 생성 완료!")
