@@ -8,6 +8,7 @@ from urllib.parse import urljoin, urlparse, urldefrag
 import requests
 from bs4 import BeautifulSoup
 
+### 민원편람/서식안내 ###
 LIST_URL = "https://www.saha.go.kr/portal/civil/list.do?mId=0103080100"
 OUTPUT_DIR = "data/raw"
 OUTPUT_FILE = os.path.join(OUTPUT_DIR, "saha_civil_forms.jsonl")

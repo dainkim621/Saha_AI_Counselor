@@ -8,6 +8,7 @@ from urllib.parse import urljoin
 import requests
 from bs4 import BeautifulSoup
 
+### 입찰정보 ###
 EMINWON_BASE_URL = "https://eminwon.saha.go.kr"
 
 START_URL = "https://www.saha.go.kr/portal/contents.do?mId=0301040000"
