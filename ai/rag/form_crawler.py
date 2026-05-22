@@ -8,6 +8,7 @@ from urllib.parse import urljoin, urlparse, urldefrag
 import requests
 from bs4 import BeautifulSoup
 
+### 민원편람/서식안내 ###
 LIST_URL = "https://www.saha.go.kr/portal/civil/list.do?mId=0103080100"
 OUTPUT_DIR = "data/raw"
 OUTPUT_FILE = os.path.join(OUTPUT_DIR, "saha_civil_forms.jsonl")
@@ -16,7 +17,7 @@ RECENT_YEAR_LIMIT = 5   # 최근 몇년간 자료를 검색할건지
 CURRENT_YEAR = 2026
 MIN_YEAR = CURRENT_YEAR - RECENT_YEAR_LIMIT
 
-MAX_LIST_PAGES = 30       # 너무많아서 일단 조금만, 밑에 범위설정 또 있음
+MAX_LIST_PAGES = 30       # 안씀
 REQUEST_DELAY = 0.5
 TIMEOUT = 15
 
@@ -277,7 +278,7 @@ def crawl_recent_civil_forms():
 
     # 크롤링할 민원 페이지 범위 -> 일단 조금만
     START_CIVIL_ID = 2200
-    END_CIVIL_ID = 2000
+    END_CIVIL_ID = 2100
 
     with open(OUTPUT_FILE, "w", encoding="utf-8") as out:
         for civil_id in range(START_CIVIL_ID, END_CIVIL_ID - 1, -1):

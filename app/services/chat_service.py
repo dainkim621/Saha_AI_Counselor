@@ -46,9 +46,7 @@ def ask_saha_ai(user_question: str):
 
 if __name__ == "__main__":
     # 아까 검색 결과에 나왔던 '전자민원' 관련 질문으로 테스트
-    q = "주민등록등·초본, 전입세대열람 발급하려면 어떻게 해?" 
+    q = "지방세 납부 하려면 어떻게 해야해?" 
     print(f"\n💬 질문: {q}")
     print("-" * 30)
     print(ask_saha_ai(q))
-    
-    

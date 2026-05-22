@@ -10,6 +10,10 @@ INPUT_DIR = "data/raw"
 OUTPUT_DIR = "data/processed"
 OUTPUT_JSONL = os.path.join(OUTPUT_DIR, "saha_chunks.jsonl")
 
+# chunk 길이제한
+SAFE_CHUNK_LEN = 2500
+SAFE_OVERLAP = 200
+
 MIN_CHUNK_LEN = 50
 MAX_CHUNK_LEN = 700
 OVERLAP = 120
@@ -148,50 +152,62 @@ def build_chunk_text(doc, section_text: str, current_context: str) -> str:
     formatted_text = f"{header}\n\n[상세 내용]\n{section_text}"
     return clean_text(formatted_text)
 
+# save_chunk()에서 저장 직전에 긴 chunk를 다시 쪼개기
 def save_chunk(results, doc, major, minor, common_info, buffer):
-    if not buffer: return
+    if not buffer:
+        return
 
     page_title = doc.get("title", "안내")
     source_context = f"{page_title} - {major}"
     if minor:
         source_context += f" - {minor}"
-    
+
     content_parts = []
     if common_info:
         content_parts.append("[공통 안내]\n" + "\n".join(common_info))
     content_parts.append("[상세 내용]\n" + "\n".join(buffer))
-    
+
     full_text = f"### [분류: {'>'.join(doc.get('menu_path', []))}] ###\n" \
                 f"### [정보원: {source_context} ] ###\n\n" \
                 + "\n\n".join(content_parts)
-    # 원본 doc에서 date와 author를 안전하게 추출 (없으면 기본값)
+
+    full_text = clean_text(full_text)
+
     origin_date = doc.get("date", "") or doc.get("published_at", "")
     origin_author = doc.get("author", "미확인")
-    
+
     raw_views = doc.get("views", 0)
     try:
         views_int = int(raw_views) if raw_views else 0
     except ValueError:
         views_int = 0
-        
-    results.append({
-        "chunk_id": f"{doc['doc_id']}_{len(results)}",
-        "doc_id": doc["doc_id"],
-        "url": doc.get("url", ""),
-        "title": page_title,
-        "menu_path": doc.get("menu_path", []),
-        "chunk_text": full_text,
-        "views": views_int,
-        "metadata": {
-            "major": major,
-            "minor": minor,
-            "context": source_context,
-            "date": origin_date,
-            "author": origin_author
-        },
-        "source": "saha.go.kr"
-    })
-    
+
+    # 긴 chunk를 안전한 길이로 다시 분리
+    start = 0
+    while start < len(full_text):
+        chunk_text = full_text[start:start + SAFE_CHUNK_LEN].strip()
+
+        if chunk_text:
+            results.append({
+                "chunk_id": f"{doc['doc_id']}_{len(results)}",
+                "doc_id": doc["doc_id"],
+                "url": doc.get("url", ""),
+                "title": page_title,
+                "menu_path": doc.get("menu_path", []),
+                "chunk_text": chunk_text,
+                "views": views_int,
+                "metadata": {
+                    "major": major,
+                    "minor": minor,
+                    "context": source_context,
+                    "date": origin_date,
+                    "author": origin_author
+                },
+                "source": "saha.go.kr"
+            })
+
+        start += SAFE_CHUNK_LEN - SAFE_OVERLAP
+
 def is_likely_heading(line, lines, idx):
     # [방어 로직] 1. 제목이 20자 넘어가면 일단 의심 (보통 제목은 짧음)
     if not (2 <= len(line) <= 25): return False, False
@@ -323,38 +339,43 @@ def preprocess():
     ensure_dir(OUTPUT_DIR)
     total_docs = 0
     total_chunks = 0
-    #출력파일은 하나
+
     with open(OUTPUT_JSONL, "w", encoding="utf-8") as fout:
-        #raw 폴더 안의 모든 파일을 가져옴
         for file_name in os.listdir(INPUT_DIR):
             file_path = os.path.join(INPUT_DIR, file_name)
-            
-            # 맥 디렉토리 숨김파일(.DS_Store 등) 예외 처리
-            if file_name.startswith('.'): 
+
+            # 숨김파일 제외
+            if file_name.startswith("."):
                 continue
-                
+
+            # 폴더 제외
+            if not os.path.isfile(file_path):
+                print(f"⏭️ 폴더 건너뜀: {file_name}")
+                continue
+
+            # jsonl 파일만 처리
+            if not file_name.endswith(".jsonl"):
+                print(f"⏭️ jsonl이 아니라 건너뜀: {file_name}")
+                continue
+
             print(f"📦 현재 처리 중인 파일: {file_name}")
-            
+
             with open(file_path, "r", encoding="utf-8") as fin:
                 for line in fin:
                     line = line.strip()
-                    if not line: 
+                    if not line:
                         continue
-                        
+
                     doc = json.loads(line)
                     total_docs += 1
-                    
-                    # ⭐ [수정] 분기 조건을 확실한 서식 필드로 변경합니다.
-                    # 처리기간(processing_period)이 딕셔너리에 들어있을 때만 서식 양식으로 처리합니다.
+
                     if "processing_period" in doc:
-                        # 이미 컬럼이 다 쪼개진 예쁜 데이터 -> 서식 B 작동!
                         chunks = make_chunks_format_forms(doc)
                     else:
-                        # 통짜 text 위주의 데이터 (page_type이 있더라도 일로 옴) -> 자동화 엔진(서식 A) 작동!
                         chunks = make_chunks_universal(doc)
-                        
+
                     total_chunks += len(chunks)
-                    
+
                     for chunk in chunks:
                         fout.write(json.dumps(chunk, ensure_ascii=False) + "\n")
 
