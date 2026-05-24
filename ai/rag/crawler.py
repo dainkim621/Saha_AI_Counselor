@@ -209,7 +209,6 @@ MENU_SIGNALS = [
 def ensure_dir(path):
     os.makedirs(path, exist_ok=True)
 
-
 def clean_text(text):
     if not text:
         return ""
@@ -243,6 +242,85 @@ def clean_block_text(text):
 
     return "\n".join(lines)
 
+# 데이터 형태 기반
+def is_data_line(text):
+    text = clean_inline(text)
+
+    if not text:
+        return False
+
+    # 값 설명 형태
+    if ":" in text or "：" in text:
+        return True
+
+    # 전화번호
+    if re.search(r"\d{2,4}-\d{3,4}-\d{4}", text):
+        return True
+
+    # URL
+    if re.search(r"https?://|www\.", text):
+        return True
+
+    # 숫자+단위
+    if re.search(
+        r"\d+\s*(원|명|건|회|개|일|개월|년|층|시|분|번|호)",
+        text
+    ):
+        return True
+
+    return False
+
+# 제목 판단
+def looks_like_heading(text):
+    text = clean_inline(text)
+
+    if not text:
+        return False
+
+    # 너무 길면 제목 아님
+    if len(text) > 35:
+        return False
+
+    # 데이터면 제목 아님
+    if is_data_line(text):
+        return False
+
+    # URL/파일명 제외
+    if re.search(
+        r"https?://|www\.|\.(pdf|hwp|hwpx|doc|docx|xls|xlsx|zip)$",
+        text,
+        re.I,
+    ):
+        return False
+
+    # 문장형 제외
+    if any(
+        text.endswith(x)
+        for x in [
+            "합니다",
+            "됩니다",
+            "있습니다",
+            "없습니다",
+            "바랍니다",
+            "하십시오",
+            "하세요",
+        ]
+    ):
+        return False
+
+    return True
+
+# 현재 태그의 직접 텍스트만 추출
+def extract_direct_text_without_children(node):
+    texts = []
+
+    for child in node.children:
+        if isinstance(child, NavigableString):
+            txt = clean_inline(str(child))
+            if txt:
+                texts.append(txt)
+
+    return "\n".join(texts).strip()
 
 def url_to_id(url):
     return hashlib.md5(url.encode("utf-8")).hexdigest()
@@ -625,16 +703,27 @@ def remove_noise_lines(text):
 def get_node_level(node):
     if not isinstance(node, Tag):
         return 0
+
+    text = clean_inline(
+        node.get_text(" ", strip=True)
+    )
+
+    if not text:
+        return 0
+
+    if is_data_line(text):
+        return 0
+
     if node.name and re.fullmatch(r"h[1-6]", node.name):
         return int(node.name[1])
-    if node.name == "dt":
-        return 5
-    if node.name == "strong":
-        txt = clean_inline(node.get_text(" ", strip=True))
-        if 2 <= len(txt) <= 40:
-            return 5
-    return 0
 
+    if node.name == "dt" and looks_like_heading(text):
+        return 5
+
+    if node.name == "strong" and looks_like_heading(text):
+        return 5
+
+    return 0
 
 def table_to_text(table):
     rows = []
@@ -664,7 +753,7 @@ def list_to_text(node):
         if not txt:
             continue
 
-        lines = [line.strip() for line in txt.split("\n") if line.strip()]
+        lines = [line.strip() for line in txt.splitlines() if line.strip()]
 
         for line in lines:
             items.append(line)
@@ -683,16 +772,8 @@ def dl_to_text(dl):
             items.append(f"{k}: {v}")
     return "\n".join(items)
 
-
+# main_node의 주요 블록만 순서대로 처리하는 방식
 def extract_structured_sections(main_node):
-    """
-    본문 순서를 유지하면서 h1/h2/h3/h4, 표, 목록을 섹션 단위로 저장한다.
-    예)
-    주민등록등·초본
-      구비서류
-        본인: 신분증
-        위임을 받은 자: ...
-    """
     sections = []
     heading_stack = []
     seen = set()
@@ -703,49 +784,85 @@ def extract_structured_sections(main_node):
     def push_heading(level, title):
         nonlocal heading_stack
         heading_stack = [h for h in heading_stack if h["level"] < level]
-        heading_stack.append({"level": level, "title": title})
+        heading_stack.append({
+            "level": level,
+            "title": title
+        })
 
-    for node in main_node.descendants:
-        if not isinstance(node, Tag):
+    # 너무 깊은 descendants 전체가 아니라, 의미 있는 블록만 순서대로 가져옴
+    blocks = main_node.find_all(
+        ["h1", "h2", "h3", "h4", "h5", "h6", "p", "div", "ul", "ol", "table", "dl"],
+        recursive=True
+    )
+
+    for node in blocks:
+        # 부모가 이미 table/ul/ol/dl이면 중복 방지
+        if node.find_parent(["table", "ul", "ol", "dl"]) and node.name not in ["ul", "ol", "table", "dl"]:
             continue
 
-        level = get_node_level(node)
-        if level:
+        # 제목 태그 처리
+        if node.name and re.fullmatch(r"h[1-6]", node.name):
             title = clean_inline(node.get_text(" ", strip=True))
-            if title and len(title) <= 80:
-                push_heading(level, title)
+
+            if title and looks_like_heading(title):
+                push_heading(int(node.name[1]), title)
+
             continue
 
-        block_text = ""
-        block_type = "paragraph"
+        # p, div 같이 처리
+        if node.name in ["p", "div"]:
+            # 자식에 ul/table/dl이 있는 큰 div는 중복 방지
+            if node.name == "div" and node.find(["ul", "ol", "table", "dl"]):
+                continue
+            text = clean_block_text(node.get_text("\n", strip=True))
+            text = remove_noise_lines(text)
 
-        if node.name == "table":
-            block_text = table_to_text(node)
-            block_type = "table"
-        elif node.name in ("ul", "ol"):
+            if not text:
+                continue
+
+            lines = [line.strip() for line in text.splitlines() if line.strip()]
+
+            # 한 줄짜리 p이고 제목처럼 보이면 heading
+            if len(lines) == 1 and looks_like_heading(lines[0]):
+                push_heading(5, lines[0])
+                continue
+
+            # 여러 줄 p는 본문으로 저장
+            block_text = "\n".join(lines)
+            block_type = "paragraph"
+
+        elif node.name in ["ul", "ol"]:
             block_text = list_to_text(node)
+            block_text = remove_noise_lines(block_text)
             block_type = "list"
+
+        elif node.name == "table":
+            block_text = table_to_text(node)
+            block_text = remove_noise_lines(block_text)
+            block_type = "table"
+
         elif node.name == "dl":
             block_text = dl_to_text(node)
+            block_text = remove_noise_lines(block_text)
             block_type = "definition_list"
-        elif node.name in ("p", "div"):
-            # div는 자식 table/list가 있으면 중복 방지
-            if node.find(["table", "ul", "ol", "dl", "h1", "h2", "h3", "h4", "h5"]):
-                continue
-            block_text = clean_inline(node.get_text(" ", strip=True))
-            block_type = "paragraph"
+
         else:
             continue
 
         block_text = clean_text(block_text)
-        block_text = remove_noise_lines(block_text)
 
-        if len(block_text) < 3:
+        if not block_text or len(block_text) < 3:
             continue
 
-        key = (tuple(current_path()), block_type, block_text[:200])
+        # 같은 heading_path 안에서 같은 내용 중복 방지
+        key = (
+            tuple(current_path()),
+            block_text
+        )
+
         if key in seen:
             continue
+
         seen.add(key)
 
         sections.append({
@@ -753,9 +870,53 @@ def extract_structured_sections(main_node):
             "block_type": block_type,
             "text": block_text,
         })
+        # sections에 누락된 본문 줄 보충
+    full_lines = [
+        clean_inline(line)
+        for line in main_node.get_text("\n", strip=True).splitlines()
+        if clean_inline(line)
+    ]
 
+    already_text = "\n".join(
+        sec.get("text", "")
+        for sec in sections
+    )
+
+    missing_lines = []
+
+    for line in full_lines:
+        if line in already_text:
+            continue
+
+        if line in ["열기", "닫기", "블로그", "인스타그램", "페이스북", "카카오", "인쇄하기"]:
+            continue
+
+        # 제목처럼 보이는 줄은 제외
+        if looks_like_heading(line):
+            continue
+
+        missing_lines.append(line)
+
+    if missing_lines:
+        sections.insert(0, {
+            "heading_path": current_path(),
+            "block_type": "paragraph",
+            "text": "\n".join(missing_lines),
+        })
+
+    # 전체 본문 백업 저장: 구조 추출에서 빠진 줄 방지
+    full_text_backup = clean_block_text(
+        main_node.get_text("\n", strip=True)
+    )
+    full_text_backup = remove_noise_lines(full_text_backup)
+
+    if full_text_backup:
+        sections.insert(0, {
+            "heading_path": ["전체 본문"],
+            "block_type": "full_text_backup",
+            "text": full_text_backup,
+        })
     return sections
-
 
 def sections_to_text(title, menu_path, sections, shortcut_links):
     parts = []
@@ -774,11 +935,13 @@ def sections_to_text(title, menu_path, sections, shortcut_links):
                 last_path = path
             label = sec.get("block_type", "paragraph")
             txt = sec.get("text", "")
-            if label == "table":
+            if label == "full_text_backup":
+                parts.append("[전체 본문]")
+                parts.append(txt)
+            elif label == "table":
                 parts.append("[표]\n" + txt)
             elif label == "list":
-                parts.append("[목록]")
-                parts.append(txt)
+                parts.append("[목록]\n" + txt)
             elif label == "definition_list":
                 parts.append("[정의목록]\n" + txt)
             else:
