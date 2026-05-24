@@ -307,7 +307,7 @@
 }
 
 .left-section {
-  width: 280px;
+  width: 340px;
   flex-shrink: 0;
 }
 
@@ -337,7 +337,7 @@
 
   border-radius: 24px;
 
-  padding: 28px 20px;
+  padding: 34px 24px;
 
   border: 1px solid #e5e7eb;
 
@@ -349,13 +349,13 @@
 }
 
 .mascot-glow {
-  width: 190px;
-  height: 190px;
+  width: 250px;
+  height: 220px;
 
-  margin: 0 auto 18px;
-  padding-top: 18px;
+  margin: 0 auto 22px;
+  padding-top: 0;
 
-  border-radius: 50%;
+  border-radius: 36px;
 
   background: radial-gradient(
     circle,
@@ -370,7 +370,8 @@
 }
 
 .gouni-main {
-  width: 145px;
+  width: 230px;
+  height: auto;
 
   object-fit: contain;
 
