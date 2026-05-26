@@ -16,15 +16,13 @@ class Notice(Base):
     url = Column(String, nullable=False)
     source = Column(String, default="saha.go.kr")
     title = Column(String, nullable=False)
-    author = Column(String)
-    
-    # 💡 [핵심] 두 파일의 날짜 속성을 통합하여 저장할 컬럼
-    # 일반 페이지의 'date'와 민원 양식의 'published_at'을 적재 스크립트가 이 컬럼 하나로 모아줌.
-    published_at = Column(String, nullable=True)  # 정렬을 위해 사용
-    
+    author = Column(String) 
+    published_at = Column(String, nullable=True)  #탈짜 통합 컬럼
     views = Column(Integer, default=0)
+    
     menu_path = Column(JSON)       # ['전자민원', '사하구에 바란다'] 형태 저장
-
+    page_type = Column(String, nullable=True)     # 'contents' 또는 'civil_form_guide' 구분용
+    
     major = Column(String, nullable=True)                             # 대분류 (예: 증명민원 통합발급)
     minor = Column(String, nullable=True)                             # 중분류 (예: 인감증명발급)
     context = Column(Text, nullable=True)
