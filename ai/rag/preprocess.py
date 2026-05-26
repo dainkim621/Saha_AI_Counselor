@@ -1,367 +1,344 @@
 import os
-import re
 import json
-from typing import List, Dict
+import re
 
-# ==============================
-# [1] 설정
-# ==============================
-INPUT_DIR = "data/raw"
-OUTPUT_DIR = "data/processed"
-OUTPUT_JSONL = os.path.join(OUTPUT_DIR, "saha_chunks.jsonl")
-
-MIN_CHUNK_LEN = 50
-MAX_CHUNK_LEN = 700
-OVERLAP = 120
-
-SECTION_HINTS = [
-    "신청대상", "신청방법", "처리절차", "처리기간", "수수료",
-    "구비서류", "제출서류", "유의사항", "문의처", "신고기한",
-    "온라인 신청", "방문 신청"
-]
-
-MENU_SIGNALS = [
-    "주메뉴", "사하구 홈페이지", "만족도 조사", "개인정보처리방침",
-    "저작권", "공유", "프린트", "이전글", "다음글", "목록"
-]
-# [1] 제목이 될 수 없는 '내용 라벨' 정의 (띄어쓰기 무시하고 검사할 용도)
-CONTENT_LABELS = ["구비서류", "수수료", "신청방법", "업무내용", "창구번호", "문의전화", "안내사항", "유의사항", "공통안내", "신청대상"]
-
-# [2] 확실한 대분류 키워드 명시
-MAJOR_KEYWORDS = ["일반·고충 민원", "어디서나 민원", "증명민원 통합발급", "편의시설", "가족관계등록 신고", "생활불편신고민원", "무인민원발급"]
-
-# ==============================
-# [2] 유틸리티 및 전처리
-# ==============================
-def ensure_dir(path: str):
-    os.makedirs(path, exist_ok=True)
-
-
-def clean_text(text: str) -> str:
-    if not text:
-        return ""
-    text = text.replace("\xa0", " ")
-    text = re.sub(r"[ \t]+", " ", text)
-    text = re.sub(r"\r", "\n", text)
-    text = re.sub(r"\n[ \t]*\n+", "\n\n", text)
-    text = re.sub(r"[ \t]+\n", "\n", text)
-    return text.strip()
-
-
-def is_menu_like_chunk(text: str) -> bool:
-    hit = sum(1 for x in MENU_SIGNALS if x in text)
-
-    lines = [line.strip() for line in text.splitlines() if line.strip()]
-    short_lines = sum(1 for line in lines if len(line) <= 10)
-
-    if hit >= 2:
-        return True
-    if lines and short_lines / len(lines) > 0.65:
-        return True
-    return False
-
-
-# ==============================
-# [3] chunk 분리 및 조립 로직(서식 별 함수 분리)
-# ==============================
-
-def is_likely_major(line, lines, idx):
-    """
-    해당 줄이 대분류(Major)일 가능성을 점수로 계산합니다.
-    """
-    score = 0
+def clean_web_page_data(data):
+    shortcuts = data.get("shortcut_links", []) or []
+    sections = data.get("sections", []) or []
+    shortcuts_sorted = sorted(shortcuts, key=lambda x: len(x.get('text', '')), reverse=True)
     
-    # 1. 길이 조건: 대분류는 보통 짧고 명료합니다 (20자 미만)
-    if len(line) < 20: score += 2
+    seen_texts = set()
+    rebuilt_chunks = []
+    full_text_snapshot = ""
     
-    # 2. 제외 조건: 데이터성 기호가 있으면 제목이 아님
-    if any(k in line for k in [":", "：", "http", "www", "→"]): return False
-    
-    # 3. 위치 조건: 대분류는 보통 섹션의 처음에 나옵니다.
-    # 바로 다음 줄(idx+1)에 '창구', '전화', '내용' 등의 데이터가 붙는다면 이건 100% 대분류입니다.
-    if idx + 1 < len(lines):
-        next_line = lines[idx+1]
-        if any(k in next_line for k in ["창구", "전화", "문의", "업무", "내용"]):
-            score += 5
-
-    # 4. 키워드 조건 (범용): '민원', '안내', '시설', '현황', '방법' 등으로 끝나는 경우
-    if line.endswith(("민원", "안내", "현황", "방법", "시설", "신고", "발급", "센터")):
-        score += 3
-
-    return score >= 5 # 5점 이상이면 대분류로 확정
-
-def make_chunks_automated(doc: Dict) -> List[Dict]:
-    content = doc.get("text", "")
-    # ... (본문 추출 생략) ...
-    lines = [l.strip() for l in content.splitlines() if l.strip()]
-    
-    results = []
-    current_major = "일반" # 기본값
-    current_minor = ""
-    major_common_info = []
-    chunk_buffer = []
-
-    for i, line in enumerate(lines):
-        # [자동화 핵심] 대분류 감지
-        if is_likely_major(line, lines, i):
-            if chunk_buffer:
-                save_chunk(results, doc, current_major, current_minor, major_common_info, chunk_buffer)
-                chunk_buffer = []
+    for section in sections:
+        text_content = section.get("text", "")
+        if not text_content: 
+            continue
+        text_content = text_content.strip()
+        
+        if text_content in full_text_snapshot:
+            continue
             
-            # 만약 현재 줄이 '통합발급' 같은 큰 단위를 포함하면 Major로 격상
-            current_major = line
-            current_minor = ""
-            major_common_info = []
+        for link_obj in shortcuts_sorted:
+            keyword = link_obj.get("text")
+            url = link_obj.get("raw_href") or link_obj.get("url")
+            if keyword and url and keyword in text_content:
+                if f"[{keyword}]" not in text_content:
+                    text_content = text_content.replace(keyword, f"[{keyword}]({url})")
+        
+        if text_content in full_text_snapshot:
             continue
+            
+        path_list = section.get("heading_path", [])
+        path_str = " > ".join(path_list) if path_list else "일반 안내"
+        
+        # [보정 가드]: 기형적 콤마 오타 사전 교정
+        text_content = re.sub(r'1,23,0834', '1,230,834', text_content)
+        text_content = re.sub(r'1,230834', '1,230,834', text_content)
+        
+        chunk = f"[{path_str}]\n{text_content}"
+        rebuilt_chunks.append(chunk)
+        full_text_snapshot += "\n" + text_content
 
-        # [자동화 핵심] 중분류 감지 
-        # (이미 대분류가 잡힌 상태에서, 데이터는 아닌데 짧은 줄이 나오면 중분류)
-        elif len(line) < 25 and ":" not in line and not any(k in line for k in ["창구", "전화"]):
-            if chunk_buffer:
-                save_chunk(results, doc, current_major, current_minor, major_common_info, chunk_buffer)
-                chunk_buffer = []
-            current_minor = line
-            continue
-
-        # 데이터 적재 (창구번호 등은 공통 정보로 빼기)
-        if any(k in line for k in ["창구", "전화", "문의"]) and not current_minor:
-            major_common_info.append(line)
+    # 💡 [안전한 범용 표 추출 및 텍스트 청정 파이프라인]
+    lines = "\n".join(rebuilt_chunks).split('\n')
+    pure_contents = []
+    current_table_rows = []
+    
+    for line in lines:
+        if line.count('|') >= 2:
+            current_table_rows.append(line.strip())
         else:
-            chunk_buffer.append(line)
-
-    # 마지막 버퍼 처리
-    if chunk_buffer:
-        save_chunk(results, doc, current_major, current_minor, major_common_info, chunk_buffer)
-
-    return results
-
-def build_chunk_text(doc, section_text: str, current_context: str) -> str:
-    page_title = doc.get("title", "")
-    menu_path = " > ".join(doc.get("menu_path", []))
-    
-    header = f"### [분류: {menu_path}] ###\n"
-    header += f"### [정보원: {page_title}"
-    if current_context and current_context != page_title:
-        header += f" - {current_context}"
-    header += " ] ###"
-
-    formatted_text = f"{header}\n\n[상세 내용]\n{section_text}"
-    return clean_text(formatted_text)
-
-def save_chunk(results, doc, major, minor, common_info, buffer):
-    if not buffer: return
-
-    page_title = doc.get("title", "안내")
-    source_context = f"{page_title} - {major}"
-    if minor:
-        source_context += f" - {minor}"
-    
-    content_parts = []
-    if common_info:
-        content_parts.append("[공통 안내]\n" + "\n".join(common_info))
-    content_parts.append("[상세 내용]\n" + "\n".join(buffer))
-    
-    full_text = f"### [분류: {'>'.join(doc.get('menu_path', []))}] ###\n" \
-                f"### [정보원: {source_context} ] ###\n\n" \
-                + "\n\n".join(content_parts)
-    # 원본 doc에서 date와 author를 안전하게 추출 (없으면 기본값)
-    origin_date = doc.get("date", "") or doc.get("published_at", "")
-    origin_author = doc.get("author", "미확인")
-    
-    raw_views = doc.get("views", 0)
-    try:
-        views_int = int(raw_views) if raw_views else 0
-    except ValueError:
-        views_int = 0
-        
-    results.append({
-        "chunk_id": f"{doc['doc_id']}_{len(results)}",
-        "doc_id": doc["doc_id"],
-        "url": doc.get("url", ""),
-        "title": page_title,
-        "menu_path": doc.get("menu_path", []),
-        "chunk_text": full_text,
-        "views": views_int,
-        "metadata": {
-            "major": major,
-            "minor": minor,
-            "context": source_context,
-            "date": origin_date,
-            "author": origin_author
-        },
-        "source": "saha.go.kr"
-    })
-    
-def is_likely_heading(line, lines, idx):
-    # [방어 로직] 1. 제목이 20자 넘어가면 일단 의심 (보통 제목은 짧음)
-    if not (2 <= len(line) <= 25): return False, False
-    
-    # [방어 로직] 2. 숫자로 시작하거나 "※", "①" 같은 기호는 99% 내용임
-    if re.match(r"^[0-9※①②③④⑤\-\s]", line): return False, False
-
-    # [방어 로직] 3. 문장 중간에 조사가 많으면 내용임 (잘린 문장 방지)
-    if any(k in line for k in ["는 ", "를 ", "은 ", "의 ", "에 "]): return False, False
-
-    # [방어 로직] 4. 데이터성 구분자 확인
-    if ":" in line or "：" in line or "→" in line: return False, False
-
-    # --- 여기서부터는 분류 판단 ---
-    is_major = False
-    next_line = lines[idx+1] if idx + 1 < len(lines) else ""
-    
-    # 강력한 대분류 신호: 다음 줄에 핵심 속성이 붙어있는 경우
-    # 예: 일반·고충 민원 (현재줄) -> 업무내용 (다음줄)
-    if any(k in next_line for k in ["업무내용", "창구번호", "문의전화", "구비서류"]):
-        is_major = True
-    
-    # 키워드 엔딩 (민원, 안내, 센터 등)
-    if line.endswith(("민원", "안내", "신고", "시설", "센터")):
-        is_major = True
-
-    return True, is_major
-
-def make_chunks_universal(doc):
-    raw_text = doc.get("text", "")
-    # [본문] 영역 추출
-    body_part = raw_text.split("[본문]")[1].split("[구조정보]")[0].strip() if "[본문]" in raw_text else raw_text
-    lines = [line.strip() for line in body_part.splitlines() if line.strip()]
-    
-    # UI 노이즈 제거
-    lines = [l for l in lines if l not in ["Home", "열기", "닫기", "인쇄하기", "전자민원"]]
-    
-    results = []
-    curr_major = doc.get("title", "일반 안내") # 페이지 제목을 기본 대분류로
-    curr_minor = ""
-    common_info = [] # 창구번호 등 섹션 공통 정보
-    buffer = []
-    
-    for i, line in enumerate(lines):
-        is_heading, is_major = is_likely_heading(line, lines, i)
-        
-        if is_heading:
-            if buffer:
-                save_chunk(results, doc, curr_major, curr_minor, common_info, buffer)
-                buffer = []
+            if current_table_rows:
+                pure_contents.append(parse_generic_table(current_table_rows))
+                current_table_rows = []
+            pure_contents.append(line)
             
-            if is_major:
-                curr_major = line
-                curr_minor = ""
-                common_info = [] # 대분류가 바뀌면 공통정보 초기화
-            else:
-                curr_minor = line
+    if current_table_rows:
+        pure_contents.append(parse_generic_table(current_table_rows))
+
+    # 💡 [안전한 라인 필터링]: 수만 개 문서의 본문 유실을 방지하기 위해
+    # 임의로 매칭해서 지우지 않고, 명백하게 깨진 '단독 파편 줄'만 타겟 청소
+    cleaned_final_lines = []
+    for line in pure_contents:
+        stripped_line = line.strip()
+        
+        # 마크다운 표 구조는 무조건 보존
+        if "|" in line:
+            cleaned_final_lines.append(line)
             continue
-
-        # [수정] 속성 정보(창구/전화)를 무조건 common_info로 빼지 말고,
-        # '내용(buffer)'에도 포함시켜야 문맥이 끊기지 않습니다.
-        if any(k in line for k in ["창구번호", "문의전화", "업무내용", "수수료"]):
-            common_info.append(line)
-        
-        buffer.append(line) # 무조건 본문에도 넣어서 AI가 읽게 함
-
-    # 마지막 남은 덩어리 저장
-    if buffer:
-        save_chunk(results, doc, curr_major, curr_minor, common_info, buffer)
-
-    return results
-# [3] chunk 분리 로직 (논리 구조 중심)
-
-def make_chunks_format_forms(doc: Dict) -> List[Dict]: #민원 양식 전처리
-    results = []
-    
-    # 1. 딕셔너리에서 풍부한 속성값들을 안전하게 추출합니다.
-    title = doc.get("title", "민원 안내")
-    category = doc.get("category", "일반")
-    department = doc.get("department", "미지정")
-    phone = doc.get("phone", "비공개")
-    processing_period = doc.get("processing_period", "즉시")
-    required_documents = doc.get("required_documents", "없음")
-    submission_place = doc.get("submission_place", "행정복지센터")
-    fee = doc.get("fee", "없음")
-    notes = doc.get("notes", "")
-    review_criteria = doc.get("review_criteria", "")
-    workflow = doc.get("workflow", "")
-    
-    # 2. 고우니(AI)가 읽었을 때 한눈에 정보를 파악할 수 있도록 RAG 맞춤형 서식으로 재조립합니다.
-    full_text = f"### [민원명: {title}] ###\n"
-    full_text += f"- 분류/분야: {category}\n"
-    full_text += f"- 담당부서 및 문의처: {department} (☎ {phone})\n"
-    full_text += f"- 처리기간: {processing_period}\n"
-    full_text += f"- 신청 및 제출처: {submission_place}\n"
-    full_text += f"- 수수료 및 기타비용: {fee}\n\n"
-    
-    full_text += f"[구비 서류]\n{required_documents}\n\n"
-    
-    if review_criteria:
-        full_text += f"[행정기관 심사 기준]\n{review_criteria}\n\n"
-    if workflow:
-        full_text += f"[업무 처리 흐름도]\n{workflow}\n\n"
-    if notes:
-        full_text += f"[유의 사항]\n{notes}\n\n"
-        
-    # 3. 기존의 save_chunk와 구조적 호환성을 맞추어 청크 리스트에 적재합니다.
-    results.append({
-        "chunk_id": f"{doc['doc_id']}_0", # 이 데이터는 문서 1개가 하나의 완벽한 덩어리이므로 _0 고정
-        "doc_id": doc["doc_id"],
-        "url": doc.get("url", ""),
-        "title": title,
-        "menu_path": [category, title],
-        "chunk_text": clean_text(full_text), # 텍스트 공백 정제
-        "metadata": {
-            "major": category,
-            "minor": title,
-            "context": f"{title} 안내"
-        },
-        "source": "saha.go.kr"
-    })
-    
-    return results
-    return results
-# ==============================
-# [4] 실행
-# ==============================
-def preprocess():
-    ensure_dir(OUTPUT_DIR)
-    total_docs = 0
-    total_chunks = 0
-    #출력파일은 하나
-    with open(OUTPUT_JSONL, "w", encoding="utf-8") as fout:
-        #raw 폴더 안의 모든 파일을 가져옴
-        for file_name in os.listdir(INPUT_DIR):
-            file_path = os.path.join(INPUT_DIR, file_name)
             
-            # 맥 디렉토리 숨김파일(.DS_Store 등) 예외 처리
-            if file_name.startswith('.'): 
-                continue
+        # 1. 금액이나 숫자만 덜렁 한 줄로 남은 노이즈 행 제거 (ex: "820,556", "2,564,238")
+        if re.match(r'^[\d,]+$', stripped_line):
+            continue
+            
+        # 2. 가구원 수 규격에서 단순 열 이름만 덜렁 쪼개져 있는 유령 줄 제거
+        if stripped_line in ["1인", "2인", "3인", "4인", "5인", "6인", "가구원 수"]:
+            continue
+            
+        # 3. 급여명 찌꺼기 중 텍스트 파편으로 단독 격리된 짧은 줄만 스킵 (설명 문장 내부 단어는 안전)
+        if stripped_line in ["(중위 32%)", "(중위 40%)", "(중위 48%)", "(중위 50%)"]:
+            continue
+            
+        cleaned_final_lines.append(line)
+
+    data["text"] = f"제목: {data.get('title', '정보')}\n" + "\n".join(cleaned_final_lines).strip()
+    data["sections"] = sections
+    return data
+
+
+def parse_generic_table(table_rows):
+    """
+    어떤 형태의 크롤링 표가 들어와도 중복된 컬럼명 행을 완벽하게 걸러내고
+    순수 데이터만 마크다운 표로 변환하는 최종 고도화 파서
+    """
+    if not table_rows:
+        return ""
+        
+    md_table = []
+    headers = []
+    valid_rows = []
+    
+    for row in table_rows:
+        # 공백 제거하여 조각내기
+        parts = [p.strip() for p in row.split('|') if p.strip()]
+        if not parts:
+            continue
+            
+        # 💡 [정밀 중복 가드]: 헤더 정보와 데이터가 100% 겹치는 노이즈 행 차단
+        # 예: "| 가구원 수 | 1인: 1인 | 2인: 2인 |" 처럼 Key와 Value가 완전히 똑같은 
+        # 데이터 조각들("1인: 1인")이 발견되면 데이터가 아닌 '껍데기 행'이므로 과감히 스킵합니다.
+        is_duplicate_header = False
+        for p in parts[1:]:
+            if ":" in p:
+                k, v = p.split(':', 1)
+                if k.strip() == v.strip():  # "1인" == "1인" 처럼 겹치는 경우
+                    is_duplicate_header = True
+                    break
+        
+        if is_duplicate_header:
+            continue
+            
+        # 데이터 유효성 검사 (콜론 기호가 들어간 실재 데이터 행만 수집)
+        if any(":" in p for p in parts[1:]):
+            valid_rows.append(parts)
+            
+    if not valid_rows:
+        return ""
+        
+    # 동적 마크다운 헤더 뼈대 생성
+    headers.append("구분")
+    for part in valid_rows[0][1:]:
+        if ":" in part:
+            h_name = part.split(':')[0].strip()
+            if h_name not in headers:
+                headers.append(h_name)
                 
-            print(f"📦 현재 처리 중인 파일: {file_name}")
+    md_table.append("| " + " | ".join(headers) + " |")
+    md_table.append("| " + " | ".join([":---" if i == 0 else ":---:" for i in range(len(headers))]) + " |")
+    
+    # 데이터 매핑 및 오타 보정 최종 바인딩
+    for parts in valid_rows:
+        row_title = parts[0].strip()
+        if ":" in row_title:
+            row_title = row_title.split(':')[-1].strip()
             
-            with open(file_path, "r", encoding="utf-8") as fin:
-                for line in fin:
-                    line = line.strip()
-                    if not line: 
+        if row_title.startswith('[') and row_title.endswith(']'):
+            continue
+            
+        row_cells = [row_title]
+        for part in parts[1:]:
+            if ":" in part:
+                val = part.split(':')[1].strip()
+                # 마지막까지 기형적 콤마 오타 패턴 감시 보정
+                if "1,23,0834" in val or "1,230834" in val:
+                    val = "1,230,834"
+                row_cells.append(val)
+                
+        if len(row_cells) == len(headers):
+            md_table.append("| " + " | ".join(row_cells) + " |")
+            
+    return "\n" + "\n".join(md_table) + "\n"
+
+# 3. 💡 [안전하게 버그 수정] 온전한 JSON 파싱 함수
+def parse_safe_jsonl_line(line):
+    line_stripped = line.strip()
+    if not line_stripped:
+        return None
+        
+    # 주소의 http:// 나 https:// 를 해치지 않고, 
+    # 오직 라인 맨 앞이 '//' 로 시작하는 순수 주석 라인만 스킵
+    if line_stripped.startswith("//"):
+        return None
+        
+    try:
+        return json.loads(line_stripped)
+    except Exception as e:
+        # 파싱 실패할 경우 혹시 모를 꼬인 문자열 추적을 위해 에러 찍기
+        print(f"   ⚠️ 파싱 에러 디버그 로그: {str(e)}")
+        return None
+
+# 🚀 4. 메인 파이프라인 처리부
+def main():
+    # 1. 현재 스크립트 파일의 절대 경로 기준 설정
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    project_root = os.path.abspath(os.path.join(current_dir, "..", ".."))
+    
+    # 2. 프로젝트 루트 기준으로 입력(raw) 및 출력(processed) 폴더 매핑
+    input_folder = os.path.join(project_root, "data", "raw")
+    output_folder = os.path.join(project_root, "data", "processed")
+    output_file_path = os.path.join(output_folder, "saha_clean_docs.json")
+    
+    # 출력 폴더가 없으면 자동 생성
+    if not os.path.exists(output_folder):
+        os.makedirs(output_folder)
+        
+    unified_database = []
+
+    print(f"🔍 입력 폴더 스캔 시작: {input_folder}")
+    
+    if not os.path.exists(input_folder):
+        print(f"❌ 에러: [{input_folder}] 경로가 존재하지 않습니다. 폴더 위치를 확인해 주세요.")
+        return
+
+    # 3. 폴더 안의 모든 파일 순회
+    for filename in os.listdir(input_folder):
+        file_path = os.path.join(input_folder, filename)
+        
+        # 💡 [JSONL 파일 처리 분기]
+        if filename.lower().endswith('.jsonl'):
+            print(f"📦 JSONL 파일 정제 중: {filename}")
+            with open(file_path, "r", encoding="utf-8") as f:
+                for line_num, line in enumerate(f, 1):
+                    page_data = parse_safe_jsonl_line(line)
+                    if not page_data: 
+                        continue
+                    
+                    # ⭐ [노이즈 필터링]: 알맹이 없는 바로가기 데이터(menu_shortcut)는 과감히 제외
+                    if page_data.get("page_type") == "menu_shortcut":
                         continue
                         
-                    doc = json.loads(line)
-                    total_docs += 1
-                    
-                    # ⭐ [수정] 분기 조건을 확실한 서식 필드로 변경합니다.
-                    # 처리기간(processing_period)이 딕셔너리에 들어있을 때만 서식 양식으로 처리합니다.
-                    if "processing_period" in doc:
-                        # 이미 컬럼이 다 쪼개진 예쁜 데이터 -> 서식 B 작동!
-                        chunks = make_chunks_format_forms(doc)
+                    # 데이터 구조에 따른 정제 함수 호출
+                    if "sections" in page_data and page_data["sections"]:
+                        processed_page = clean_web_page_data(page_data)
                     else:
-                        # 통짜 text 위주의 데이터 (page_type이 있더라도 일로 옴) -> 자동화 엔진(서식 A) 작동!
-                        chunks = make_chunks_universal(doc)
+                        processed_page = clean_pdf_extracted_data(page_data)
                         
-                    total_chunks += len(chunks)
+                    # 최종 마스터 스키마 규격에 맞춰 압축
+                    minimal_data = {
+                        "doc_id": processed_page.get("doc_id"),
+                        "url": processed_page.get("url"),
+                        "title": processed_page.get("title", "정보 없음"),
+                        "page_type": processed_page.get("page_type", "contents"),
+                        "text": processed_page.get("text")
+                    }
                     
-                    for chunk in chunks:
-                        fout.write(json.dumps(chunk, ensure_ascii=False) + "\n")
+                    if minimal_data["text"]:
+                        unified_database.append(minimal_data)
+            
+        # 💡 [일반 단일 JSON 파일 처리 분기]
+        elif filename.lower().endswith('.json'):
+            print(f"🌐 단일 JSON 파일 정제 중: {filename}")
+            with open(file_path, "r", encoding="utf-8") as f:
+                try:
+                    page_data = json.load(f)
+                    
+                    # ⭐ [노이즈 필터링]: 일반 JSON 파일에서도 menu_shortcut 타입은 스킵
+                    if page_data.get("page_type") == "menu_shortcut":
+                        continue
+                        
+                    if "sections" in page_data and page_data["sections"]:
+                        processed_page = clean_web_page_data(page_data)
+                    else:
+                        processed_page = clean_pdf_extracted_data(page_data)
+                        
+                    minimal_data = {
+                        "doc_id": processed_page.get("doc_id"),
+                        "url": processed_page.get("url"),
+                        "title": processed_page.get("title", "정보 없음"),
+                        "page_type": processed_page.get("page_type", "contents"),
+                        "text": processed_page.get("text")
+                    }
+                    
+                    if minimal_data["text"]:
+                        unified_database.append(minimal_data)
+                except Exception as e:
+                    print(f"❌ 단일 JSON 파싱 에러 스킵: {filename} - {str(e)}")
+                    continue
 
-    print("\n✨ 모든 크롤링 파일 통합 전처리 완료! ✨")
-    print(f"- 총 처리한 원본 문서 수: {total_docs}")
-    print(f"- 최종 생성된 RAG Chunk 수: {total_chunks}")
-    print(f"- 통합 저장 완료된 파일 주소: {OUTPUT_JSONL}")
+    # 4. processed 폴더 안에 가벼워진 단 하나의 JSON 마스터셋 파일로 저장
+    with open(output_file_path, "w", encoding="utf-8") as f:
+        json.dump(unified_database, f, ensure_ascii=False, indent=2)
+        
+    print("\n" + "="*40)
+    print(f"🎉 전처리 파이프라인 완전 빌드 완료!")
+    print(f"📦 총 {len(unified_database)}개의 핵심 문서가 노이즈 없이 통합되었습니다.")
+    print(f"💾 최종 저장 경로: {output_file_path}")
+    
+    # ... (기존 json.dump 코드 바로 아래에 이어서 작성) ...
 
+    # 💡 [QA 검토용 HTML 자동 생성 가드]
+    html_file_path = os.path.join(output_folder, "qa_viewer.html")
+    
+    html_content = """
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="utf-8">
+        <title>사하구청 RAG 데이터 전처리 QA 검토 뷰어</title>
+        <style>
+            body { font-family: 'Malgun Gothic', sans-serif; background: #f5f6f7; padding: 30px; color: #333; }
+            .container { max-width: 1100px; margin: 0 auto; }
+            h1 { text-align: center; color: #1e293b; margin-bottom: 30px; }
+            .doc-card { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 25px; border-left: 6px solid #3b82f6; }
+            .meta { font-size: 0.9em; color: #64748b; margin-bottom: 15px; padding-bottom: 10px; border-bottom: 1px dashed #e2e8f0; }
+            .meta span { margin-right: 15px; font-weight: bold; }
+            .title { font-size: 1.3em; color: #0f172a; font-weight: bold; margin-bottom: 10px; }
+            .text-box { background: #f8fafc; padding: 20px; border-radius: 8px; border: 1px solid #e2e8f0; white-space: pre-wrap; font-size: 0.95em; line-height: 1.6; }
+            table { border-collapse: collapse; width: 100%; margin-top: 15px; background: white; }
+            th, td { border: 1px solid #cbd5e1; padding: 10px; text-align: center; font-size: 0.9em; }
+            th { background: #f1f5f9; font-weight: bold; color: #1e293b; }
+            a { color: #2563eb; text-decoration: none; }
+            a:hover { text-decoration: underline; }
+        </style>
+        <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    </head>
+    <body>
+        <div class="container">
+            <h1>🔍 사하구청 데이터 전처리 마스터셋 QA 뷰어</h1>
+    """
+    
+    # 생성된 데이터 중 상위 몇 개 또는 전체를 HTML 카드로 변환 (검토용으로 50개만 보거나 전체 보거나 조절 가능)
+    # 여기서는 편의상 수집된 모든 문서를 순회합니다.
+    for doc in unified_database:
+        html_content += f"""
+            <div class="doc-card">
+                <div class="title">📄 {doc['title']}</div>
+                <div class="meta">
+                    <span>ID:</span> {doc['doc_id']} | 
+                    <span>유형:</span> {doc['page_type']} | 
+                    <span>출처 URL:</span> <a href="{doc['url']}" target="_blank">{doc['url']}</a>
+                </div>
+                <div class="text-box" id="content-{doc['doc_id']}"></div>
+                <script>
+                    // 마크다운 문법([링크], |표|)을 HTML 태그로 이쁘게 렌더링해주는 마법의 한 줄
+                    document.getElementById("content-{doc['doc_id']}").innerHTML = marked.parse(`{doc['text']}`);
+                </script>
+            </div>
+        """
+        
+    html_content += """
+        </div>
+    </body>
+    </html>
+    """
+    
+    with open(html_file_path, "w", encoding="utf-8") as h_f:
+        h_f.write(html_content)
+        
+    print(f"🖥️  검토용 웹뷰어 페이지가 생성되었습니다: {html_file_path}")
+    print("="*40)
+    
 if __name__ == "__main__":
-    preprocess()
+    main()
