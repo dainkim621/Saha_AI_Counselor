@@ -48,7 +48,7 @@ def ask_saha_ai(user_question: str):
 
 if __name__ == "__main__":
     # 아까 검색 결과에 나왔던 '전자민원' 관련 질문으로 테스트
-    q = "지방세 납부 하려면 어떻게 해야해?" 
+    q = "가구원 수가 1인일 때 수급자로 선정되려면 기준 중위 소득이 얼마여야돼?" 
     print(f"\n💬 질문: {q}")
     print("-" * 30)
     print(ask_saha_ai(q))

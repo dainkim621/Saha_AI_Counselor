@@ -1,35 +1,39 @@
 import json
 import os
 
-# 💡 1. 전역 경로 설정 (실제 파일 위치에 맞게 세팅)
+# [1] 전역 경로 설정 (실제 파일 위치에 맞게 세팅)
 DATA_DIR = "data"
 OUTPUT_JSONL = os.path.join(DATA_DIR, "processed", "saha_clean_chunks.jsonl")
 OUTPUT_HTML = os.path.join(DATA_DIR, "processed", "saha_review_dashboard.html")
 
 # ---------------------------------------------------------------------------
-# 💡 2. 각 소스 파일별 전용 전처리 함수들 (로직 격리)
+# [2] 각 소스 파일별 전용 전처리 함수들 (로직 격리)
 # ---------------------------------------------------------------------------
+
 
 def process_general_docs(file_path):
     """
-    일반 웹페이지 (saha_docs.jsonl) 정밀 처리 함수 (부분 중복/포섭 관계 완벽 제거 버전)
+    1. 일반 웹페이지 (saha_docs.jsonl) 정밀 처리 함수
+    - 서로 다른 doc_id(URL 다름)를 가졌더라도 본문 내용이 100% 일치하면 웹사이트 전역 중복으로 간주하고 필터링 합니다. 
+    - 한 페이지 내에(url 동일)에서도 완전 일치하는 문단이 여러 개 있을 수 있는데, 이 경우에도 중복으로 간주하여 하나만 남기고 나머지는 버립니다.
+    - 하이퍼링크를 텍스트에 포함된 경우, 마크다운 형식으로 [텍스트](URL) 치환합니다. 
+    - 본문 내 표 데이터는 접근성용으로 중복해서 존재하는 경우가 많아서, 텍스트 내에 '|' 기호가 3개 이상 포함된 섹션은 표 데이터로 간주하여 자동으로 제거합니다.
     """
     chunks = []
-    if not os.path.exists(file_path):
+    if not os.path.exists(file_path): 
         return chunks
         
+    seen_texts = set()  # 전역 중복 차단기 (이미 한번 수집했던 본문텍스트를 저장해두는 집합 set)
+        
     with open(file_path, "r", encoding="utf-8") as f:
+        # <한 줄 씩 파일 읽기, 문서 기본 정보 추출>
         for line in f:
-            if not line.strip(): continue
+            if not line.strip(): continue # 빈 줄은 패스
             doc = json.loads(line.strip())
             doc_id = doc.get("doc_id")
             title = doc.get("title", "정보 안내")
             
-            # 💡 이번 페이지에서 살아남은 '정제된 본문 문자열 리스트'를 유지합니다.
-            processed_normalized_texts = []
-            # 원본 청크 객체를 임시 보관할 배열
-            temp_chunks = []
-            
+            # 1.바로 가기 링크
             link_map = {}
             for link in doc.get("shortcut_links", []):
                 link_text = link.get("text", "").strip()
@@ -37,46 +41,60 @@ def process_general_docs(file_path):
                 if link_text and link_url:
                     link_map[link_text] = link_url
 
+            # 2. 한 페이지 안에 들어있는 여러 section을 하나씩 검사
             for idx, sec in enumerate(doc.get("sections", [])):
                 heading_path = sec.get("heading_path", [])
                 block_type = sec.get("block_type", "")
                 sec_text = sec.get("text", "").strip()
                 
-                # 기본 노이즈 필터링
+                # 기본 예외 처리
+                # 전체 본문 백업 -> 중복 삭제
+                # 글자수 15자 미만 -> 의미 없는 짧은 텍스트 제거
+                # research_box -> 만족도 조사 박스 제거
                 if block_type == "full_text_backup" or len(sec_text) < 15 or "research_box" in sec_text:
                     continue
                 
-                # 공백 제거한 비교용 텍스트
+                # 본문 내 표 중복 -> llm이 이해하기 쉬운 전자의 표 선택
+                # 본문 내에 파이프(|) 기호가 3개 이상 등장 
+                # -> 접근성용 중복 표 데이터로 판단하고 해당 섹션 전체를 제거 (표 데이터는 일반적으로 파이프 구분이 많음)
+                if sec_text.count("|") >= 3:
+                    continue
+                
+                # 텍스트 내의 보든 공백, 탭, 줄바꿈을 제거한 norm_text 생성 (예: 기초 생활 보장 -> 기초생활보장)
+                # -> 띄어쓰기 or 엔터 개수가 달라서 중복 필터를 우회하는걸 방지하기 위함
                 norm_text = "".join(sec_text.split())
                 
-                # 💡 [핵심 알고리즘] 부분 중복 및 포섭 관계 검사
-                is_duplicate = False
+                # 전역 차단기(seen_texts)에 등록된 본문은 중복이므로 스킵
+                if norm_text in seen_texts:
+                    continue
                 
-                for existing_norm in processed_normalized_texts:
-                    # 케이스 A: 현재 조각(norm_text)이 기존 거(existing_norm)에 완전히 포함되는 쪼가리일 때 -> 버린다!
+                # 부분 중복 및 포섭 관계 검사
+                # 현재 문단이 이미 수집된 더 큰 문장 속에 포함되는 작은 문장일 경우 is_duplicate = True로 만들어서 탈락시킴
+                is_duplicate = False
+                for existing_norm in seen_texts:
                     if norm_text in existing_norm:
                         is_duplicate = True
                         break
-                    # 케이스 B: 반대로 현재 조각이 기존 작은 쪼가리들을 통째로 삼키는 상위 호환일 때
-                    # (이 경우는 나중에 찌꺼기가 남지 않도록 temp_chunks 관리를 해주거나, 
-                    # 스크랩 순서상 보통 큰 덩어리(_6)가 먼저 나오고 작은 조각(_7, _8)이 뒤에 나오므로 케이스 A에서 대부분 컷팅됩니다!)
-                
+                    
+                # 필터링과 중복검사를 통과한 문단이므로 다음 문단을 검사할 때 비교 대상이 될 수 있도록 seen_texts에 추가 
                 if is_duplicate:
-                    continue # 겹치는 쪼가리 본문은 과감히 버리기!
+                    continue
                 
-                # 통과했다면 누적 리스트에 추가
-                processed_normalized_texts.append(norm_text)
+                seen_texts.add(norm_text)
                 
-                # 마크다운 링크 매핑
+                # 마크다운 변환 및 최종 청크 저장 
+                # 본문 텍스트 내에 아까 저장해둔 링크 단어(text_key)가 나오면, 챗봇이 하이퍼링크를 줄 수 있도록 [단어](url) 형식으로 치환
                 for text_key, url_val in link_map.items():
                     if text_key in sec_text and f"({url_val})" not in sec_text:
                         sec_text = sec_text.replace(text_key, f"[{text_key}]({url_val})")
 
+                # 대메뉴 > 중메뉴 > 소메뉴 형태로 제목을 구성
+                # llm이 이해하기 쉽도록 제목 앞에는 #을 붙여서 마크다운 형식으로 만듦
                 sub_title = " > ".join(heading_path) if heading_path else title
-                
-                # 수빈님이 말씀하신 최적의 마크다운 헤더(#) 적용!
                 refined_text = f"# {sub_title}\n\n{sec_text}"
                 
+                # *********나중에 date, view 등등 여러가지 추가 얘정
+                # *********우선 중복 제거와 청킹, 표 정리를 우선으로 함 
                 chunks.append({
                     "doc_id": f"{doc_id}_{idx}",
                     "url": doc.get("url"),
@@ -88,6 +106,7 @@ def process_general_docs(file_path):
     return chunks
 
 
+#----------------------여기서부터 더 수정할 예정 
 
 def process_civil_forms(file_path):
     """2. 민원안내 서식 (saha_civil_forms.jsonl) 처리 함수"""
@@ -178,7 +197,7 @@ def process_waste_guides(file_path):
     return chunks
 
 # ---------------------------------------------------------------------------
-# 💡 3. 시각화 HTML 생성 전용 함수
+# [3] 시각화 HTML 생성 전용 함수
 # ---------------------------------------------------------------------------
 def generate_html_dashboard(chunks, output_path):
     """수집된 청크 리스트를 바탕으로 인간 검수용 대시보드 HTML을 렌더링하는 함수"""
@@ -241,10 +260,10 @@ def generate_html_dashboard(chunks, output_path):
         f.write(html_content)
 
 # ---------------------------------------------------------------------------
-# 💡 4. 메인 실행 컨트롤러 (마스터 오케스트레이션)
+# [4] 메인 실행 컨트롤러 (마스터 오케스트레이션)
 # ---------------------------------------------------------------------------
 def main():
-    print("🚀 [함수형 파이프라인] 사하구청 마스터 전처리 및 시각화 빌드 가동...")
+    print("🚀 크롤링 데이터 전처리 및 시각화 빌드 가동...")
     all_chunks = []
 
     # 1) 각 파트별 전처리 함수를 호출하여 청크를 하나의 바구니에 수집
@@ -268,7 +287,8 @@ def main():
     # 3) 대시보드 웹 페이지 생성 함수 호출
     generate_html_dashboard(all_chunks, OUTPUT_HTML)
     print(f"🖥️  [2단계 완수] 인간 검수용 대시보드 웹 뷰 완료 -> {OUTPUT_HTML}")
-    print("✨ 모든 파이프라인이 성공적으로 완결되었습니다!")
+    print("✨ 모든 파이프라인이 성공적으로 완결되었습니다! ^-^")
 
 if __name__ == "__main__":
     main()
+    

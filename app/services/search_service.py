@@ -50,7 +50,7 @@ def search_notices(query_embedding, db):
     return results
 # 테스트용 코드
 if __name__ == "__main__":
-    test_query = "주민등록등본"
+    test_query = "가구원 수가 1인일 때 수급자로 선정되려면 기준 중위 소득이 얼마여야돼?"
     chunks = get_similar_chunks(test_query)
     
     print(f"🔍 질문: {test_query}")
