@@ -1,117 +1,182 @@
 import json
 import os
+import re
 from dotenv import load_dotenv
-from openai import OpenAI  
+from openai import OpenAI
 from sqlalchemy.orm import Session
-from app.database import SessionLocal, engine, Base  
-from app.models import Notice        
 
-load_dotenv() 
+from app.database import SessionLocal, engine, Base
+from app.models import Notice
+
+load_dotenv()
+
 api_key = os.getenv("OPENAI_API_KEY")
 client = OpenAI(api_key=api_key)
 
+# OpenAI embedding 입력 초과 방지용
+MAX_EMBED_TEXT_LEN = 5000
+OVERLAP = 500
+
+
+def clean_text(text: str) -> str:
+    if not text:
+        return ""
+
+    text = text.replace("\xa0", " ")
+    text = re.sub(r"[ \t]+", " ", text)
+    text = re.sub(r"\r", "\n", text)
+    text = re.sub(r"\n[ \t]*\n+", "\n\n", text)
+    text = re.sub(r"[ \t]+\n", "\n", text)
+
+    return text.strip()
+
+
+def split_for_embedding(text: str, max_len=MAX_EMBED_TEXT_LEN, overlap=OVERLAP):
+    """
+    OpenAI embedding 최대 토큰 초과 방지용 분할.
+    문자 기준 5000자 정도면 text-embedding-3-small에서 안전하게 처리 가능.
+    """
+    text = clean_text(text)
+
+    if not text:
+        return []
+
+    if len(text) <= max_len:
+        return [text]
+
+    chunks = []
+    start = 0
+
+    while start < len(text):
+        end = start + max_len
+        part = text[start:end].strip()
+
+        if part:
+            chunks.append(part)
+
+        start += max_len - overlap
+
+    return chunks
+
+
 def get_embedding(text):
-    """최신 클라이언트 방식으로 OpenAI 1536차원 임베딩 생성"""
     response = client.embeddings.create(
         input=text,
-        model="text-embedding-3-small" 
+        model="text-embedding-3-small",
     )
     return response.data[0].embedding
-    
+
+
 def import_chunks():
     print("🛠️ 테이블 확인 및 생성 중...")
-    # 스키마 갱신을 위해 기존 테이블을 싹 밀고 새로 생성
-    Base.metadata.drop_all(bind=engine) 
+    
+    # ⚠️ 주의: 기존 데이터 테이블을 밀고 새로 만듭니다.
+    Base.metadata.drop_all(bind=engine)
     Base.metadata.create_all(bind=engine)
-    
+
     db: Session = SessionLocal()
-    file_path = "data/processed/saha_clean_docs.json"
-    
+
+    # 💡 수빈님이 새로 만든 예쁜 정제 묶음 파일 경로
+    file_path = "data/processed/saha_clean_chunks.jsonl"
+
     if not os.path.exists(file_path):
         print(f"❌ 파일을 찾을 수 없습니다: {file_path}")
         return
 
-    print("🚀 데이터 적재 및 OpenAI 벡터 변환 시작...")
-    
-    count = 0
+    print("🚀 .jsonl 라인 단위 데이터 적재 및 OpenAI 벡터 변환 시작...")
+
+    total_saved = 0
+    total_docs = 0
+
     try:
-        # 💡 [정석 해결책] 파일 전체를 텍스트로 통째로 읽어옵니다.
+        # 💡 [핵심 변경 포인트] 파일을 통째로 loads하지 않고, 한 줄씩 iterator로 읽어 메모리를 아낍니다.
         with open(file_path, "r", encoding="utf-8") as f:
-            raw_text = f.read().strip()
-            
-        # 전처리 스크립트 특성상 맨 마지막 콤마(Category 노이즈 등)가 꼬였을 때를 대비해 양끝 정리
-        if raw_text.endswith(","):
-            raw_text = raw_text[:-1].strip()
-        if not raw_text.endswith("]"):
-            raw_text += "]"
-            
-        # 통짜 JSON 리스트로 변환
-        try:
-            data_list = json.loads(raw_text)
-        except json.JSONDecodeError as je:
-            print(f"⚠️ 통짜 파싱 실패로 강제 정규식 추출 모드 전환: {je}")
-            # 만약 대괄호 매칭이 깨졌다면 내부 중괄호 객체들만 강제로 뜯어내기
-            import re
-            records = re.findall(r'\{[^{}]+\}', raw_text)
-            data_list = []
-            for r in records:
-                try: data_list.append(json.loads(r))
-                except: continue
+            for line_idx, line in enumerate(f, 1):
+                line = line.strip()
+                if not line:
+                    continue  # 빈 줄은 가볍게 패스
 
-        print(f"📋 총 {len(data_list)}개의 문서를 발견했습니다. 적재를 시작합니다.")
+                try:
+                    data = json.loads(line)
+                except json.JSONDecodeError as je:
+                    print(f"⚠️ {line_idx}번째 라인 파싱 실패 (건너뜀): {je}")
+                    continue
 
-        # 데이터 루프 돌리기
-        for data in data_list:
-            if not data or "doc_id" not in data:
-                continue
-                
-            # 중복 적재 방지
-            existing_chunk = db.query(Notice).filter(Notice.chunk_id == data["doc_id"]).first()
-            if existing_chunk:
-                continue
-            
-            print(f"🔮 임베딩 생성 중 ➡️ {data.get('title', '정보')} ({data['doc_id']})")
-            
-            content_text = data.get("text")
-            if not content_text:
-                continue
-                
-            # OpenAI 임베딩 생성
-            vector_data = get_embedding(content_text)
-            meta = data.get("metadata", {})
-            
-            new_chunk = Notice(
-                chunk_id=data["doc_id"],  
-                doc_id=data["doc_id"],
-                url=data.get("url"),
-                title=data.get("title", "정보 없음"),
-                page_type=data.get("page_type", "contents"),
-                source=data.get("source", "saha.go.kr"),
-                menu_path=data.get("menu_path", []),
-                
-                chunk_text=content_text,
-                chunk_index=data.get("chunk_index", 0),
-                embedding=vector_data,
-                
-                major=meta.get("major", ""),
-                minor=meta.get("minor", ""),
-                context=meta.get("context", "")
-            )
-            db.add(new_chunk)
-            count += 1
-            
-            if count % 10 == 0:
-                db.commit()
-                print(f"💾 중간 저장 완료 ({count}개 완료...)")
-        
+                if not data or "doc_id" not in data:
+                    continue
+
+                total_docs += 1
+
+                # 💡 전처리 단계에서 정제해 둔 'text' 필드를 우선적으로 획득
+                original_text = data.get("text") or data.get("chunk_text") or ""
+
+                if not original_text:
+                    continue
+
+                # 5000자가 넘어갈 경우를 대비한 2차 가드 분할
+                split_texts = split_for_embedding(original_text)
+
+                print(
+                    f"🔮 [{total_docs}] 임베딩 생성 중 ➡️ "
+                    f"{data.get('title', '정보')} ({data['doc_id']}) "
+                    f"/ 분할 {len(split_texts)}개"
+                )
+
+                meta = data.get("metadata", {}) or {}
+
+                for split_idx, content_text in enumerate(split_texts):
+                    try:
+                        vector_data = get_embedding(content_text)
+                    except Exception as e:
+                        print(
+                            f"⚠️ 임베딩 실패: {data.get('title', '정보')} "
+                            f"split={split_idx}, 길이={len(content_text)} / {e}"
+                        )
+                        continue
+
+                    # 고유한 chunk_id 생성
+                    chunk_id = f"{data['doc_id']}_{split_idx}"
+
+                    new_chunk = Notice(
+                        chunk_id=chunk_id,
+                        doc_id=data["doc_id"],
+                        url=data.get("url"),
+                        title=data.get("title", "정보 없음"),
+                        page_type=data.get("page_type", "contents"),
+                        source=data.get("source", "saha.go.kr"),
+                        menu_path=data.get("menu_path", []),
+
+                        chunk_text=content_text,
+                        chunk_index=split_idx,
+                        embedding=vector_data,
+
+                        major=meta.get("major", ""),
+                        minor=meta.get("minor", ""),
+                        context=meta.get("context", ""),
+                    )
+
+                    db.add(new_chunk)
+                    total_saved += 1
+
+                    # 10개 단위로 안전하게 디비 저장 및 출력 로그 찍기
+                    if total_saved % 10 == 0:
+                        db.commit()
+                        print(f"💾 DB 커밋 완료 ({total_saved}개 저장)")
+
+        # 남은 데이터 최종 커밋
         db.commit()
-        print(f"\n✅ [성공] 총 {count}개의 데이터가 완벽하게 벡터 DB에 적재되었습니다!")
-        
+
+        print("\n✅ .jsonl 데이터 적재 완벽 성공!")
+        print(f"- 읽어들인 원본 청크 수: {total_docs}")
+        print(f"- pgvector DB에 최종 세이브된 chunk 수: {total_saved}")
+
     except Exception as e:
         print(f"🔥 적재 중 크리티컬 에러 발생: {e}")
         db.rollback()
+
     finally:
         db.close()
-        
+
+
 if __name__ == "__main__":
     import_chunks()
