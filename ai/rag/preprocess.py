@@ -7,9 +7,8 @@ OUTPUT_JSONL = os.path.join(DATA_DIR, "processed", "saha_clean_chunks.jsonl")
 OUTPUT_HTML = os.path.join(DATA_DIR, "processed", "saha_review_dashboard.html")
 
 # ---------------------------------------------------------------------------
-# [2] 각 소스 파일별 전용 전처리 함수들 (로직 격리)
+# [2] 각 크롤러 파일 별 함수 분리 및 전처리 로직
 # ---------------------------------------------------------------------------
-
 
 def process_general_docs(file_path):
     """
@@ -88,7 +87,7 @@ def process_general_docs(file_path):
                     if text_key in sec_text and f"({url_val})" not in sec_text:
                         sec_text = sec_text.replace(text_key, f"[{text_key}]({url_val})")
 
-                # 대메뉴 > 중메뉴 > 소메뉴 형태로 제목을 구성
+                # '대메뉴 > 중메뉴 > 소메뉴' 형태로 제목을 구성
                 # llm이 이해하기 쉽도록 제목 앞에는 #을 붙여서 마크다운 형식으로 만듦
                 sub_title = " > ".join(heading_path) if heading_path else title
                 refined_text = f"# {sub_title}\n\n{sec_text}"
@@ -260,7 +259,7 @@ def generate_html_dashboard(chunks, output_path):
         f.write(html_content)
 
 # ---------------------------------------------------------------------------
-# [4] 메인 실행 컨트롤러 (마스터 오케스트레이션)
+# [4] 메인 실행 컨트롤러 
 # ---------------------------------------------------------------------------
 def main():
     print("🚀 크롤링 데이터 전처리 및 시각화 빌드 가동...")
