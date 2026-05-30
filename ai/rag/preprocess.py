@@ -108,42 +108,65 @@ def process_general_docs(file_path):
 #----------------------여기서부터 더 수정할 예정 
 
 def process_civil_forms(file_path):
-    """2. 민원안내 서식 (saha_civil_forms.jsonl) 처리 함수"""
+    """2. 민원안내 서식 (saha_civil_forms.jsonl) 처리 함수 (모든 필드 완벽 반영 버전)"""
     chunks = []
     if not os.path.exists(file_path):
         return chunks
         
     with open(file_path, "r", encoding="utf-8") as f:
         for line in f:
-            if not line.strip(): continue
-            form = json.loads(line.strip())
-            if len(form.get("text", "")) < 80: continue
+            if not line.strip(): 
+                continue
             
+            form = json.loads(line.strip())
+            
+            if len(form.get("text", "")) < 80: 
+                continue
+                
             doc_id = form.get("doc_id")
             title = form.get("title", "민원 안내")
             dept = form.get("department", "해당부서")
             phone = form.get("phone", "안내번호")
             
-            req_docs = form.get("required_documents", "정보 없음").strip()
-            text_procedure = f"제목: {title} (구비서류 및 절차)\n부서: {dept}({phone})\n처리기간: {form.get('processing_period', '지체 없이')} / 수수료: {form.get('fee', '없음')}\n\n[구비서류]\n{req_docs}\n\n[처리흐름]\n{form.get('workflow', '정보 없음')}"
-            text_notes = f"제목: {title} (유의사항 및 과태료)\n부서: {dept}({phone})\n\n[상세 유의사항]\n{form.get('notes', '정보 없음').strip()}"
+            # 1. 원본 데이터의 모든 필드를 빠짐없이 안전하게 가져옵니다.
+            req_docs = form.get("required_documents", "").strip()
+            place = form.get("submission_place", "").strip()
+            criteria = form.get("review_criteria", "").strip()
+            workflow = form.get("workflow", "").strip()
             
+            # 질문하신 핵심 3가지 필드 처리
+            notes = form.get("notes", "").strip()          # 유의사항
+            appeal = form.get("appeal", "").strip()        # 이의신청
+            etc = form.get("etc", "").strip()              # 기타
+            
+            # 2. 텍스트 조립 (데이터가 없으면 '내용 없음' 혹은 '정보 없음'으로 처리)
+            text_lines = [
+                f"제목: {title}",
+                f"담당부서: {dept} (문의처: {phone})",
+                f"처리기간: {form.get('processing_period', '지체 없이')} | 수수료: {form.get('fee', '없음')}",
+                f"제출처: {place if place else '해당 부서 및 동 행정복지센터'}",
+                f"\n[구비서류 및 필요서류]\n{req_docs if req_docs else '정보 없음'}",
+                f"\n[행정기관 심사 및 자격 기준]\n{criteria if criteria else '내용 없음'}",
+                f"\n[업무 처리 흐름]\n{workflow if workflow else '정보 없음'}",
+                
+                # 데이터가 비어있어도 구조가 유지되도록 확실하게 매핑
+                f"\n[유의사항]\n{notes if notes else '내용 없음'}",
+                f"\n[이의신청 방법]\n{appeal if appeal else '내용 없음'}",
+                f"\n[기타 사항]\n{etc if etc else '내용 없음'}"
+            ]
+            
+            full_text = "\n".join(text_lines)
+            
+            # 3. 최종 청크 바구니에 담기
             chunks.append({
-                "doc_id": f"{doc_id}_구비서류",
+                "doc_id": doc_id,
                 "url": form.get("url"),
-                "title": f"{title} [구비서류]",
+                "title": title,
                 "page_type": "민원서식(civil_form)",
-                "text": text_procedure
+                "text": full_text
             })
-            chunks.append({
-                "doc_id": f"{doc_id}_유의사항",
-                "url": form.get("url"),
-                "title": f"{title} [유의사항]",
-                "page_type": "민원서식(civil_form)",
-                "text": text_notes
-            })
+            
     return chunks
-
 
 def process_bid_notices(file_path):
     """3. 입찰공고 (saha_bid_docs.jsonl) 처리 함수"""
@@ -266,10 +289,10 @@ def main():
     all_chunks = []
 
     # 1) 각 파트별 전처리 함수를 호출하여 청크를 하나의 바구니에 수집
-    all_chunks.extend(process_general_docs(os.path.join(DATA_DIR, "raw", "saha_docs.jsonl")))
+    # all_chunks.extend(process_general_docs(os.path.join(DATA_DIR, "raw", "saha_docs.jsonl")))
     all_chunks.extend(process_civil_forms(os.path.join(DATA_DIR, "raw", "saha_civil_forms.jsonl")))
-    all_chunks.extend(process_bid_notices(os.path.join(DATA_DIR, "raw", "saha_bid_docs.jsonl")))
-    all_chunks.extend(process_waste_guides(os.path.join(DATA_DIR, "raw", "saha_waste_docs.jsonl")))
+    # all_chunks.extend(process_bid_notices(os.path.join(DATA_DIR, "raw", "saha_bid_docs.jsonl")))
+    # all_chunks.extend(process_waste_guides(os.path.join(DATA_DIR, "raw", "saha_waste_docs.jsonl")))
 
     # 2) 파일 저장 처리 (JSONL)
     if not all_chunks:
