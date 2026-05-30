@@ -169,10 +169,7 @@ def process_civil_forms(file_path):
             
     return chunks
 
-#----------------------여기서부터 더 수정할 예정 
 
-import json
-import os
 
 def process_bid_notices(file_path):
     """3. 입찰공고 (saha_bid_docs.jsonl) 처리 함수 (구조화 및 노이즈 제거 버전)"""
@@ -236,7 +233,7 @@ def process_bid_notices(file_path):
             
     return chunks
 
-
+#----------------------여기서부터 더 수정할 예정 ------------------------
 
 def process_waste_guides(file_path):
     """4. 폐기물 안내 (saha_waste_docs.jsonl) 처리 함수"""
@@ -335,8 +332,8 @@ def main():
 
     # 1) 각 파트별 전처리 함수를 호출하여 청크를 하나의 바구니에 수집
     # all_chunks.extend(process_general_docs(os.path.join(DATA_DIR, "raw", "saha_docs.jsonl")))
-    # all_chunks.extend(process_civil_forms(os.path.join(DATA_DIR, "raw", "saha_civil_forms.jsonl")))
-    all_chunks.extend(process_bid_notices(os.path.join(DATA_DIR, "raw", "saha_bid_docs.jsonl")))
+    all_chunks.extend(process_civil_forms(os.path.join(DATA_DIR, "raw", "saha_civil_forms.jsonl")))
+    # all_chunks.extend(process_bid_notices(os.path.join(DATA_DIR, "raw", "saha_bid_docs.jsonl")))
     # all_chunks.extend(process_waste_guides(os.path.join(DATA_DIR, "raw", "saha_waste_docs.jsonl")))
 
     # 2) 파일 저장 처리 (JSONL)
