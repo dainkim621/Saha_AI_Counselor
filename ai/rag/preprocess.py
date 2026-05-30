@@ -105,10 +105,11 @@ def process_general_docs(file_path):
     return chunks
 
 
-#----------------------여기서부터 더 수정할 예정 
+
 
 def process_civil_forms(file_path):
-    """2. 민원안내 서식 (saha_civil_forms.jsonl) 처리 함수 (모든 필드 완벽 반영 버전)"""
+    """2. 민원안내 서식 (saha_civil_forms.jsonl) 처리 함수
+    - 민원안내 데이터는 본문 내용이 길고 상세한 경우가 많아서, 청크 단위를 '민원 하나'로 잡아서 최대한 원문을 보존하는 방향으로 전처리 합니다."""
     chunks = []
     if not os.path.exists(file_path):
         return chunks
@@ -168,29 +169,73 @@ def process_civil_forms(file_path):
             
     return chunks
 
+#----------------------여기서부터 더 수정할 예정 
+
+import json
+import os
+
 def process_bid_notices(file_path):
-    """3. 입찰공고 (saha_bid_docs.jsonl) 처리 함수"""
+    """3. 입찰공고 (saha_bid_docs.jsonl) 처리 함수 (구조화 및 노이즈 제거 버전)"""
     chunks = []
     if not os.path.exists(file_path):
         return chunks
         
     with open(file_path, "r", encoding="utf-8") as f:
         for line in f:
-            if not line.strip(): continue
+            if not line.strip(): 
+                continue
+                
             bid = json.loads(line.strip())
             doc_id = bid.get("doc_id")
             title = bid.get("title", "입찰공고")
             
-            refined_text = f"제목: {title}\n공고번호: {bid.get('notice_no', '번호없음')}\n담당부서: {bid.get('department', '재무과')}({bid.get('phone', '')})\n공고일자: {bid.get('date', '')}\n\n[공사 상세내용]\n{bid.get('body', '').strip()}"
+            # 1. 첨부파일 목록 정리 (리스트 형태인 attachments에서 파일명만 뽑아오기)
+            attachments = bid.get("attachments", [])
+            file_names = [file.get("file_name") for file in attachments if file.get("file_name")]
+            attachments_str = ", ".join(file_names) if file_names else "없음"
             
+            # 2. 본문(body)에서 기계적으로 긁힌 상단 메뉴 노이즈 제거하고 핵심 개요만 추출 시도
+            body_raw = bid.get("body", "").strip()
+            
+            # 만약 '1. 공사개요' 또는 '1. 용역개요' 처럼 실무 내용이 시작되는 부분을 찾으면 
+            # 그 전까지의 크롤링 껍데기 문장들은 과감히 잘라내 가독성을 높임.
+            split_keyword = ""
+            if "1. 공사개요" in body_raw:
+                split_keyword = "1. 공사개요"
+            elif "1. 용역개요" in body_raw:
+                split_keyword = "1. 용역개요"
+            elif "1. 공고대상" in body_raw:
+                split_keyword = "1. 공고대상"
+                
+            if split_keyword:
+                content_body = split_keyword + body_raw.split(split_keyword)[-1]
+            else:
+                content_body = body_raw # 키워드가 없다면 원본 본문 유지
+            
+            # 3. LLM과 인간이 모두 보기 편한 입찰공고용 표준 포맷으로 조립
+            text_lines = [
+                f"공고명: {title}",
+                f"공고번호: {bid.get('notice_no', '번호없음')}",
+                f"구분: {bid.get('notice_type', '공고')}",
+                f"담당부서: {bid.get('department', '재무과')} (문의처: {bid.get('phone', '번호없음')})",
+                f"등록일자: {bid.get('date', '정보없음')}",
+                f"첨부문서: {attachments_str}",
+                f"\n[사업 및 공고 상세내용]\n{content_body}"
+            ]
+            
+            refined_text = "\n".join(text_lines)
+            
+            # 4. 굳이 쪼갤 필요 없이 하나의 공고당 하나의 청크로 저장
             chunks.append({
-                "doc_id": f"{doc_id}_0",
+                "doc_id": doc_id, # 불필요한 접미사(_0)를 빼고 고유 ID 유지
                 "url": bid.get("url"),
                 "title": f"입찰정보 - {title}",
                 "page_type": "입찰공고(bid_notice)",
                 "text": refined_text
             })
+            
     return chunks
+
 
 
 def process_waste_guides(file_path):
@@ -290,8 +335,8 @@ def main():
 
     # 1) 각 파트별 전처리 함수를 호출하여 청크를 하나의 바구니에 수집
     # all_chunks.extend(process_general_docs(os.path.join(DATA_DIR, "raw", "saha_docs.jsonl")))
-    all_chunks.extend(process_civil_forms(os.path.join(DATA_DIR, "raw", "saha_civil_forms.jsonl")))
-    # all_chunks.extend(process_bid_notices(os.path.join(DATA_DIR, "raw", "saha_bid_docs.jsonl")))
+    # all_chunks.extend(process_civil_forms(os.path.join(DATA_DIR, "raw", "saha_civil_forms.jsonl")))
+    all_chunks.extend(process_bid_notices(os.path.join(DATA_DIR, "raw", "saha_bid_docs.jsonl")))
     # all_chunks.extend(process_waste_guides(os.path.join(DATA_DIR, "raw", "saha_waste_docs.jsonl")))
 
     # 2) 파일 저장 처리 (JSONL)
