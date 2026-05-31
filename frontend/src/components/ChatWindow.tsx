@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Message } from "../App";
 import gouni from "../assets/gouni-profile.png";
 
@@ -10,33 +10,31 @@ type ChatWindowProps = {
 function ChatWindow({ messages, isLoading }: ChatWindowProps) {
   const bottomRef = useRef<HTMLDivElement | null>(null);
   const lastSpokenIndexRef = useRef<number>(-1);
+  const [isTtsOn, setIsTtsOn] = useState(false);
 
-  // 메시지가 추가되거나 로딩 상태가 바뀌면 자동으로 아래로 스크롤
   useEffect(() => {
     bottomRef.current?.scrollIntoView({
       behavior: "smooth",
     });
   }, [messages, isLoading]);
 
-  // 마지막 assistant 메시지를 TTS로 읽기
   useEffect(() => {
+    if (!isTtsOn) {
+      window.speechSynthesis?.cancel();
+      return;
+    }
+
     if (messages.length === 0) return;
 
     const lastIndex = messages.length - 1;
     const lastMessage = messages[lastIndex];
 
-    // assistant 답변이 아니면 읽지 않음
     if (lastMessage.role !== "assistant") return;
-
-    // 같은 메시지를 중복으로 읽지 않도록 방지
     if (lastSpokenIndexRef.current === lastIndex) return;
-
-    // 브라우저가 TTS를 지원하지 않으면 실행하지 않음
     if (!("speechSynthesis" in window)) return;
 
     lastSpokenIndexRef.current = lastIndex;
 
-    // 이전에 읽고 있던 음성이 있으면 중지
     window.speechSynthesis.cancel();
 
     const utterance = new SpeechSynthesisUtterance(lastMessage.content);
@@ -47,10 +45,30 @@ function ChatWindow({ messages, isLoading }: ChatWindowProps) {
     utterance.volume = 1;
 
     window.speechSynthesis.speak(utterance);
-  }, [messages]);
+  }, [messages, isTtsOn]);
+
+  const handleToggleTts = () => {
+    setIsTtsOn((prev) => {
+      const next = !prev;
+
+      if (!next && "speechSynthesis" in window) {
+        window.speechSynthesis.cancel();
+      }
+
+      return next;
+    });
+  };
 
   return (
     <div className="chat-window">
+      <button
+        type="button"
+        className={isTtsOn ? "tts-toggle tts-on" : "tts-toggle"}
+        onClick={handleToggleTts}
+      >
+        {isTtsOn ? "🔊 음성 ON" : "🔇 음성 OFF"}
+      </button>
+
       {messages.map((message, index) => (
         <div
           key={index}

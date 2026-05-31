@@ -671,6 +671,41 @@
   border-bottom-left-radius: 6px;
 }
 
+.tts-toggle {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+
+  align-self: flex-end;
+
+  margin-bottom: 12px;
+  padding: 8px 14px;
+
+  border: 1px solid #d1d5db;
+  border-radius: 999px;
+
+  background-color: #ffffff;
+  color: #4b5563;
+
+  cursor: pointer;
+
+  font-size: 14px;
+  font-weight: 700;
+
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08);
+}
+
+/* TTS ON / OFF 구현하기 */
+.tts-toggle:hover {
+  background-color: #f8fafc;
+}
+
+.tts-toggle.tts-on {
+  background-color: #eff6ff;
+  color: #2563eb;
+  border-color: #93c5fd;
+}
+
 /* =========================
     Input
 ========================= */
