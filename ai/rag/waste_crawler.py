@@ -39,6 +39,13 @@ TARGET_PAGES = [
         "category": "사업장폐기물처리안내",
         "topic": "사업장폐기물 처리안내",
     },
+    # 본문 내용은 없고 링크 이동
+    {
+        "url": "https://www.saha.go.kr/portal/contents.do?mId=0405050600",
+        "category": "의료폐기물 분류·관리방법 안내",
+        "topic": "의료폐기물 분류·관리방법 안내",
+        
+    },
 ]
 
 HEADERS = {"User-Agent": "Mozilla/5.0"}
@@ -344,6 +351,10 @@ def looks_like_heading(text):
         if len(text) <= 30:
             return True
 
+        # 대형폐기물 표 제목이 긴 괄호 포함 제목
+        if "수수료" in text and ("대형폐기물" in text or "폐기물" in text):
+            return True
+
         return False
 
     # 일반 제목 패턴
@@ -547,9 +558,9 @@ def extract_weekday_table_sections(table, base_path):
             continue
 
         sections.append({
-            "heading_path": base_path + ["쓰레기 배출요일", day],
+            "heading_path": base_path + [day],
             "block_type": "table_row",
-            "text": item_text,
+            "text": text,
         })
 
     return sections
@@ -752,8 +763,8 @@ def extract_large_waste_fee_table_sections(table, base_path):
             continue
 
         sections.append({
-            "heading_path": base_path[:1] + [
-                "대형폐기물 처리 수수료",
+            # 소제목 잘라내지 않게 수정
+            "heading_path": base_path + [
                 waste_type,
                 item_name,
             ],
@@ -881,7 +892,7 @@ def extract_item_guide_table_sections(table, base_path):
 # 표 -> 텍스트
 def table_to_sections(table, base_path):
     sections = []
-
+    # caption은 표 종류 판별용
     caption = ""
     if table.find("caption"):
         caption = clean_inline(
@@ -925,6 +936,9 @@ def table_to_sections(table, base_path):
 
 # 현재 태그의 직접 텍스트만 추출한다.
 def get_direct_text(node):
+    if not node:
+        return ""
+
     texts = []
 
     for child in node.children:
@@ -933,7 +947,38 @@ def get_direct_text(node):
             if txt:
                 texts.append(txt)
 
-    return "\n".join(texts).strip()
+    return " ".join(texts).strip()
+
+def is_bad_table_title(text):
+    text = clean_inline(text)
+
+    if not text:
+        return True
+
+    # 다운로드/첨부 링크는 제목 아님
+    if "다운로드" in text:
+        return True
+
+    if text.endswith((".hwp", ".pdf", ".xlsx", ".xls")):
+        return True
+
+    # 너무 짧은 일반 단어 제외
+    if text in ["다운로드", "보기", "첨부파일"]:
+        return True
+
+    return False
+
+# 표의 실제 본문 소제목을 찾는다. caption 사용x
+def find_table_title(table, page_title):
+    parent_li = table.find_parent("li")
+
+    if parent_li:
+        direct_title = get_direct_text(parent_li)
+
+        if direct_title and not is_bad_table_title(direct_title):
+            return direct_title
+
+    return ""
 
 # li 바로 아래에 있는 하위 ul/ol의 li 목록만 추출한다.
 def child_list_to_text(li):
@@ -1061,13 +1106,20 @@ def extract_structured_sections(main_node, page_title):
 
             continue
 
-        # Table
+        # 표 처리
         if node.name == "table":
+            parent_li = node.find_parent("li")
 
-            table_sections = table_to_sections(
-                node,
-                current_path()
-            )
+            direct_title = ""
+            if parent_li:
+                direct_title = get_direct_text(parent_li)
+
+            if direct_title:
+                table_base_path = [page_title, direct_title]
+            else:
+                table_base_path = current_path()
+
+            table_sections = table_to_sections(node, table_base_path)
 
             for sec in table_sections:
                 key = (
@@ -1201,7 +1253,7 @@ def extract_page(html, page_info):
 
     title = extract_title(soup, page_info["topic"])
     main_node = select_main_content(soup)
-    
+
     # body_text = clean_text(main_node.get_text("\n", strip=True)) if main_node else ""
     sections = extract_structured_sections(main_node, page_info["topic"]) if main_node else []
     if sections is None:
