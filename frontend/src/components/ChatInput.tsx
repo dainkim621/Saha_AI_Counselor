@@ -1,16 +1,16 @@
-import { useState } from "react";
-
 type ChatInputProps = {
+  input: string;
+  setInput: React.Dispatch<React.SetStateAction<string>>;
   onSend: (message: string) => void;
   isLoading: boolean;
 };
 
 function ChatInput({
+  input,
+  setInput,
   onSend,
   isLoading,
 }: ChatInputProps) {
-  const [input, setInput] = useState("");
-
   const handleSend = () => {
     const trimmedInput = input.trim();
 
@@ -18,7 +18,6 @@ function ChatInput({
     if (isLoading) return;
 
     onSend(trimmedInput);
-    setInput("");
   };
 
   const handleKeyDown = (
