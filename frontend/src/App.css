@@ -354,25 +354,41 @@
 ========================= */
 
 .accessibility-bar {
-  display: flex;
-  justify-content: flex-end;
+  display: grid;
+  grid-template-columns: 240px 1fr auto;
   align-items: center;
 
-  gap: 8px;
+  column-gap: 14px;
 
-  padding: 0 18px 2px;
+  padding: 0 10px 2px;
 
+  width: calc(100% - 20px);
   max-width: 1680px;
   margin: 0 auto;
 }
 
-.accessibility-bar span {
+.voice-accessibility-controls {
+  grid-column: 2;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.font-controls {
+  grid-column: 3;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+}
+
+.font-controls span {
   font-size: 14px;
   font-weight: 600;
   color: #374151;
 }
 
-.accessibility-bar button {
+.font-controls button {
   width: 32px;
   height: 32px;
 
@@ -410,6 +426,39 @@
   font-weight: 700;
 
   text-align: center;
+}
+
+.voice-button {
+  height: 32px;
+  padding: 0 12px;
+
+  border: 1px solid #d1d5db;
+  border-radius: 999px;
+
+  background-color: #ffffff;
+  color: #4b5563;
+
+  cursor: pointer;
+
+  font-size: 13px;
+  font-weight: 700;
+
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.08);
+}
+
+.voice-button:hover {
+  background-color: #f8fafc;
+}
+
+.voice-button.active {
+  background-color: #eff6ff;
+  color: #2563eb;
+  border-color: #93c5fd;
+}
+
+.voice-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 /* =========================
@@ -671,41 +720,6 @@
   border-bottom-left-radius: 6px;
 }
 
-.tts-toggle {
-  position: sticky;
-  top: 0;
-  z-index: 5;
-
-  align-self: flex-end;
-
-  margin-bottom: 12px;
-  padding: 8px 14px;
-
-  border: 1px solid #d1d5db;
-  border-radius: 999px;
-
-  background-color: #ffffff;
-  color: #4b5563;
-
-  cursor: pointer;
-
-  font-size: 14px;
-  font-weight: 700;
-
-  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08);
-}
-
-/* TTS ON / OFF 구현하기 */
-.tts-toggle:hover {
-  background-color: #f8fafc;
-}
-
-.tts-toggle.tts-on {
-  background-color: #eff6ff;
-  color: #2563eb;
-  border-color: #93c5fd;
-}
-
 /* =========================
     Input
 ========================= */
@@ -880,6 +894,18 @@
     width: 40px;
     height: 40px;
   }
+
+  .accessibility-bar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+
+  .voice-accessibility-controls,
+  .font-controls {
+    justify-content: center;
+    flex-wrap: wrap;
+  }
 }
 
 /* =========================
@@ -989,11 +1015,11 @@
 }
 
 /* Accessibility */
-.app.font-xsmall .accessibility-bar span { font-size: 12px; }
-.app.font-small .accessibility-bar span { font-size: 13px; }
-.app.font-normal .accessibility-bar span { font-size: 14px; }
-.app.font-large .accessibility-bar span { font-size: 18px; }
-.app.font-xlarge .accessibility-bar span { font-size: 22px; }
+.app.font-xsmall .font-controls span { font-size: 12px; }
+.app.font-small .font-controls span { font-size: 13px; }
+.app.font-normal .font-controls span { font-size: 14px; }
+.app.font-large .font-controls span { font-size: 18px; }
+.app.font-xlarge .font-controls span { font-size: 22px; }
 
 .app.font-large .font-label {
   font-size: 18px;
