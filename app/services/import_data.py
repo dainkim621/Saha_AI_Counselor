@@ -25,7 +25,9 @@ def import_chunks():
     Base.metadata.create_all(bind=engine)
     
     db: Session = SessionLocal()
-    file_path = "data/processed/saha_clean_docs.json"
+    current_dir = os.path.dirname(os.path.abspath(__file__)) # app/services
+    project_root = os.path.abspath(os.path.join(current_dir, "..", "..")) # 최상위 루트
+    file_path = os.path.join(project_root, "data", "processed", "saha_clean_docs.jsonl")
     
     if not os.path.exists(file_path):
         print(f"❌ 파일을 찾을 수 없습니다: {file_path}")
