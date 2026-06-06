@@ -1,4 +1,4 @@
-import gouni from "../assets/gouni.png";
+import gouni from "../assets/gouni-mascot.png";
 
 function MascotCard() {
   return (

@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import type { Message } from "../App";
-import gouni from "../assets/gouni.png";
+import gouni from "../assets/gouni-profile.png";
 
 type ChatWindowProps = {
   messages: Message[];
@@ -47,7 +47,7 @@ function ChatWindow({ messages, isLoading }: ChatWindowProps) {
         <div className="message-row assistant-row">
           <img
             src={gouni}
-            alt="고우니"
+            alt="고우니 프로필"
             className="chat-avatar chat-avatar-active"
           />
 

@@ -1,9 +1,8 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import "./App.css";
 
 import Header from "./components/Header";
 import MascotCard from "./components/MascotCard";
-import QuickMenu from "./components/QuickMenu";
 import ChatWindow from "./components/ChatWindow";
 import ChatInput from "./components/ChatInput";
 
@@ -11,6 +10,36 @@ export type Message = {
   role: "user" | "assistant";
   content: string;
 };
+
+type SpeechRecognitionType = {
+  lang: string;
+  interimResults: boolean;
+  continuous: boolean;
+  start: () => void;
+  stop: () => void;
+  onresult: ((event: SpeechRecognitionEvent) => void) | null;
+  onend: (() => void) | null;
+  onerror: (() => void) | null;
+};
+
+type SpeechRecognitionEvent = {
+  results: {
+    [index: number]: {
+      [index: number]: {
+        transcript: string;
+      };
+    };
+  };
+};
+
+type SpeechRecognitionConstructor = new () => SpeechRecognitionType;
+
+declare global {
+  interface Window {
+    SpeechRecognition?: SpeechRecognitionConstructor;
+    webkitSpeechRecognition?: SpeechRecognitionConstructor;
+  }
+}
 
 const fontModes = [
   "font-xsmall",
@@ -37,54 +66,171 @@ function App() {
   ]);
 
   const [isLoading, setIsLoading] = useState(false);
+  const [input, setInput] = useState("");
 
-  // 기본 = 2
   const [fontLevel, setFontLevel] = useState(2);
 
- const sendMessage = async (question: string) => {
-    if (!question.trim()) return;
+  const [isTtsOn, setIsTtsOn] = useState(false);
+  const [isListening, setIsListening] = useState(false);
+
+  const lastSpokenIndexRef = useRef<number>(-1);
+  const recognitionRef = useRef<SpeechRecognitionType | null>(null);
+
+  const speakText = (text: string) => {
+    if (!("speechSynthesis" in window)) return;
+
+    window.speechSynthesis.cancel();
+
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = "ko-KR";
+    utterance.rate = 1;
+    utterance.pitch = 1;
+    utterance.volume = 1;
+
+    window.speechSynthesis.speak(utterance);
+  };
+
+  useEffect(() => {
+    if (!isTtsOn) {
+      window.speechSynthesis?.cancel();
+      return;
+    }
+
+    if (messages.length === 0) return;
+
+    const lastIndex = messages.length - 1;
+    const lastMessage = messages[lastIndex];
+
+    if (lastMessage.role !== "assistant") return;
+    if (lastSpokenIndexRef.current === lastIndex) return;
+
+    lastSpokenIndexRef.current = lastIndex;
+    speakText(lastMessage.content);
+  }, [messages, isTtsOn]);
+
+  const handleStartStt = () => {
     if (isLoading) return;
 
-    // 1. 사용자가 입력한 메시지를 화면에 추가
-    const userMessage: Message = {
-      role: "user",
-      content: question,
+    const SpeechRecognition =
+      window.SpeechRecognition || window.webkitSpeechRecognition;
+
+    if (!SpeechRecognition) {
+      alert("현재 브라우저에서는 음성 인식을 지원하지 않습니다.");
+      return;
+    }
+
+    if (isListening) {
+      recognitionRef.current?.stop();
+      setIsListening(false);
+      return;
+    }
+
+    const recognition = new SpeechRecognition();
+
+    recognition.lang = "ko-KR";
+    recognition.interimResults = false;
+    recognition.continuous = false;
+
+    recognition.onresult = (event) => {
+      const transcript = event.results[0][0].transcript.trim();
+
+      if (!transcript) return;
+
+      setInput(transcript);
+      speakText(transcript);
     };
 
+    recognition.onend = () => {
+      setIsListening(false);
+    };
+
+    recognition.onerror = () => {
+      setIsListening(false);
+      speakText("음성 인식 중 오류가 발생했습니다.");
+    };
+
+    recognitionRef.current = recognition;
+    setIsListening(true);
+    recognition.start();
+  };
+
+  const handleToggleTts = () => {
+    setIsTtsOn((prev) => {
+      const next = !prev;
+
+      if (!next && "speechSynthesis" in window) {
+        window.speechSynthesis.cancel();
+      }
+
+      return next;
+    });
+  };
+
+  const handleReplayTts = () => {
+    const lastAssistantMessage = [...messages]
+      .reverse()
+      .find((message) => message.role === "assistant");
+
+    if (!lastAssistantMessage) return;
+
+    speakText(lastAssistantMessage.content);
+  };
+
+  const sendMessage = async (question: string) => {
+    const trimmedQuestion = question.trim();
+
+    if (!trimmedQuestion) return;
+    if (isLoading) return;
+
+    const userMessage: Message = {
+      role: "user",
+      content: trimmedQuestion,
+    };
+
+    const history = messages
+    .filter(
+      (message) =>
+        message.content !== "안녕하세요! 사하구 민원 상담을 도와드릴게요."
+    )
+    .map((message) => ({
+      role: message.role,
+      content: message.content,
+    }));
+
     setMessages((prev) => [...prev, userMessage]);
+    setInput("");
     setIsLoading(true);
 
     try {
-      // 2. 수빈님이 만든 FastAPI 백엔드 API 호출
-      const response = await fetch("http://127.0.0.1:8000/ai-chat", {
+      const response = await fetch("http://localhost:8000/ai-chat", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ question: question }), // ChatRequest 규격 (question)
+        body: JSON.stringify({
+          question: trimmedQuestion,
+          history: history,
+        }),
       });
 
       if (!response.ok) {
-        throw new Error("서버 응답 오류");
+        throw new Error("백엔드 응답 오류");
       }
 
       const data = await response.json();
 
-      // 3. 백엔드에서 받아온 실제 AI 답변을 화면에 추가
       const aiMessage: Message = {
         role: "assistant",
-        content: data.answer, // 수빈님 백엔드 응답 규격 (answer)
+        content: data.answer,
       };
 
       setMessages((prev) => [...prev, aiMessage]);
     } catch (error) {
-      console.error("백엔드 통신 실패:", error);
-      
-      // 에러 발생 시 화면에 표시할 안내 메시지
       const errorMessage: Message = {
         role: "assistant",
-        content: "죄송합니다. 현재 서버 연결에 문제가 발생했습니다. 백엔드가 켜져 있는지 확인해 주세요.",
+        content: "서버 연결 중 오류가 발생했습니다.",
       };
+
       setMessages((prev) => [...prev, errorMessage]);
     } finally {
       setIsLoading(false);
@@ -104,33 +250,52 @@ function App() {
       <Header />
 
       <div className="accessibility-bar">
-        <span>글자 크기</span>
+        <div className="voice-accessibility-controls">
+          <button
+            type="button"
+            className={isListening ? "voice-button active" : "voice-button"}
+            onClick={handleStartStt}
+            disabled={isLoading}
+          >
+            {isListening ? "🎙️ 듣는 중" : "🎤 음성 입력"}
+          </button>
 
-        <button onClick={decreaseFont}>－</button>
+          <button
+            type="button"
+            className={isTtsOn ? "voice-button active" : "voice-button"}
+            onClick={handleToggleTts}
+          >
+            {isTtsOn ? "🔊 답변 음성 ON" : "🔇 답변 음성 OFF"}
+          </button>
 
-        <div className="font-label">
-          {fontLabels[fontLevel]}
+          <button
+            type="button"
+            className="voice-button"
+            onClick={handleReplayTts}
+          >
+            ↻ 다시 듣기
+          </button>
         </div>
 
-        <button onClick={increaseFont}>＋</button>
+        <div className="font-controls">
+          <span>글자 크기</span>
+          <button onClick={decreaseFont}>－</button>
+          <div className="font-label">{fontLabels[fontLevel]}</div>
+          <button onClick={increaseFont}>＋</button>
+        </div>
       </div>
 
       <main className="main-layout">
         <section className="left-section">
           <MascotCard />
-          <QuickMenu
-            onSelect={sendMessage}
-            disabled={isLoading}
-          />
         </section>
 
         <section className="chat-section">
-          <ChatWindow
-            messages={messages}
-            isLoading={isLoading}
-          />
+          <ChatWindow messages={messages} isLoading={isLoading} />
 
           <ChatInput
+            input={input}
+            setInput={setInput}
             onSend={sendMessage}
             isLoading={isLoading}
           />
