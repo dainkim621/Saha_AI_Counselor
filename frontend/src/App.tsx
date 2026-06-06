@@ -188,15 +188,16 @@ function App() {
     };
 
     const history = messages
-    .filter(
-      (message) =>
-        message.content !== "안녕하세요! 사하구 민원 상담을 도와드릴게요."
-    )
-    .map((message) => ({
-      role: message.role,
-      content: message.content,
-    }));
+      .filter(
+        (message) =>
+          message.content !== "안녕하세요! 사하구 민원 상담을 도와드릴게요."
+      )
+      .map((message) => ({
+        role: message.role,
+        content: message.content,
+      }));
 
+  
     setMessages((prev) => [...prev, userMessage]);
     setInput("");
     setIsLoading(true);
@@ -209,7 +210,7 @@ function App() {
         },
         body: JSON.stringify({
           question: trimmedQuestion,
-          history: history,
+          history: history, // 👈 ⭕ 밀리지 않은 완벽한 대화 이력이 전달됩니다!
         }),
       });
 
@@ -230,7 +231,6 @@ function App() {
         role: "assistant",
         content: "서버 연결 중 오류가 발생했습니다.",
       };
-
       setMessages((prev) => [...prev, errorMessage]);
     } finally {
       setIsLoading(false);
