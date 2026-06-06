@@ -1,5 +1,7 @@
 import json
 import os
+import hashlib
+from datetime import datetime
 
 # [1] 전역 경로 설정 (실제 파일 위치에 맞게 세팅)
 DATA_DIR = "data"
@@ -10,100 +12,80 @@ OUTPUT_HTML = os.path.join(DATA_DIR, "processed", "saha_review_dashboard.html")
 # [2] 각 크롤러 파일 별 함수 분리 및 전처리 로직
 # ---------------------------------------------------------------------------
 
-def process_general_docs(file_path):
+# 전역 중복 차단기는 함수 외부(모듈 최상위)에 선언해 두어야 
+# 모든 문서를 돌면서 웹사이트 전역 중복을 거를 수 있습니다.
+seen_texts = set()
+
+def process_general_docs(doc):
     """
-    1. 일반 웹페이지 (saha_docs.jsonl) 정밀 처리 함수
-    - 서로 다른 doc_id(URL 다름)를 가졌더라도 본문 내용이 100% 일치하면 웹사이트 전역 중복으로 간주하고 필터링 합니다. 
-    - 한 페이지 내에(url 동일)에서도 완전 일치하는 문단이 여러 개 있을 수 있는데, 이 경우에도 중복으로 간주하여 하나만 남기고 나머지는 버립니다.
-    - 하이퍼링크를 텍스트에 포함된 경우, 마크다운 형식으로 [텍스트](URL) 치환합니다. 
-    - 본문 내 표 데이터는 접근성용으로 중복해서 존재하는 경우가 많아서, 텍스트 내에 '|' 기호가 3개 이상 포함된 섹션은 표 데이터로 간주하여 자동으로 제거합니다.
+    1. 일반 웹페이지 정밀 처리 함수 (마스터 파이프라인 연동 버전)
+    - 이제 file_path 대신 마스터가 읽어준 단일 doc(딕셔너리)을 인자로 받습니다.
+    - chunks.append 대신, 이 문서 안에서 정제된 순수 데이터 리스트를 return 합니다.
     """
-    chunks = []
-    if not os.path.exists(file_path): 
-        return chunks
+    refined_sections = []  # 이 문서 안에서 살아남은 알맹이 데이터들을 담을 임시 바구니
+    
+    doc_id = doc.get("doc_id")
+    title = doc.get("title", "정보 안내")
+    url = doc.get("url")
+    
+    # 1. 바로 가기 링크 맵 구성
+    link_map = {}
+    for link in doc.get("shortcut_links", []):
+        link_text = link.get("text", "").strip()
+        link_url = link.get("url", "").strip()
+        if link_text and link_url:
+            link_map[link_text] = link_url
+
+    # 2. 한 페이지 안에 들어있는 여러 section을 하나씩 검사
+    for sec in doc.get("sections", []):
+        heading_path = sec.get("heading_path", [])
+        block_type = sec.get("block_type", "")
+        sec_text = sec.get("text", "").strip()
         
-    seen_texts = set()  # 전역 중복 차단기 (이미 한번 수집했던 본문텍스트를 저장해두는 집합 set)
+        # 기본 예외 처리 및 만족도 조사 박스 제거
+        if block_type == "full_text_backup" or len(sec_text) < 15 or "research_box" in sec_text:
+            continue
         
-    with open(file_path, "r", encoding="utf-8") as f:
-        # <한 줄 씩 파일 읽기, 문서 기본 정보 추출>
-        for line in f:
-            if not line.strip(): continue # 빈 줄은 패스
-            doc = json.loads(line.strip())
-            doc_id = doc.get("doc_id")
-            title = doc.get("title", "정보 안내")
+        # 접근성용 중복 표 데이터 제거 (| 기호 3개 이상)
+        if sec_text.count("|") >= 3:
+            continue
+        
+        # 공백 제거 후 전역 중복 검사
+        norm_text = "".join(sec_text.split())
+        
+        if norm_text in seen_texts:
+            continue
+        
+        # 부분 중복 및 포섭 관계 검사
+        is_duplicate = False
+        for existing_norm in seen_texts:
+            if norm_text in existing_norm:
+                is_duplicate = True
+                break
             
-            # 1.바로 가기 링크
-            link_map = {}
-            for link in doc.get("shortcut_links", []):
-                link_text = link.get("text", "").strip()
-                link_url = link.get("url", "").strip()
-                if link_text and link_url:
-                    link_map[link_text] = link_url
+        if is_duplicate:
+            continue
+        
+        # 중복 검사 통과 시 차단기에 등록
+        seen_texts.add(norm_text)
+        
+        # 마크다운 링크 치환
+        for text_key, url_val in link_map.items():
+            if text_key in sec_text and f"({url_val})" not in sec_text:
+                sec_text = sec_text.replace(text_key, f"[{text_key}]({url_val})")
 
-            # 2. 한 페이지 안에 들어있는 여러 section을 하나씩 검사
-            for idx, sec in enumerate(doc.get("sections", [])):
-                heading_path = sec.get("heading_path", [])
-                block_type = sec.get("block_type", "")
-                sec_text = sec.get("text", "").strip()
+        # 마크다운 제목 구성
+        sub_title = " > ".join(heading_path) if heading_path else title
+        refined_text = f"# {sub_title}\n\n{sec_text}"
+        
+        # 마스터 파이프라인이 처리할 수 있도록 딱 필요한 "순수 알맹이 딕셔너리"만 만들어 담습니다.
+        refined_sections.append({
+            "title": sub_title,
+            "page_type": "일반안내(contents)",
+            "text": refined_text
+        })
                 
-                # 기본 예외 처리
-                # 전체 본문 백업 -> 중복 삭제
-                # 글자수 15자 미만 -> 의미 없는 짧은 텍스트 제거
-                # research_box -> 만족도 조사 박스 제거
-                if block_type == "full_text_backup" or len(sec_text) < 15 or "research_box" in sec_text:
-                    continue
-                
-                # 본문 내 표 중복 -> llm이 이해하기 쉬운 전자의 표 선택
-                # 본문 내에 파이프(|) 기호가 3개 이상 등장 
-                # -> 접근성용 중복 표 데이터로 판단하고 해당 섹션 전체를 제거 (표 데이터는 일반적으로 파이프 구분이 많음)
-                if sec_text.count("|") >= 3:
-                    continue
-                
-                # 텍스트 내의 보든 공백, 탭, 줄바꿈을 제거한 norm_text 생성 (예: 기초 생활 보장 -> 기초생활보장)
-                # -> 띄어쓰기 or 엔터 개수가 달라서 중복 필터를 우회하는걸 방지하기 위함
-                norm_text = "".join(sec_text.split())
-                
-                # 전역 차단기(seen_texts)에 등록된 본문은 중복이므로 스킵
-                if norm_text in seen_texts:
-                    continue
-                
-                # 부분 중복 및 포섭 관계 검사
-                # 현재 문단이 이미 수집된 더 큰 문장 속에 포함되는 작은 문장일 경우 is_duplicate = True로 만들어서 탈락시킴
-                is_duplicate = False
-                for existing_norm in seen_texts:
-                    if norm_text in existing_norm:
-                        is_duplicate = True
-                        break
-                    
-                # 필터링과 중복검사를 통과한 문단이므로 다음 문단을 검사할 때 비교 대상이 될 수 있도록 seen_texts에 추가 
-                if is_duplicate:
-                    continue
-                
-                seen_texts.add(norm_text)
-                
-                # 마크다운 변환 및 최종 청크 저장 
-                # 본문 텍스트 내에 아까 저장해둔 링크 단어(text_key)가 나오면, 챗봇이 하이퍼링크를 줄 수 있도록 [단어](url) 형식으로 치환
-                for text_key, url_val in link_map.items():
-                    if text_key in sec_text and f"({url_val})" not in sec_text:
-                        sec_text = sec_text.replace(text_key, f"[{text_key}]({url_val})")
-
-                # '대메뉴 > 중메뉴 > 소메뉴' 형태로 제목을 구성
-                # llm이 이해하기 쉽도록 제목 앞에는 #을 붙여서 마크다운 형식으로 만듦
-                sub_title = " > ".join(heading_path) if heading_path else title
-                refined_text = f"# {sub_title}\n\n{sec_text}"
-                
-                # *********나중에 date, view 등등 여러가지 추가 얘정
-                # *********우선 중복 제거와 청킹, 표 정리를 우선으로 함 
-                chunks.append({
-                    "doc_id": f"{doc_id}_{idx}",
-                    "url": doc.get("url"),
-                    "title": sub_title,
-                    "page_type": "일반안내(contents)",
-                    "text": refined_text
-                })
-                
-    return chunks
-
+    return refined_sections  # 정제된 알맹이 리스트를 마스터에게 반환합니다.
 
 
 
@@ -237,7 +219,9 @@ def process_bid_notices(file_path):
 
 
 def process_waste_guides(file_path):
-    """4. 폐기물 안내 (saha_waste_docs.jsonl) 처리 함수 """
+    """4. 폐기물 안내 (saha_waste_docs.jsonl) 처리 함수
+    id생성, 해시생성, append
+     """
     chunks = []
     
     with open(file_path, "r", encoding="utf-8") as f:
@@ -275,10 +259,112 @@ def process_waste_guides(file_path):
             })
             
     return chunks
-
-
 # ---------------------------------------------------------------------------
-# [3] 시각화 HTML 생성 전용 함수
+# [3] 4개 통합 청크
+# ---------------------------------------------------------------------------
+
+def create_chunk_object(doc_id, chunk_index, **kwargs):
+    """
+    Notice DB 스키마 구조와 1:1 매핑되는 통합 청크 객체 생성 함수.
+    전처리 함수가 리턴한 딕셔너리 데이터(**kwargs)를 풀어서 자동으로 조립합니다.
+    """
+    # 1. 텍스트 본문 추출 및 안전장치
+    text_content = kwargs.get("text", "")
+    if not text_content and "chunk_text" in kwargs:
+        text_content = kwargs.get("chunk_text", "")
+        
+    text_content = text_content.strip() if text_content else ""
+
+    # 2. 내용 변경 감지용 MD5 해시값 생성 (주석 해제 대비 자동 생성)
+    text_hash = hashlib.md5(text_content.encode("utf-8")).hexdigest() if text_content else None
+
+    # 3. Notice 스키마 컬럼명과 1:1 매핑되는 딕셔너리 빌드
+    chunk = {
+        # 고유 식별자 및 인덱스
+        "chunk_id": f"{doc_id}_{chunk_index}", # 스키마 주석의 예시(doc_id_0) 규칙 반영
+        "doc_id": doc_id,
+        "chunk_index": chunk_index,
+        
+        # 메타데이터 (kwargs에서 있으면 가져오고, 없으면 기본값 매칭)
+        "url": kwargs.get("url", ""),
+        "source": kwargs.get("source", "saha.go.kr"),
+        "title": kwargs.get("title", "정보 안내"),
+        "author": kwargs.get("author", None),
+        
+        # 날짜 및 수치
+        "published_at": kwargs.get("published_at", None), # 전처리에서 Date 객체나 YYYY-MM-DD 형식으로 넣어줄 예정
+        "views": kwargs.get("views", 0),
+        
+        # 계층 정보 및 분류
+        "menu_path": kwargs.get("menu_path", []),
+        "page_type": kwargs.get("page_type", None),
+        "major": kwargs.get("major", None),
+        "minor": kwargs.get("minor", None),
+        "context": kwargs.get("context", None),
+        
+        # 데이터 본체 및 변경 감지용 해시
+        "chunk_text": text_content,
+        "text_hash": text_hash,  # 주석 푸실 때를 대비해 미리 매핑해 둡니다.
+        
+        # 🌟 벡터 임베딩 (초기 전처리 단계에서는 None이었다가, 임베딩 모델 거친 후 채워집니다)
+        "embedding": kwargs.get("embedding", None)
+    }
+    
+    return chunk
+
+def run_preprocessing_pipeline(file_paths_dict):
+    """
+    모든 JSONL 파일 경로들을 받아서 안전하게 파일을 열고, 
+    알맹이 데이터를 추출해 전처리 함수로 넘겨주는 마스터 파이프라인
+    """
+    # 4개 함수에 chunks 선언 대신 한번만 선언
+    final_db_ready_chunks = []
+    
+    # file_paths_dict 예시: {"civil": "data/raw/saha_civil_forms.jsonl", "bid": "..."}
+    for page_type, file_path in file_paths_dict.items():
+        
+        # 🌟 2. 질문하신 '파일이 없을 때 안전하게 넘어가는 예외 처리'를 여기서 일괄 진행합니다!
+        if not os.path.exists(file_path):
+            print(f"⚠️ 경고: {file_path} 파일이 존재하지 않아 건너뜁니다.")
+            continue # 다음 파일 처리로 패스!
+            
+        # 파일이 안전하게 존재하는 게 확인되었으니 open 합니다.
+        with open(file_path, "r", encoding="utf-8") as f:
+            for line in f:
+                if not line.strip(): continue
+                doc = json.loads(line.strip())
+                
+                # 전처리 
+                if page_type == "general":
+                    refined_data = process_general_docs(doc) # 리스트 혹은 단일 딕셔너리
+                elif page_type == "waste":
+                    refined_data = process_waste_guides(doc)
+                elif page_type == "civil":
+                    refined_data = process_civil_forms(doc)
+                elif page_type == "bid":
+                    refined_data = process_bid_notices(doc)
+                
+                # 리스트 형태로 만들어서 마스터 바구니에 차곡차곡 append
+                if not isinstance(refined_data, list):
+                    refined_data = [refined_data]
+                    
+                for idx, item in enumerate(refined_data):
+                    # item 안에는 전처리 함수가 뱉은 {url, title, text, page_type, published_at...} 등이 들어있음
+                    chunk_obj = create_chunk_object(
+                        doc_id=doc.get("doc_id"),
+                        chunk_index=idx,
+                        **item,  # 🔥 딕셔너리 내용이 통째로 매핑되므로 인자값을 나열할 필요가 없음!
+                        url=item.get("url") or doc.get("url"),
+                        published_at=doc.get("published_at") or doc.get("date"), # 필드명 유연하게 대처
+                        views=doc.get("views", 0),
+                        author=doc.get("author", "담당자 미지정"),
+                        menu_path=doc.get("menu_path", [])
+                    )
+                    final_db_ready_chunks.append(chunk_obj)
+                    
+    return final_db_ready_chunks
+# ---------------------------------------------------------------------------
+# [4] 시각화 HTML 생성 전용 함수
 # ---------------------------------------------------------------------------
 def generate_html_dashboard(chunks, output_path):
     """수집된 청크 리스트를 바탕으로 인간 검수용 대시보드 HTML을 렌더링하는 함수"""
@@ -318,19 +404,28 @@ def generate_html_dashboard(chunks, output_path):
     for chunk in chunks:
         ptype = chunk.get("page_type", "")
         card_cls, badge_cls = "card", "badge"
-        if "민원" in ptype: card_cls, badge_cls = "card civil", "badge civil"
-        elif "입찰" in ptype: card_cls, badge_cls = "card bid", "badge bid"
-        elif "환경" in ptype: card_cls, badge_cls = "card waste", "badge waste"
+        
+        # 💡 [1] 새로 통합한 page_type 키워드 조건에 맞게 CSS 테마 매칭
+        if "civil" in ptype or "민원" in ptype: 
+            card_cls, badge_cls = "card civil", "badge civil"
+        elif "bid" in ptype or "입찰" in ptype: 
+            card_cls, badge_cls = "card bid", "badge bid"
+        elif "waste" in ptype or "폐기물" in ptype: 
+            card_cls, badge_cls = "card waste", "badge waste"
+            
+        # 💡 [2] chunk.get('text') 대신 스키마와 통일한 chunk_text를 안전하게 가져옴
+        text_content = chunk.get("chunk_text", "") or ""
+        safe_text = text_content.replace('<', '&lt;').replace('>', '&gt;')
             
         html_content += f"""
                 <div class="{card_cls}">
                     <div class="meta-row">
-                        <span class="doc-id">ID: {chunk.get('doc_id')}</span>
+                        <span class="doc-id">ID: {chunk.get('chunk_id')}</span>
                         <span class="{badge_cls}">{ptype}</span>
                     </div>
                     <div class="title">{chunk.get('title')}</div>
-                    <a href="{chunk.get('url')}" target="_blank" style="font-size:13px; color:#3498db;">🔗 원본 구청 페이지</a>
-                    <div class="content-box">{chunk.get('text').replace('<', '&lt;').replace('>', '&gt;')}</div>
+                    <a href="{chunk.get('url')}" target="_blank" style="font-size:13px; color:#3498db; text-decoration:none;">🔗 원본 구청 페이지</a>
+                    <div class="content-box">{safe_text}</div>
                 </div>
         """
     html_content += "</div></div></body></html>"
@@ -339,21 +434,26 @@ def generate_html_dashboard(chunks, output_path):
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
     with open(output_path, "w", encoding="utf-8") as f:
         f.write(html_content)
-
 # ---------------------------------------------------------------------------
 # [4] 메인 실행 컨트롤러 
 # ---------------------------------------------------------------------------
 def main():
     print("🚀 크롤링 데이터 전처리 및 시각화 빌드 가동...")
-    all_chunks = []
+    
+    # 1) 각 전처리 파트별 RAW 파일 경로들을 하나의 딕셔너리로 묶어줍니다.
+    file_paths = {
+        "general": os.path.join(DATA_DIR, "raw", "saha_docs.jsonl"),
+        # "civil": os.path.join(DATA_DIR, "raw", "saha_civil_forms.jsonl"),
+        # "bid": os.path.join(DATA_DIR, "raw", "saha_bid_docs.jsonl"),
+        # "waste": os.path.join(DATA_DIR, "raw", "saha_waste_docs.jsonl"),
+    }
+    
+    # 2) [핵심 변화] 마스터 파이프라인 함수를 딱 한 번만 호출합니다.
+    # 이 함수 안에서 파일 유무 체크, 파일 열기, 각 파트별 전처리(다듬기), 
+    # 그리고 최종 create_chunk_object와 append까지 올인원으로 처리되어 꽉 찬 바구니가 리턴됩니다.
+    all_chunks = run_preprocessing_pipeline(file_paths)
 
-    # 1) 각 파트별 전처리 함수를 호출하여 청크를 하나의 바구니에 수집
-    # all_chunks.extend(process_general_docs(os.path.join(DATA_DIR, "raw", "saha_docs.jsonl")))
-    # all_chunks.extend(process_civil_forms(os.path.join(DATA_DIR, "raw", "saha_civil_forms.jsonl")))
-    # all_chunks.extend(process_bid_notices(os.path.join(DATA_DIR, "raw", "saha_bid_docs.jsonl")))
-    all_chunks.extend(process_waste_guides(os.path.join(DATA_DIR, "raw", "saha_waste_docs.jsonl")))
-
-    # 2) 파일 저장 처리 (JSONL)
+    # 3) 파일 저장 처리 (JSONL)
     if not all_chunks:
         print("⚠️ 수집된 데이터 청크가 0개입니다. 소스 파일들의 경로('data/')나 위치를 다시 확인해주세요!")
         return
@@ -365,10 +465,11 @@ def main():
             
     print(f"✅ [1단계 완수] 통합 적재용 JSONL 완료 -> {OUTPUT_JSONL} ({len(all_chunks)}개 청크)")
 
-    # 3) 대시보드 웹 페이지 생성 함수 호출
+    # 4) 대시보드 웹 페이지 생성 함수 호출
     generate_html_dashboard(all_chunks, OUTPUT_HTML)
     print(f"🖥️  [2단계 완수] 인간 검수용 대시보드 웹 뷰 완료 -> {OUTPUT_HTML}")
     print("✨ 모든 파이프라인이 성공적으로 완결되었습니다! ^-^")
+
 
 if __name__ == "__main__":
     main()

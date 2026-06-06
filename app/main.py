@@ -41,11 +41,19 @@ class NoticeResponse(BaseModel):
 
     class Config:
         from_attributes = True
-
+        
+# 💡 1. 프론트엔드가 보낼 JSON 바디 규격을 정의하는 Pydantic 모델
+# 웅변 형식: { "role": "user", "content": "..." }
+class ChatMessage(BaseModel):
+    role: str
+    content: str
+    
 #요청 데이터를 담을 규격 정의
 #사용자가 서버에 보내는 데이터의 규격/ 나한테 질문 할때는 question을 담아서 보내야됨. 
+# 웅변 형식: { "question": "...", "history": [...] }
 class ChatRequest(BaseModel):
     question: str
+    history: List[ChatMessage] = []  # 기본값은 빈 리스트
 
 # 3. 기존 챗봇 라우터 등록
 app.include_router(chat.router, prefix="/chat", tags=["Chat"])
@@ -100,8 +108,20 @@ def root():
 @app.post("/ai-chat", tags=["Chat"])
 async def chat_endpoint(request: ChatRequest):
     try:
-        # 우리가 만든 RAG 로직 호출
-        answer = ask_saha_ai(request.question)
-        return {"question": request.question, "answer": answer}
+        user_question = request.question
+        
+        # 💡 [버그 교정] 반복문 변수명을 msg로 변경하여 모듈 이름(chat)과의 충돌을 방지합니다.
+        raw_history = [
+            {"role": msg.role, "content": msg.content} 
+            for msg in request.history
+        ]
+        
+        # 개조해 둔 ask_saha_ai 함수에 '현재 질문'과 '과거 이력'을 함께 토스합니다!
+        answer = ask_saha_ai(user_question=user_question, history=raw_history)
+        
+        # 프론트엔드 App.tsx 규격(data.answer)에 맞춰 응답을 반환합니다.
+        return {"question": user_question, "answer": answer}
+
     except Exception as e:
+        print(f"🔥 백엔드 에러 발생: {e}")
         raise HTTPException(status_code=500, detail=str(e))

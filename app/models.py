@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Text, DateTime, JSON
+from sqlalchemy import Column, Integer, String, Text, DateTime, JSON, Date
 from pgvector.sqlalchemy import Vector  # 추가
 from sqlalchemy.sql import func
 from app.database import Base
@@ -17,9 +17,8 @@ class Notice(Base):
     source = Column(String, default="saha.go.kr")
     title = Column(String, nullable=False)
     author = Column(String) 
-    published_at = Column(String, nullable=True)  #탈짜 통합 컬럼
+    published_at = Column(Date, nullable=True) # 혹은 DateTime
     views = Column(Integer, default=0)
-    
     menu_path = Column(JSON)       # ['전자민원', '사하구에 바란다'] 형태 저장
     page_type = Column(String, nullable=True)     # 'contents' 또는 'civil_form_guide' 구분용
     
@@ -34,6 +33,9 @@ class Notice(Base):
 
     # 4. 시스템 날짜
     created_at = Column(DateTime(timezone=True), server_default=func.now())
-
+    
+    #본문 수정시 
+    # updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    # text_hash = Column(String(64), nullable=True, index=True) #텍스트 해시값/ 내용 변경 감지용 해시 
     # 5. 벡터 검색 위한 컬럼 (1536차원)
     embedding = Column(Vector(1536))
