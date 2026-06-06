@@ -87,8 +87,6 @@ def process_general_docs(doc):
                 
     return refined_sections  # 정제된 알맹이 리스트를 마스터에게 반환합니다.
 
-
-
 def process_civil_forms(form):
     """2. 민원안내 서식 (saha_civil_forms.jsonl) 처리 함수
     - 민원안내 데이터는 본문 내용이 길고 상세한 경우가 많아서, 청크 단위를 '민원 하나'로 잡아서 최대한 원문을 보존하는 방향으로 전처리 합니다."""
@@ -137,8 +135,6 @@ def process_civil_forms(form):
     }
             
     return chunks
-
-
 
 def process_bid_notices(bid):
     """3. 입찰공고 (saha_bid_docs.jsonl) 처리 함수 (구조화 및 노이즈 제거 버전)"""
@@ -189,9 +185,6 @@ def process_bid_notices(bid):
     }
             
     return chunks
-
-# 여기서부터 더 수정할 예정 ------------------------
-
 
 def process_waste_guides(waste):
     """
@@ -464,9 +457,9 @@ def main():
     
     # 1) 각 전처리 파트별 RAW 파일 경로들을 하나의 딕셔너리로 묶어줍니다.
     file_paths = {
-        # "general": os.path.join(DATA_DIR, "raw", "saha_docs.jsonl"),
-        # "civil": os.path.join(DATA_DIR, "raw", "saha_civil_forms.jsonl"),
-        # "bid": os.path.join(DATA_DIR, "raw", "saha_bid_docs.jsonl"),
+        "general": os.path.join(DATA_DIR, "raw", "saha_docs.jsonl"),
+        "civil": os.path.join(DATA_DIR, "raw", "saha_civil_forms.jsonl"),
+        "bid": os.path.join(DATA_DIR, "raw", "saha_bid_docs.jsonl"),
         "waste": os.path.join(DATA_DIR, "raw", "saha_waste_docs.jsonl"),
     }
     
