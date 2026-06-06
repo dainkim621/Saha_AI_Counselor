@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import ReactMarkdown from "react-markdown";
 import type { Message } from "../App";
 import gouni from "../assets/gouni-profile.png";
 
@@ -38,7 +39,11 @@ function ChatWindow({ messages, isLoading }: ChatWindowProps) {
                 : "message-bubble assistant-bubble"
             }
           >
-            {message.content}
+            {message.role === "assistant" ? (
+              <ReactMarkdown>{message.content}</ReactMarkdown>
+            ) : (
+              message.content
+            )}
           </div>
         </div>
       ))}
