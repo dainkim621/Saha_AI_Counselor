@@ -1011,6 +1011,62 @@
 .app.font-large .mascot-card p { font-size: 17px; }
 .app.font-xlarge .mascot-card p { font-size: 20px; }
 
+/* =========================
+    FAQ
+========================= */
+
+.faq-section {
+  margin-top: 20px;
+
+  padding-top: 14px;
+
+  border-top: 1px solid #e5e7eb;
+
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.faq-section h3 {
+  margin: 0 0 6px;
+
+  text-align: left;
+
+  font-size: 15px;
+  font-weight: 800;
+
+  color: #1e3a8a;
+}
+
+.faq-button {
+  width: 100%;
+
+  padding: 10px 12px;
+
+  border: 1px solid #dbeafe;
+  border-radius: 12px;
+
+  background-color: #f8fbff;
+
+  text-align: left;
+
+  cursor: pointer;
+
+  font-size: 13px;
+  line-height: 1.4;
+
+  color: #374151;
+
+  transition: all 0.2s ease;
+}
+
+.faq-button:hover {
+  background-color: #eff6ff;
+  border-color: #93c5fd;
+
+  transform: translateY(-1px);
+}
+
 /* Quick Menu */
 .app.font-xsmall .quick-button-list button { font-size: 12px; }
 .app.font-small .quick-button-list button { font-size: 13px; }

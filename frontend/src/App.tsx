@@ -84,6 +84,7 @@ function App() {
     window.speechSynthesis.cancel();
 
     const utterance = new SpeechSynthesisUtterance(text);
+
     utterance.lang = "ko-KR";
     utterance.rate = 1;
     utterance.pitch = 1;
@@ -234,6 +235,7 @@ function App() {
         role: "assistant",
         content: "서버 연결 중 오류가 발생했습니다.",
       };
+
       setMessages((prev) => [...prev, errorMessage]);
     } finally {
       setIsLoading(false);
@@ -290,7 +292,7 @@ function App() {
 
       <main className="main-layout">
         <section className="left-section">
-          <MascotCard />
+          <MascotCard onSelectQuestion={setInput} />
         </section>
 
         <section className="chat-section">
