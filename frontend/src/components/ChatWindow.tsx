@@ -40,7 +40,21 @@ function ChatWindow({ messages, isLoading }: ChatWindowProps) {
             }
           >
             {message.role === "assistant" ? (
-              <ReactMarkdown>{message.content}</ReactMarkdown>
+              <>
+                <ReactMarkdown>{message.content}</ReactMarkdown>
+
+                {message.fileUrl && (
+                  <a
+                    href={message.fileUrl}
+                    download={message.fileName}
+                    className="download-button"
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    📎 {message.fileName || "첨부파일 다운로드"}
+                  </a>
+                )}
+              </>
             ) : (
               message.content
             )}

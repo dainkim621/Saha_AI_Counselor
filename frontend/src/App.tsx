@@ -9,6 +9,8 @@ import ChatInput from "./components/ChatInput";
 export type Message = {
   role: "user" | "assistant";
   content: string;
+  fileUrl?: string;
+  fileName?: string;
 };
 
 type SpeechRecognitionType = {
@@ -197,7 +199,6 @@ function App() {
         content: message.content,
       }));
 
-  
     setMessages((prev) => [...prev, userMessage]);
     setInput("");
     setIsLoading(true);
@@ -210,7 +211,7 @@ function App() {
         },
         body: JSON.stringify({
           question: trimmedQuestion,
-          history: history, // 👈 ⭕ 밀리지 않은 완벽한 대화 이력이 전달됩니다!
+          history: history,
         }),
       });
 
@@ -223,6 +224,8 @@ function App() {
       const aiMessage: Message = {
         role: "assistant",
         content: data.answer,
+        fileUrl: data.fileUrl,
+        fileName: data.fileName,
       };
 
       setMessages((prev) => [...prev, aiMessage]);
