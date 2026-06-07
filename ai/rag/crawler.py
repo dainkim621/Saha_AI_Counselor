@@ -16,14 +16,14 @@ from bs4 import BeautifulSoup, NavigableString, Tag
 OUTPUT_DIR = "data/raw"
 OUTPUT_JSONL = os.path.join(OUTPUT_DIR, "saha_docs.jsonl")
 
-MAX_PAGES = 100
+MAX_PAGES = 300
 MAX_BOARD_PAGES_PER_LIST = 10
 REQUEST_DELAY = 0.7
 TIMEOUT = 15
 
 # 게시판 작성일 필터
 CURRENT_YEAR = 2026
-RECENT_DAYS = 365
+RECENT_DAYS = 365   # 최대 1년치만
 RECENT_CUTOFF = datetime(CURRENT_YEAR, 5, 13) - timedelta(days=RECENT_DAYS)
 
 # contents.do 안에서 연도별 메뉴 탐색용 기준
@@ -942,7 +942,7 @@ def extract_structured_sections(main_node):
 
     return sections
 
-def sections_to_text(title, menu_path, sections, shortcut_links):
+def sections_to_text(title, menu_path, sections, shortcut_links, attachments=None):
     parts = []
     if title:
         parts.append(f"제목: {title}")
@@ -972,6 +972,10 @@ def sections_to_text(title, menu_path, sections, shortcut_links):
                 parts.append(txt)
 
     if shortcut_links:
+        if attachments:
+            parts.append("[첨부파일]")
+            for file in attachments:
+                parts.append(f"- {file['filename']}")
         parts.append("[바로가기 링크]")
         for link in shortcut_links:
             parts.append(f"- {link['text']}: {link['url']}")
@@ -1021,6 +1025,122 @@ def is_valid_shortcut_link(text, href, full_url):
         return True
 
     return False
+
+# 첨부파일 추출
+def extract_attachments(main_node, base_url):
+    attachments = []
+
+    if not main_node:
+        return attachments
+
+    file_ext_pattern = r"\.(hwp|hwpx|pdf|doc|docx|xls|xlsx|zip)"
+
+    for a in main_node.find_all("a"):
+        href = a.get("href", "").strip()
+        onclick = a.get("onclick", "").strip()
+
+        link_text = clean_inline(a.get_text(" ", strip=True))
+        title_attr = clean_inline(a.get("title", ""))
+        download_attr = clean_inline(a.get("download", ""))
+
+        parent_text = ""
+        if a.parent:
+            parent_text = clean_inline(a.parent.get_text(" ", strip=True))
+
+        # 파일명 후보: 버튼 텍스트가 '다운로드'일 수 있으므로 주변 텍스트까지 확인
+        filename_candidate = (
+            download_attr
+            or title_attr
+            or link_text
+            or parent_text
+        )
+
+        # parent_text 안에 실제 파일명이 있으면 그걸 우선 사용
+        file_name_match = re.search(
+            r"([^\s/\\]+?\.(?:hwp|hwpx|pdf|doc|docx|xls|xlsx|zip))",
+            parent_text,
+            re.IGNORECASE
+        )
+
+        if file_name_match:
+            filename = file_name_match.group(1)
+        else:
+            filename = filename_candidate
+
+        filename = clean_inline(filename)
+        filename = filename.replace("다운로드", "").replace("첨부파일", "").strip()
+        filename = re.sub(
+            r"\s*\[[0-9.]+\s*(KByte|MByte|KB|MB)\]\s*$",
+            "",
+            filename,
+            flags=re.IGNORECASE
+        )
+        filename = clean_inline(filename)
+
+        file_url = ""
+        file_id = ""
+        file_sn = ""
+
+        # 사하구청 첨부파일 onclick 구조
+        # fn_egov_downFile('FILE_...', '0')
+        # fn_egov_downFile_pubc('FILE_...', '0')
+        match = re.search(
+            r"fn_egov_downFile(?:_pubc)?\('([^']+)'\s*,\s*'([^']+)'\)",
+            onclick
+        )
+
+        if match:
+            file_id = match.group(1)
+            file_sn = match.group(2)
+            file_url = (
+                "https://www.saha.go.kr/cmm/fms/FileDown.do"
+                f"?atchFileId={file_id}&fileSn={file_sn}"
+            )
+
+            if not filename:
+                filename = f"첨부파일_{file_id}_{file_sn}"
+
+        elif href and href not in ("#", "javascript:void(0);"):
+            # href 자체가 다운로드 링크인 경우
+            if (
+                re.search(file_ext_pattern, href, re.IGNORECASE)
+                or "FileDown.do" in href
+                or "fileDown" in href
+                or "download" in href.lower()
+            ):
+                file_url = urljoin(base_url, href)
+                file_url, _ = urldefrag(file_url)
+
+        if not file_url:
+            continue
+
+        # 버튼명만 남은 경우 보정
+        if not filename or filename in ["다운로드", "내려받기", "파일다운로드"]:
+            filename = f"첨부파일_{file_id}_{file_sn}" if file_id else "첨부파일"
+
+        ext_match = re.search(file_ext_pattern, filename, re.IGNORECASE)
+        extension = ext_match.group(1).lower() if ext_match else ""
+
+        attachments.append({
+            "filename": filename,
+            "file_url": file_url,
+            "extension": extension,
+            "file_id": file_id,
+            "file_sn": file_sn,
+            "source_type": "saha_attachment",
+        })
+
+    unique = []
+    seen = set()
+
+    for item in attachments:
+        key = (item["filename"], item["file_url"])
+        if key in seen:
+            continue
+        seen.add(key)
+        unique.append(item)
+
+    return unique
 
 def extract_shortcut_links(main_node, base_url):
     links = []
@@ -1083,6 +1203,14 @@ def extract_shortcut_links(main_node, base_url):
 
         full_url = urljoin(base_url, href)
         full_url, _ = urldefrag(full_url)
+
+        # 파일 다운로드 링크는 shortcut_links가 아니라 attachments에서만 관리
+        if (
+            "FileDown.do" in full_url
+            or "filedown" in full_url.lower()
+            or "download" in full_url.lower()
+        ):
+            continue
 
         if not is_valid_shortcut_link(text, href, full_url):
             continue
@@ -1156,12 +1284,47 @@ def extract_links_from_raw_html(html, current_url, parent_menu_path=None):
 
     links = []
 
-    for a in soup.find_all("a", href=True):
+    for a in soup.find_all("a"):
         href = a.get("href", "").strip()
+        onclick = a.get("onclick", "").strip()
 
         anchor_text = clean_inline(
             a.get_text(" ", strip=True)
         )
+
+        # href 또는 onclick 안에 mId가 숨어 있는 경우 복원
+        hidden_mid = ""
+
+        # 예: href="javascript:goMenu('0105040200')"
+        mid_match = re.search(r"mId=([0-9]{10})", href)
+        if not mid_match:
+            mid_match = re.search(r"mId=([0-9]{10})", onclick)
+
+        # 예: onclick="goMenu('0105040200')"
+        if not mid_match:
+            mid_match = re.search(r"['\"]([0-9]{10})['\"]", href)
+
+        if not mid_match:
+            mid_match = re.search(r"['\"]([0-9]{10})['\"]", onclick)
+
+        if mid_match:
+            hidden_mid = mid_match.group(1)
+
+        if hidden_mid:
+            href = f"/portal/contents.do?mId={hidden_mid}"
+
+        onclick = a.get("onclick", "").strip()
+
+        # href가 javascript이거나 비어 있을 때 onclick 안의 mId를 링크로 복원
+        if (not href or href.startswith("javascript:") or href == "#") and onclick:
+            mid_match = re.search(r"mId=([0-9]{10})", onclick)
+
+            if not mid_match:
+                mid_match = re.search(r"['\"]([0-9]{10})['\"]", onclick)
+
+            if mid_match:
+                mid = mid_match.group(1)
+                href = f"/portal/contents.do?mId={mid}"
 
         # 새창/바로가기 링크는 탐색하지 않음
         # (대신 shortcut_link 문서로 따로 저장)
@@ -1302,11 +1465,12 @@ def extract_document(html, url, menu_path=None):
 
     sections = extract_structured_sections(main_node)
     shortcut_links = extract_shortcut_links(main_node, url)
-    text = sections_to_text(title, menu_path, sections, shortcut_links)
+    attachments = extract_attachments(main_node, url)
+    text = sections_to_text(title, menu_path, sections, shortcut_links, attachments)
     text = remove_noise_lines(text)
     paragraphs = split_paragraphs(text)
 
-    return title, text, paragraphs, sections, shortcut_links
+    return title, text, paragraphs, sections, shortcut_links, attachments
 
 
 def is_menu_like_text(text):
@@ -1344,7 +1508,7 @@ def document_score(url, title, text, sections):
 # 저장 문서 생성
 # =========================================================
 def make_doc(url, parent_url, anchor_text, menu_path, html, extra_meta=None):
-    title, text, paragraphs, sections, shortcut_links = extract_document(html, url, menu_path)
+    title, text, paragraphs, sections, shortcut_links, attachments = extract_document(html, url, menu_path)
     soup_meta = BeautifulSoup(html, "html.parser")
     metadata = extract_metadata(soup_meta)
 
@@ -1365,6 +1529,8 @@ def make_doc(url, parent_url, anchor_text, menu_path, html, extra_meta=None):
         "views": extra_meta.get("views") if extra_meta.get("views") is not None else metadata.get("views"),
         "sections": sections,
         "shortcut_links": shortcut_links,
+        "attachments": attachments,
+        "attachment_count": len(attachments),
         "text": text,
         "paragraphs": paragraphs,
         "source": "saha.go.kr",

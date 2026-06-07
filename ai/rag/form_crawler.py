@@ -39,9 +39,11 @@ FIELD_NAMES = [
 ]
 # 우선순위 : 1. 전입·이사 2. 증명서 발급 3. 복지·지원금
 TARGET_KEYWORDS = [
-    "전입", "이사", "주민등록",
-    "등본", "초본", "인감", "증명",
-    "복지", "지원금", "수급", "장애", "출산", "보육"
+    "전입", "전출", "이사", "주민등록",
+    "등본", "초본", "인감증명", "본인서명사실확인", "본인",
+    "세대",
+    "복지", "복지지원", "지원금", "수급자",
+    "장애인", "출산", "보육", "아동수당", "어르신", "노인"
 ]
 
 
@@ -226,7 +228,7 @@ def parse_fields(body_text):
     return result
 
 
-def make_plain_text(title, fields):
+def make_plain_text(title, fields, attachments=None):
     parts = [f"제목: {title}"]
 
     for field in FIELD_NAMES:
@@ -234,8 +236,87 @@ def make_plain_text(title, fields):
         if value:
             parts.append(f"{field}: {value}")
 
+    if attachments:
+        attachment_names = [a["filename"] for a in attachments]
+        parts.append("첨부파일: " + ", ".join(attachment_names))
+
     return "\n".join(parts)
 
+# 첨부파일 추출
+def extract_attachments(html, base_url):
+    soup = BeautifulSoup(html, "html.parser")
+    attachments = []
+
+    file_ext_pattern = r"\.(hwp|hwpx|pdf|doc|docx|xls|xlsx|zip)"
+
+    for a in soup.find_all("a"):
+        filename = clean_text(a.get_text(" ", strip=True))
+        href = a.get("href", "")
+        onclick = a.get("onclick", "")
+
+        if not filename:
+            continue
+
+        # 파일 확장자가 파일명에 없으면 첨부파일로 보지 않음
+        if not re.search(file_ext_pattern, filename, re.IGNORECASE):
+            continue
+
+        # 용량 표시 제거: [49.0 KByte]
+        filename = re.sub(r"\s*\[[0-9.]+\s*KByte\]\s*$", "", filename)
+        filename = re.sub(r"\s*\[[0-9.]+\s*MByte\]\s*$", "", filename)
+        filename = clean_text(filename)
+
+        file_id = ""
+        file_sn = ""
+        file_url = ""
+
+        # 사하구청 첨부파일 구조:
+        # onclick="fn_egov_downFile('FILE_000000000130634','1')"
+        match = re.search(
+            r"fn_egov_downFile\('([^']+)'\s*,\s*'([^']+)'\)",
+            onclick
+        )
+
+        if match:
+            file_id = match.group(1)
+            file_sn = match.group(2)
+
+            # 실제 다운로드 URL
+            file_url = (
+                "https://www.saha.go.kr/cmm/fms/FileDown.do"
+                f"?atchFileId={file_id}&fileSn={file_sn}"
+            )
+
+        elif href and href != "#":
+            file_url = urljoin(base_url, href)
+            file_url, _ = urldefrag(file_url)
+
+        if not file_url:
+            continue
+
+        ext_match = re.search(file_ext_pattern, filename, re.IGNORECASE)
+        extension = ext_match.group(1).lower() if ext_match else ""
+
+        attachments.append({
+            "filename": filename,
+            "file_url": file_url,
+            "extension": extension,
+            "file_id": file_id,
+            "file_sn": file_sn,
+        })
+
+    # 중복 제거
+    unique = []
+    seen = set()
+
+    for item in attachments:
+        key = (item["filename"], item["file_url"])
+        if key in seen:
+            continue
+        seen.add(key)
+        unique.append(item)
+
+    return unique
 
 def parse_detail_page(url, html):
     main_text = get_main_text(html)
@@ -246,6 +327,10 @@ def parse_detail_page(url, html):
 
     title = extract_title(main_text)
     fields = parse_fields(body_text)
+    attachments = extract_attachments(html, url)
+    #디버그용
+    #print("[PARSED]", url, "/", title)
+    #print("[ATTACHMENTS]", attachments)
 
     return {
         "doc_id": make_id(url),
@@ -264,11 +349,12 @@ def parse_detail_page(url, html):
         "workflow": fields.get("업무처리 흐름도", ""),
         "appeal": fields.get("이의신청", ""),
         "etc": fields.get("기타", ""),
+        "attachments": attachments,
+        "attachment_count": len(attachments),
         "fields": fields,
-        "text": make_plain_text(title, fields),
+        "text": make_plain_text(title, fields, attachments),
         "source": "saha.go.kr",
     }
-
 
 def crawl_recent_civil_forms():
     ensure_dir(OUTPUT_DIR)
@@ -276,7 +362,7 @@ def crawl_recent_civil_forms():
     session = requests.Session()
     saved = 0
 
-    # 크롤링할 민원 페이지 범위 -> 일단 조금만
+    #### 크롤링할 민원 페이지 범위(여기조절) ####
     START_CIVIL_ID = 2200
     END_CIVIL_ID = 2100
 
@@ -300,7 +386,6 @@ def crawl_recent_civil_forms():
                 print("  저장 안 함: 대상 민원 아님")
                 continue
 
-            # 최근 5년 필터용: 상세 본문에 날짜가 없으면 일단 저장
             out.write(json.dumps(doc, ensure_ascii=False) + "\n")
             saved += 1
             print(f"  저장 완료: {doc['title']}")
