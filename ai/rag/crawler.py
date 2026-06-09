@@ -16,7 +16,7 @@ from bs4 import BeautifulSoup, NavigableString, Tag
 OUTPUT_DIR = "data/raw"
 OUTPUT_JSONL = os.path.join(OUTPUT_DIR, "saha_docs.jsonl")
 
-MAX_PAGES = 300
+MAX_PAGES = 100
 MAX_BOARD_PAGES_PER_LIST = 10
 REQUEST_DELAY = 0.7
 TIMEOUT = 15
@@ -427,7 +427,6 @@ def normalize_url(base_url, href):
         return None
     return full_url
 
-
 def get_mid(url):
     try:
         qs = parse_qs(urlparse(url).query)
@@ -491,15 +490,13 @@ def extract_year_from_text(text):
 # anchor_text : HTML의 <a> 태그 안에 사용자에게 보이는 글씨
 def is_recent_year_menu(anchor_text, url):
     text_year = extract_year_from_text(anchor_text)
-    url_year = extract_year_from_text(url)
 
-    year = text_year or url_year
-
-    # 연도가 없는 일반 메뉴는 그대로 허용
-    if year is None:
+    # 연도 필터는 메뉴명/링크 텍스트에 연도가 있을 때만 적용
+    # URL의 mId 숫자는 연도로 오인될 수 있으므로 검사하지 않음
+    if text_year is None:
         return True
 
-    return MIN_YEAR_MENU <= year <= CURRENT_YEAR
+    return MIN_YEAR_MENU <= text_year <= CURRENT_YEAR
 
 def is_allowed_url(url):
     lower = url.lower()
@@ -1264,10 +1261,15 @@ def make_shortcut_doc(
         "source": "saha.go.kr",
     }
 
+
 # 새창/바로가기 링크는 하위 탐색 X, 대신 shortcut_link 문서로 JSONL 저장 O
 def is_shortcut_only_link(a, href, text):
     href = href or ""
     text = clean_inline(text)
+
+    # 내부 contents 메뉴는 바로가기가 아니라 크롤링 탐색 대상
+    if "/portal/contents.do" in href and "mId=" in href:
+        return False
 
     if href.startswith(("javascript:", "mailto:", "tel:", "#")):
         return False
@@ -1277,58 +1279,65 @@ def is_shortcut_only_link(a, href, text):
 
     return is_valid_shortcut_link(text, href, full_url)
 
+# 하위링크 탐색  
 def extract_links_from_raw_html(html, current_url, parent_menu_path=None):
     parent_menu_path = parent_menu_path or []
 
     soup = BeautifulSoup(html, "html.parser")
-
     links = []
 
     for a in soup.find_all("a"):
         href = a.get("href", "").strip()
         onclick = a.get("onclick", "").strip()
 
-        anchor_text = clean_inline(
-            a.get_text(" ", strip=True)
-        )
+        anchor_text = clean_inline(a.get_text(" ", strip=True))
+        title_text = clean_inline(a.get("title", ""))
 
-        # href 또는 onclick 안에 mId가 숨어 있는 경우 복원
+        if not anchor_text and title_text:
+            anchor_text = title_text.replace("선택됨", "").strip()
+
+        # href / onclick / data-* 속성 전체에서 mId 찾기
+        attr_texts = [href, onclick]
+
+        for attr_name, attr_value in a.attrs.items():
+            if isinstance(attr_value, str):
+                attr_texts.append(attr_value)
+
         hidden_mid = ""
 
-        # 예: href="javascript:goMenu('0105040200')"
-        mid_match = re.search(r"mId=([0-9]{10})", href)
-        if not mid_match:
-            mid_match = re.search(r"mId=([0-9]{10})", onclick)
+        for text in attr_texts:
+            if not text:
+                continue
 
-        # 예: onclick="goMenu('0105040200')"
-        if not mid_match:
-            mid_match = re.search(r"['\"]([0-9]{10})['\"]", href)
+            # mId=0104010000 형태
+            m = re.search(r"mId=([0-9]{10})", text)
+            if m:
+                hidden_mid = m.group(1)
+                break
 
-        if not mid_match:
-            mid_match = re.search(r"['\"]([0-9]{10})['\"]", onclick)
-
-        if mid_match:
-            hidden_mid = mid_match.group(1)
+            # goMenu('0104010000') 형태
+            m = re.search(r"['\"]([0-9]{10})['\"]", text)
+            if m:
+                hidden_mid = m.group(1)
+                break
 
         if hidden_mid:
             href = f"/portal/contents.do?mId={hidden_mid}"
 
-        onclick = a.get("onclick", "").strip()
+        if not href:
+            continue
 
-        # href가 javascript이거나 비어 있을 때 onclick 안의 mId를 링크로 복원
-        if (not href or href.startswith("javascript:") or href == "#") and onclick:
-            mid_match = re.search(r"mId=([0-9]{10})", onclick)
-
-            if not mid_match:
-                mid_match = re.search(r"['\"]([0-9]{10})['\"]", onclick)
-
-            if mid_match:
-                mid = mid_match.group(1)
-                href = f"/portal/contents.do?mId={mid}"
+        # 내부 contents.do 메뉴는 shortcut 검사 제외
+        is_internal_contents_menu = (
+            "/portal/contents.do" in href
+            and "mId=" in href
+        )
 
         # 새창/바로가기 링크는 탐색하지 않음
-        # (대신 shortcut_link 문서로 따로 저장)
-        if is_shortcut_only_link(a, href, anchor_text):
+        if (
+            not is_internal_contents_menu
+            and is_shortcut_only_link(a, href, anchor_text)
+        ):
             continue
 
         normalized = normalize_url(current_url, href)
@@ -1336,12 +1345,9 @@ def extract_links_from_raw_html(html, current_url, parent_menu_path=None):
         if not normalized:
             continue
 
-        # 허용 범위 URL만 탐색
         if not is_allowed_url(normalized):
             continue
 
-        # 연도별 메뉴는 최근 5년만 허용
-        # 예: 제45회 (2024)
         if not is_recent_year_menu(anchor_text, normalized):
             continue
 
@@ -1361,17 +1367,14 @@ def extract_links_from_raw_html(html, current_url, parent_menu_path=None):
             "menu_path": menu_path,
         })
 
-    # 중복 제거
     dedup = {}
 
     for item in links:
         url = item["url"]
 
-        # 더 긴 menu_path 우선
         if (
             url not in dedup
-            or len(item["menu_path"])
-            > len(dedup[url]["menu_path"])
+            or len(item["menu_path"]) > len(dedup[url]["menu_path"])
         ):
             dedup[url] = item
 
@@ -1789,13 +1792,15 @@ def crawl():
                 print("  저장 안 함: 목록/허브 또는 범위 외 페이지")
 
             added = 0
+    
             for link in links:
                 link_url = link["url"]
+
                 if link_url not in visited and link_url not in queued:
                     queue.append(link)
                     queued.add(link_url)
                     added += 1
-
+        
             print(f"  링크 추가: {added}개")
             time.sleep(REQUEST_DELAY)
 
