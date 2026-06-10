@@ -10,8 +10,18 @@ from pydantic import BaseModel
 from app.services.chat_service import ask_saha_ai
 
 from fastapi.middleware.cors import CORSMiddleware
-
+from fastapi.staticfiles import StaticFiles
+import os
 app = FastAPI(title="사하구 AI 상담사 API")
+
+# 🌟 프로젝트 루트 경로 계산
+BASE_DIR = os.path.dirname(os.path.abspath(__file__)) # app/ 폴더 위치 기준
+PROJECT_ROOT = os.path.abspath(os.path.join(BASE_DIR, "..")) # 최상위 루트
+
+PDF_DIR = os.path.join(PROJECT_ROOT, "data", "raw", "passport_pdfs")
+
+# 🌟 외부에서 /download/passport_pdfs/파일명.pdf 로 바로 다운로드할 수 있게 통로 개방!
+app.mount("/download/passport_pdfs", StaticFiles(directory=PDF_DIR), name="passport_pdfs")
 
 # CORS 설정
 app.add_middleware(
@@ -109,18 +119,16 @@ def root():
 async def chat_endpoint(request: ChatRequest):
     try:
         user_question = request.question
-        
-        # 💡 [버그 교정] 반복문 변수명을 msg로 변경하여 모듈 이름(chat)과의 충돌을 방지합니다.
         raw_history = [
             {"role": msg.role, "content": msg.content} 
             for msg in request.history
         ]
-        
-        # 개조해 둔 ask_saha_ai 함수에 '현재 질문'과 '과거 이력'을 함께 토스합니다!
-        answer = ask_saha_ai(user_question=user_question, history=raw_history)
-        
-        # 프론트엔드 App.tsx 규격(data.answer)에 맞춰 응답을 반환합니다.
-        return {"question": user_question, "answer": answer}
+        result = ask_saha_ai(user_question=user_question, history=raw_history)        
+        return {
+            "question": user_question,
+            "answer": result["answer"],  # 고우니의 텍스트 답변
+            "files": result["files"]      # 파싱된 첨부파일 리스트
+        }
 
     except Exception as e:
         print(f"🔥 백엔드 에러 발생: {e}")

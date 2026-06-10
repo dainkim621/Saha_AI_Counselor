@@ -2,14 +2,15 @@ import json
 import os
 import hashlib
 from datetime import datetime
-
+# ---------------------------------------------------------------------------
 # [1] 전역 경로 설정 (실제 파일 위치에 맞게 세팅)
+# ---------------------------------------------------------------------------
 DATA_DIR = "data"
 OUTPUT_JSONL = os.path.join(DATA_DIR, "processed", "saha_clean_chunks.jsonl")
 OUTPUT_HTML = os.path.join(DATA_DIR, "processed", "saha_review_dashboard.html")
 
 # ---------------------------------------------------------------------------
-# [2] 각 크롤러 파일 별 함수 분리 및 전처리 로직
+# [2] 하위 전처리 함수 정의 (문서 유형별로 세분화)
 # ---------------------------------------------------------------------------
 
 # 전역 중복 차단기는 함수 외부(모듈 최상위)에 선언해 두어야 
@@ -103,12 +104,23 @@ def process_civil_forms(form):
     place = form.get("submission_place", "").strip()
     criteria = form.get("review_criteria", "").strip()
     workflow = form.get("workflow", "").strip()
-    
-    # 질문하신 핵심 3가지 필드 처리
     notes = form.get("notes", "").strip()          # 유의사항
     appeal = form.get("appeal", "").strip()        # 이의신청
     etc = form.get("etc", "").strip()              # 기타
     
+    attachments = form.get("attachments", [])
+    download_links_str = ""
+    
+    if attachments:
+        download_links_str = "\n\n📄 **사하구청 원본 서식 다운로드**"
+        for att in attachments:
+            filename = att.get("filename", "첨부파일")
+            file_url = att.get("file_url", "").strip()
+            if file_url:
+                # 💡 마크다운 문법으로 링크를 심어줍니다.
+                # 나중에 챗봇 화면에서 이 주소를 기반으로 다운로드 링킹이 작동합니다!
+                download_links_str += f"\n- [{filename}]({file_url})"
+                
     # 2. 텍스트 조립 (데이터가 없으면 '내용 없음' 혹은 '정보 없음'으로 처리)
     text_lines = [
         f"제목: {title}",
@@ -118,14 +130,14 @@ def process_civil_forms(form):
         f"\n[구비서류 및 필요서류]\n{req_docs if req_docs else '정보 없음'}",
         f"\n[행정기관 심사 및 자격 기준]\n{criteria if criteria else '내용 없음'}",
         f"\n[업무 처리 흐름]\n{workflow if workflow else '정보 없음'}",
-        
         # 데이터가 비어있어도 구조가 유지되도록 확실하게 매핑
         f"\n[유의사항]\n{notes if notes else '내용 없음'}",
         f"\n[이의신청 방법]\n{appeal if appeal else '내용 없음'}",
         f"\n[기타 사항]\n{etc if etc else '내용 없음'}"
     ]
     
-    full_text = "\n".join(text_lines)
+    full_text = "\n".join(text_lines) + download_links_str
+    
     
     # 3. 최종 청크 바구니에 담기
     return {
@@ -243,23 +255,55 @@ def process_waste_guides(waste):
         
         # 4. 💻 [제목 > 중제목 > 소제목] 포맷으로 본문(chunk_text) 데이터 완성!
         text_lines = [
-            f"[{full_hierarchy}]",  # 👈 제일 윗줄에 대괄호 경로 명시! (일반 문서 양식 싱크)
+            f"# {full_hierarchy}",  # 👈 제일 윗줄에 대괄호 경로 명시! (일반 문서 양식 싱크)
             clean_section_text
         ]
         full_chunk_text = "\n".join(text_lines)
         
         # 5. 마스터에게 토스할 바구니에 담기
         refined_chunks.append({
-            "title": f"{title} - {heading_path[-1] if heading_path else '상세'}",
+            "title": full_hierarchy,
             "page_type": "waste_guide",
             "text": full_chunk_text
         })
         
     return refined_chunks if refined_chunks else None
 
+def process_passport_forms(pdf_doc):
+    title = pdf_doc.get("title", "여권 서식 안내")
+    raw_text = pdf_doc.get("text", "").strip()
+    
+    # 원본 데이터 구조에 있는 attachments 배열에서 실제 파일명을 가져옵니다.
+    attachments = pdf_doc.get("attachments", [])
+    file_name = attachments[0].get("name") if attachments else f"{title}.pdf"
+    
+    # 🌟 FastAPI 마운트 경로와 매칭되는 백엔드 다운로드 URL 설계
+    # 프론트엔드가 백엔드 주소(예: localhost:8000) 뒤에 이 경로를 붙여 다운로드하게 만듭니다.
+    download_path = f"/download/passport_pdfs/{file_name}"
+    
+    lines = raw_text.split("\n")
+    refined_lines = [l.strip() for l in lines if l.strip() and not any(j in l for j in ["210m", "[백상지"])]
+    clean_pdf_text = "\n".join(refined_lines)
+    
+    menu_path = pdf_doc.get("menu_path", [])
+    full_hierarchy = " > ".join(menu_path) if menu_path else f"외교부 여권안내 > {title}"
+        
+    # 🌟 챗봇(LLM)이 답변 마지막에 다운로드 버튼 문법을 출력할 수 있도록 컨텍스트에 힌트 삽입!
+    text_lines = [
+        f"# {full_hierarchy}",
+        clean_pdf_text,
+        f"\nℹ️ 해당 서식 파일 다운로드 링크: [{file_name}]({download_path})" # 👈 컨텍스트 최하단에 주입
+    ]
+    full_chunk_text = "\n".join(text_lines)
+    
+    return {
+        "title": full_hierarchy,
+        "page_type": "passport_form_pdf",
+        "text": full_chunk_text
+    }
 
 # ---------------------------------------------------------------------------
-# [3] 4개 통합 청크
+# [3] 상위 마스터 함수 
 # ---------------------------------------------------------------------------
 
 def create_chunk_object(doc_id, chunk_index, **kwargs):
@@ -342,6 +386,8 @@ def run_preprocessing_pipeline(file_paths_dict):
                     refined_data = process_civil_forms(doc)
                 elif page_type == "bid":
                     refined_data = process_bid_notices(doc)
+                elif page_type == "passport":
+                    refined_data = process_passport_forms(doc)
                 
                 #전처리 함수가 None을 리턴할 때 (예: 민원서식이 너무 짧아서 무시된 경우) 대비한 안전장치
                 if refined_data is None:
@@ -378,6 +424,7 @@ def run_preprocessing_pipeline(file_paths_dict):
                     final_db_ready_chunks.append(chunk_obj)   
                                         
     return final_db_ready_chunks
+
 # ---------------------------------------------------------------------------
 # [4] 시각화 HTML 생성 전용 함수
 # ---------------------------------------------------------------------------
@@ -449,21 +496,24 @@ def generate_html_dashboard(chunks, output_path):
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
     with open(output_path, "w", encoding="utf-8") as f:
         f.write(html_content)
+
 # ---------------------------------------------------------------------------
 # [5] 메인 실행 컨트롤러 
 # ---------------------------------------------------------------------------
 def main():
     print("🚀 크롤링 데이터 전처리 및 시각화 빌드 가동...")
     
-    # 1) 각 전처리 파트별 RAW 파일 경로들을 하나의 딕셔너리로 묶어줍니다.
+    # (1) 각 전처리 파트별 RAW 파일 경로들을 하나의 딕셔너리로 묶어줍니다.
+    # 원하는 파일 말고 다른 파일을 주석처리 해서 원하는 파일의 전처리 결과만 볼 수 있습니다. 
     file_paths = {
         "general": os.path.join(DATA_DIR, "raw", "saha_docs.jsonl"),
         "civil": os.path.join(DATA_DIR, "raw", "saha_civil_forms.jsonl"),
         "bid": os.path.join(DATA_DIR, "raw", "saha_bid_docs.jsonl"),
         "waste": os.path.join(DATA_DIR, "raw", "saha_waste_docs.jsonl"),
+        "passport": os.path.join(DATA_DIR, "raw", "passport_forms.jsonl")
     }
     
-    # 2) [핵심 변화] 마스터 파이프라인 함수를 딱 한 번만 호출합니다.
+    # (2) 마스터 파이프라인 함수 호출 - 이 함수 안에서 5개 전처리 함수가 모두 호출되어 각 파일별로 알맹이 데이터가 추출되고,
     # 이 함수 안에서 파일 유무 체크, 파일 열기, 각 파트별 전처리(다듬기), 
     # 그리고 최종 create_chunk_object와 append까지 올인원으로 처리되어 꽉 찬 바구니가 리턴됩니다.
     all_chunks = run_preprocessing_pipeline(file_paths)

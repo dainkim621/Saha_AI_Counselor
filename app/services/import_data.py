@@ -27,7 +27,7 @@ def import_chunks():
     db: Session = SessionLocal()
     current_dir = os.path.dirname(os.path.abspath(__file__)) # app/services
     project_root = os.path.abspath(os.path.join(current_dir, "..", "..")) # 최상위 루트
-    file_path = os.path.join(project_root, "data", "processed", "saha_clean_docs.jsonl")
+    file_path = os.path.join(project_root, "data", "processed", "saha_clean_chunks.jsonl")
     
     if not os.path.exists(file_path):
         print(f"❌ 파일을 찾을 수 없습니다: {file_path}")
@@ -37,75 +37,67 @@ def import_chunks():
     
     count = 0
     try:
-        # 💡 [정석 해결책] 파일 전체를 텍스트로 통째로 읽어옵니다.
+        # 🌟 JSONL 파일의 정석: 한 줄씩 읽으면서 바로 파싱하고 처리합니다.
         with open(file_path, "r", encoding="utf-8") as f:
-            raw_text = f.read().strip()
-            
-        # 전처리 스크립트 특성상 맨 마지막 콤마(Category 노이즈 등)가 꼬였을 때를 대비해 양끝 정리
-        if raw_text.endswith(","):
-            raw_text = raw_text[:-1].strip()
-        if not raw_text.endswith("]"):
-            raw_text += "]"
-            
-        # 통짜 JSON 리스트로 변환
-        try:
-            data_list = json.loads(raw_text)
-        except json.JSONDecodeError as je:
-            print(f"⚠️ 통짜 파싱 실패로 강제 정규식 추출 모드 전환: {je}")
-            # 만약 대괄호 매칭이 깨졌다면 내부 중괄호 객체들만 강제로 뜯어내기
-            import re
-            records = re.findall(r'\{[^{}]+\}', raw_text)
-            data_list = []
-            for r in records:
-                try: data_list.append(json.loads(r))
-                except: continue
-
-        print(f"📋 총 {len(data_list)}개의 문서를 발견했습니다. 적재를 시작합니다.")
-
-        # 데이터 루프 돌리기
-        for data in data_list:
-            if not data or "doc_id" not in data:
-                continue
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
                 
-            # 중복 적재 방지
-            existing_chunk = db.query(Notice).filter(Notice.chunk_id == data["doc_id"]).first()
-            if existing_chunk:
-                continue
-            
-            print(f"🔮 임베딩 생성 중 ➡️ {data.get('title', '정보')} ({data['doc_id']})")
-            
-            content_text = data.get("text")
-            if not content_text:
-                continue
+                try:
+                    data = json.loads(line)
+                except json.JSONDecodeError:
+                    print(f"⚠️ 줄 파싱 실패 (스킵): {line[:30]}...")
+                    continue
                 
-            # OpenAI 임베딩 생성
-            vector_data = get_embedding(content_text)
-            meta = data.get("metadata", {})
-            
-            new_chunk = Notice(
-                chunk_id=data["doc_id"],  
-                doc_id=data["doc_id"],
-                url=data.get("url"),
-                title=data.get("title", "정보 없음"),
-                page_type=data.get("page_type", "contents"),
-                source=data.get("source", "saha.go.kr"),
-                menu_path=data.get("menu_path", []),
+                # 🌟 안전장치: 전처리 완료된 필수 식별자 컬럼 체크
+                chunk_id = data.get("chunk_id")
+                if not chunk_id:
+                    continue
+                    
+                # 🌟 중복 적재 방지: 부모 doc_id가 아니라 고유한 chunk_id로 조회해야 안전합니다.
+                existing_chunk = db.query(Notice).filter(Notice.chunk_id == chunk_id).first()
+                if existing_chunk:
+                    continue
                 
-                chunk_text=content_text,
-                chunk_index=data.get("chunk_index", 0),
-                embedding=vector_data,
+                # 🌟 필드명 정정: 최종 정제 파일의 본문 키값은 'chunk_text'입니다!
+                content_text = data.get("chunk_text", "").strip()
+                if not content_text:
+                    continue
                 
-                major=meta.get("major", ""),
-                minor=meta.get("minor", ""),
-                context=meta.get("context", "")
-            )
-            db.add(new_chunk)
-            count += 1
-            
-            if count % 10 == 0:
-                db.commit()
-                print(f"💾 중간 저장 완료 ({count}개 완료...)")
+                print(f"🔮 임베딩 생성 중 ➡️ {data.get('title', '정보')} ({chunk_id})")
+                
+                # OpenAI 임베딩 생성
+                vector_data = get_embedding(content_text)
+                
+                # DB 데이터 모델 생성 (Notice 테이블 컬럼과 1:1 싱크 추가 우회 매핑)
+                new_chunk = Notice(
+                    chunk_id=chunk_id,  
+                    doc_id=data.get("doc_id"),
+                    url=data.get("url"),
+                    title=data.get("title", "정보 없음"),
+                    page_type=data.get("page_type", "contents"),
+                    source=data.get("source", "saha.go.kr"),
+                    menu_path=data.get("menu_path", []),
+                    
+                    chunk_text=content_text,
+                    chunk_index=data.get("chunk_index", 0),
+                    embedding=vector_data,
+                    
+                    # 수집 데이터 최상위에 평탄화되어 있는 필드들을 안전하게 백업
+                    major=data.get("major", ""),
+                    minor=data.get("minor", ""),
+                    context=data.get("context", "")
+                )
+                db.add(new_chunk)
+                count += 1
+                
+                # 10개 단위로 트랜잭션 중간 커밋 (안정성 확보)
+                if count % 10 == 0:
+                    db.commit()
+                    print(f"💾 중간 저장 완료 ({count}개 완료...)")
         
+        # 남은 조각 최종 커밋
         db.commit()
         print(f"\n✅ [성공] 총 {count}개의 데이터가 완벽하게 벡터 DB에 적재되었습니다!")
         

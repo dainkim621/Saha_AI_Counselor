@@ -9,6 +9,7 @@ import ChatInput from "./components/ChatInput";
 export type Message = {
   role: "user" | "assistant";
   content: string;
+  files?: { file_name: string; file_url: string }[];
 };
 
 type SpeechRecognitionType = {
@@ -223,6 +224,7 @@ function App() {
       const aiMessage: Message = {
         role: "assistant",
         content: data.answer,
+        files: data.files, // 백엔드에서 파싱된 첨부파일 리스트도 함께 저장
       };
 
       setMessages((prev) => [...prev, aiMessage]);

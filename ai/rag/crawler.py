@@ -23,7 +23,7 @@ TIMEOUT = 15
 
 # 게시판 작성일 필터
 CURRENT_YEAR = 2026
-RECENT_DAYS = 365
+RECENT_DAYS = 365   # 최대 1년치만
 RECENT_CUTOFF = datetime(CURRENT_YEAR, 5, 13) - timedelta(days=RECENT_DAYS)
 
 # contents.do 안에서 연도별 메뉴 탐색용 기준
@@ -242,6 +242,39 @@ def clean_block_text(text):
 
     return "\n".join(lines)
 
+ # 제목 판단
+def looks_like_heading(text):
+    text = clean_inline(text)
+
+    if not text:
+        return False
+
+    if len(text) < 2 or len(text) > 30:
+        return False
+
+    if ":" in text or "：" in text:
+        return False
+
+    if re.search(r"\d{2,4}-\d{3,4}-\d{4}", text):
+        return False
+
+    if re.search(r"https?://|www\.", text):
+        return False
+
+    if text.endswith((
+        "입니다", "합니다", "됩니다", "있습니다", "없습니다",
+        "바랍니다", "하세요", "하십시오", "가능합니다"
+    )):
+        return False
+
+    if any(x in text for x in [
+        "왼쪽 메뉴", "오른쪽 메뉴", "이용해주시면", "발급하실 수",
+        "각종", "위하여", "때문에", "경우"
+    ]):
+        return False
+
+    return True
+
 # 데이터 형태 기반
 def is_data_line(text):
     text = clean_inline(text)
@@ -249,7 +282,7 @@ def is_data_line(text):
     if not text:
         return False
 
-    # 값 설명 형태
+    # "창구번호 : 2-1번창구", "본 인 : 신분증" 같은 데이터형 문장
     if ":" in text or "：" in text:
         return True
 
@@ -261,56 +294,73 @@ def is_data_line(text):
     if re.search(r"https?://|www\.", text):
         return True
 
-    # 숫자+단위
-    if re.search(
-        r"\d+\s*(원|명|건|회|개|일|개월|년|층|시|분|번|호)",
-        text
-    ):
+    # 금액/수량/기간/층/창구 등
+    if re.search(r"\d+\s*(원|명|건|회|개|일|개월|년|층|시|분|번|호|대)", text):
         return True
 
     return False
 
-# 제목 판단
-def looks_like_heading(text):
+
+def is_noise_heading_line(text):
     text = clean_inline(text)
 
     if not text:
+        return True
+
+    noise_exact = {
+        "Home",
+        "전자민원",
+        "정보공개",
+        "구민참여",
+        "분야별정보",
+        "사하소개",
+        "사하정보",
+        "종합민원안내",
+    }
+
+    if text in noise_exact:
+        return True
+
+    if "<a " in text or "</a>" in text or "<span" in text or "</span>" in text:
+        return True
+
+    return False
+
+
+def is_real_heading_line(text):
+    text = clean_inline(text)
+
+    if is_noise_heading_line(text):
         return False
 
-    # 너무 길면 제목 아님
-    if len(text) > 35:
-        return False
-
-    # 데이터면 제목 아님
     if is_data_line(text):
         return False
 
-    # URL/파일명 제외
-    if re.search(
-        r"https?://|www\.|\.(pdf|hwp|hwpx|doc|docx|xls|xlsx|zip)$",
-        text,
-        re.I,
-    ):
+    if len(text) < 2 or len(text) > 35:
         return False
 
-    # 문장형 제외
-    if any(
-        text.endswith(x)
-        for x in [
-            "합니다",
-            "됩니다",
-            "있습니다",
-            "없습니다",
-            "바랍니다",
-            "하십시오",
-            "하세요",
-        ]
-    ):
+    # 설명 문장형은 heading 아님
+    bad_endings = [
+        "입니다", "합니다", "됩니다", "있습니다", "없습니다",
+        "바랍니다", "하세요", "하십시오", "가능합니다"
+    ]
+
+    if any(text.endswith(e) for e in bad_endings):
+        return False
+
+    # 본문 문장에 자주 나오는 연결어
+    bad_words = [
+        " 왼쪽 ", " 오른쪽 ", " 또는 ", " 그리고 ", " 하지만 ",
+        " 위하여 ", " 때문에 ", " 따라서 ", " 경우 "
+    ]
+
+    if any(w in f" {text} " for w in bad_words):
         return False
 
     return True
 
-# 현재 태그의 직접 텍스트만 추출
+
+# 현재 태그의 직접 텍스트만 추출, 헤더가 나온 순서대로 현재 구역을 유지
 def extract_direct_text_without_children(node):
     texts = []
 
@@ -360,7 +410,6 @@ def normalize_views(value):
     except ValueError:
         return None
 
-
 def normalize_url(base_url, href):
     if not href:
         return None
@@ -378,14 +427,12 @@ def normalize_url(base_url, href):
         return None
     return full_url
 
-
 def get_mid(url):
     try:
         qs = parse_qs(urlparse(url).query)
         return qs.get("mId", [""])[0]
     except Exception:
         return ""
-
 
 def classify_page_type(url):
     lower = url.lower()
@@ -443,15 +490,13 @@ def extract_year_from_text(text):
 # anchor_text : HTML의 <a> 태그 안에 사용자에게 보이는 글씨
 def is_recent_year_menu(anchor_text, url):
     text_year = extract_year_from_text(anchor_text)
-    url_year = extract_year_from_text(url)
 
-    year = text_year or url_year
-
-    # 연도가 없는 일반 메뉴는 그대로 허용
-    if year is None:
+    # 연도 필터는 메뉴명/링크 텍스트에 연도가 있을 때만 적용
+    # URL의 mId 숫자는 연도로 오인될 수 있으므로 검사하지 않음
+    if text_year is None:
         return True
 
-    return MIN_YEAR_MENU <= year <= CURRENT_YEAR
+    return MIN_YEAR_MENU <= text_year <= CURRENT_YEAR
 
 def is_allowed_url(url):
     lower = url.lower()
@@ -772,11 +817,14 @@ def dl_to_text(dl):
             items.append(f"{k}: {v}")
     return "\n".join(items)
 
-# main_node의 주요 블록만 순서대로 처리하는 방식
+# h1~h6 헤더를 기준으로 section을 나누는 방식
 def extract_structured_sections(main_node):
     sections = []
-    heading_stack = []
     seen = set()
+    heading_stack = []
+    buffer = []
+
+    HEADING_TAGS = {"h1", "h2", "h3", "h4", "h5", "h6"}
 
     def current_path():
         return [h["title"] for h in heading_stack]
@@ -784,130 +832,102 @@ def extract_structured_sections(main_node):
     def push_heading(level, title):
         nonlocal heading_stack
         heading_stack = [h for h in heading_stack if h["level"] < level]
-        heading_stack.append({
-            "level": level,
-            "title": title
-        })
+        heading_stack.append({"level": level, "title": title})
 
-    # 너무 깊은 descendants 전체가 아니라, 의미 있는 블록만 순서대로 가져옴
-    blocks = main_node.find_all(
-        ["h1", "h2", "h3", "h4", "h5", "h6", "p", "div", "ul", "ol", "table", "dl"],
-        recursive=True
-    )
+    def add_section(block_type, text, path=None):
+        text = clean_block_text(text)
+        text = remove_noise_lines(text)
+        text = clean_text(text)
 
-    for node in blocks:
-        # 부모가 이미 table/ul/ol/dl이면 중복 방지
-        if node.find_parent(["table", "ul", "ol", "dl"]) and node.name not in ["ul", "ol", "table", "dl"]:
-            continue
+        if not text or len(text) < 3:
+            return
 
-        # 제목 태그 처리
-        if node.name and re.fullmatch(r"h[1-6]", node.name):
-            title = clean_inline(node.get_text(" ", strip=True))
+        heading_path = path if path is not None else current_path()
 
-            if title and looks_like_heading(title):
-                push_heading(int(node.name[1]), title)
+        # heading 제목 자체가 본문으로 중복 저장되는 경우 제거
+        if heading_path and text == heading_path[-1]:
+            return
 
-            continue
-
-        # p, div 같이 처리
-        if node.name in ["p", "div"]:
-            # 자식에 ul/table/dl이 있는 큰 div는 중복 방지
-            if node.name == "div" and node.find(["ul", "ol", "table", "dl"]):
-                continue
-            text = clean_block_text(node.get_text("\n", strip=True))
-            text = remove_noise_lines(text)
-
-            if not text:
-                continue
-
-            lines = [line.strip() for line in text.splitlines() if line.strip()]
-
-            # 한 줄짜리 p이고 제목처럼 보이면 heading
-            if len(lines) == 1 and looks_like_heading(lines[0]):
-                push_heading(5, lines[0])
-                continue
-
-            # 여러 줄 p는 본문으로 저장
-            block_text = "\n".join(lines)
-            block_type = "paragraph"
-
-        elif node.name in ["ul", "ol"]:
-            block_text = list_to_text(node)
-            block_text = remove_noise_lines(block_text)
-            block_type = "list"
-
-        elif node.name == "table":
-            block_text = table_to_text(node)
-            block_text = remove_noise_lines(block_text)
-            block_type = "table"
-
-        elif node.name == "dl":
-            block_text = dl_to_text(node)
-            block_text = remove_noise_lines(block_text)
-            block_type = "definition_list"
-
-        else:
-            continue
-
-        block_text = clean_text(block_text)
-
-        if not block_text or len(block_text) < 3:
-            continue
-
-        # 같은 heading_path 안에서 같은 내용 중복 방지
-        key = (
-            tuple(current_path()),
-            block_text
-        )
-
+        key = (tuple(heading_path), block_type, text)
         if key in seen:
-            continue
+            return
 
         seen.add(key)
 
         sections.append({
-            "heading_path": current_path(),
+            "heading_path": heading_path,
             "block_type": block_type,
-            "text": block_text,
-        })
-        # sections에 누락된 본문 줄 보충
-    full_lines = [
-        clean_inline(line)
-        for line in main_node.get_text("\n", strip=True).splitlines()
-        if clean_inline(line)
-    ]
-
-    already_text = "\n".join(
-        sec.get("text", "")
-        for sec in sections
-    )
-
-    missing_lines = []
-
-    for line in full_lines:
-        if line in already_text:
-            continue
-
-        if line in ["열기", "닫기", "블로그", "인스타그램", "페이스북", "카카오", "인쇄하기"]:
-            continue
-
-        # 제목처럼 보이는 줄은 제외
-        if looks_like_heading(line):
-            continue
-
-        missing_lines.append(line)
-
-    if missing_lines:
-        sections.insert(0, {
-            "heading_path": current_path(),
-            "block_type": "paragraph",
-            "text": "\n".join(missing_lines),
+            "text": text,
         })
 
-    # 전체 본문 백업 저장: 구조 추출에서 빠진 줄 방지
-    full_text_backup = clean_block_text(
-        main_node.get_text("\n", strip=True)
-    )
+    def flush_buffer():
+        nonlocal buffer
+
+        if buffer and current_path():
+            add_section("paragraph", "\n".join(buffer))
+
+        buffer = []
+
+    for node in main_node.descendants:
+        if isinstance(node, NavigableString):
+            txt = clean_inline(str(node))
+
+            if not txt:
+                continue
+
+            # 이미 ul/table/dl 안의 텍스트는 해당 구조 처리에서 따로 잡음
+            parent = node.parent
+            if parent and parent.find_parent(["ul", "ol", "table", "dl"]):
+                continue
+
+            if txt in ["Home", "전자민원", "종합민원안내"]:
+                continue
+
+            # 현재 heading이 있는 상태에서 직접 텍스트를 buffer에 저장
+            if current_path():
+                buffer.append(txt)
+
+            continue
+
+        if not isinstance(node, Tag):
+            continue
+
+        # heading 처리
+        if node.name in HEADING_TAGS or node.name in ["strong", "dt"]:
+            title = clean_inline(node.get_text(" ", strip=True))
+
+            if looks_like_heading(title):
+                flush_buffer()
+
+                if node.name in HEADING_TAGS:
+                    level = int(node.name[1])
+                else:
+                    level = 5
+
+                push_heading(level, title)
+
+            continue
+
+        # 목록/표/정의목록을 만나면 buffer 먼저 저장 후 구조 저장
+        if node.name in ["ul", "ol"]:
+            flush_buffer()
+            add_section("list", list_to_text(node))
+            continue
+
+        if node.name == "table":
+            flush_buffer()
+            add_section("table", table_to_text(node))
+            continue
+
+        if node.name == "dl":
+            flush_buffer()
+            add_section("definition_list", dl_to_text(node))
+            continue
+
+    flush_buffer()
+
+    # 누락 방지용 백업 유지
+    full_text_backup = clean_block_text(main_node.get_text("\n", strip=True))
     full_text_backup = remove_noise_lines(full_text_backup)
 
     if full_text_backup:
@@ -916,9 +936,10 @@ def extract_structured_sections(main_node):
             "block_type": "full_text_backup",
             "text": full_text_backup,
         })
+
     return sections
 
-def sections_to_text(title, menu_path, sections, shortcut_links):
+def sections_to_text(title, menu_path, sections, shortcut_links, attachments=None):
     parts = []
     if title:
         parts.append(f"제목: {title}")
@@ -948,6 +969,10 @@ def sections_to_text(title, menu_path, sections, shortcut_links):
                 parts.append(txt)
 
     if shortcut_links:
+        if attachments:
+            parts.append("[첨부파일]")
+            for file in attachments:
+                parts.append(f"- {file['filename']}")
         parts.append("[바로가기 링크]")
         for link in shortcut_links:
             parts.append(f"- {link['text']}: {link['url']}")
@@ -997,6 +1022,122 @@ def is_valid_shortcut_link(text, href, full_url):
         return True
 
     return False
+
+# 첨부파일 추출
+def extract_attachments(main_node, base_url):
+    attachments = []
+
+    if not main_node:
+        return attachments
+
+    file_ext_pattern = r"\.(hwp|hwpx|pdf|doc|docx|xls|xlsx|zip)"
+
+    for a in main_node.find_all("a"):
+        href = a.get("href", "").strip()
+        onclick = a.get("onclick", "").strip()
+
+        link_text = clean_inline(a.get_text(" ", strip=True))
+        title_attr = clean_inline(a.get("title", ""))
+        download_attr = clean_inline(a.get("download", ""))
+
+        parent_text = ""
+        if a.parent:
+            parent_text = clean_inline(a.parent.get_text(" ", strip=True))
+
+        # 파일명 후보: 버튼 텍스트가 '다운로드'일 수 있으므로 주변 텍스트까지 확인
+        filename_candidate = (
+            download_attr
+            or title_attr
+            or link_text
+            or parent_text
+        )
+
+        # parent_text 안에 실제 파일명이 있으면 그걸 우선 사용
+        file_name_match = re.search(
+            r"([^\s/\\]+?\.(?:hwp|hwpx|pdf|doc|docx|xls|xlsx|zip))",
+            parent_text,
+            re.IGNORECASE
+        )
+
+        if file_name_match:
+            filename = file_name_match.group(1)
+        else:
+            filename = filename_candidate
+
+        filename = clean_inline(filename)
+        filename = filename.replace("다운로드", "").replace("첨부파일", "").strip()
+        filename = re.sub(
+            r"\s*\[[0-9.]+\s*(KByte|MByte|KB|MB)\]\s*$",
+            "",
+            filename,
+            flags=re.IGNORECASE
+        )
+        filename = clean_inline(filename)
+
+        file_url = ""
+        file_id = ""
+        file_sn = ""
+
+        # 사하구청 첨부파일 onclick 구조
+        # fn_egov_downFile('FILE_...', '0')
+        # fn_egov_downFile_pubc('FILE_...', '0')
+        match = re.search(
+            r"fn_egov_downFile(?:_pubc)?\('([^']+)'\s*,\s*'([^']+)'\)",
+            onclick
+        )
+
+        if match:
+            file_id = match.group(1)
+            file_sn = match.group(2)
+            file_url = (
+                "https://www.saha.go.kr/cmm/fms/FileDown.do"
+                f"?atchFileId={file_id}&fileSn={file_sn}"
+            )
+
+            if not filename:
+                filename = f"첨부파일_{file_id}_{file_sn}"
+
+        elif href and href not in ("#", "javascript:void(0);"):
+            # href 자체가 다운로드 링크인 경우
+            if (
+                re.search(file_ext_pattern, href, re.IGNORECASE)
+                or "FileDown.do" in href
+                or "fileDown" in href
+                or "download" in href.lower()
+            ):
+                file_url = urljoin(base_url, href)
+                file_url, _ = urldefrag(file_url)
+
+        if not file_url:
+            continue
+
+        # 버튼명만 남은 경우 보정
+        if not filename or filename in ["다운로드", "내려받기", "파일다운로드"]:
+            filename = f"첨부파일_{file_id}_{file_sn}" if file_id else "첨부파일"
+
+        ext_match = re.search(file_ext_pattern, filename, re.IGNORECASE)
+        extension = ext_match.group(1).lower() if ext_match else ""
+
+        attachments.append({
+            "filename": filename,
+            "file_url": file_url,
+            "extension": extension,
+            "file_id": file_id,
+            "file_sn": file_sn,
+            "source_type": "saha_attachment",
+        })
+
+    unique = []
+    seen = set()
+
+    for item in attachments:
+        key = (item["filename"], item["file_url"])
+        if key in seen:
+            continue
+        seen.add(key)
+        unique.append(item)
+
+    return unique
 
 def extract_shortcut_links(main_node, base_url):
     links = []
@@ -1060,6 +1201,14 @@ def extract_shortcut_links(main_node, base_url):
         full_url = urljoin(base_url, href)
         full_url, _ = urldefrag(full_url)
 
+        # 파일 다운로드 링크는 shortcut_links가 아니라 attachments에서만 관리
+        if (
+            "FileDown.do" in full_url
+            or "filedown" in full_url.lower()
+            or "download" in full_url.lower()
+        ):
+            continue
+
         if not is_valid_shortcut_link(text, href, full_url):
             continue
 
@@ -1112,10 +1261,15 @@ def make_shortcut_doc(
         "source": "saha.go.kr",
     }
 
+
 # 새창/바로가기 링크는 하위 탐색 X, 대신 shortcut_link 문서로 JSONL 저장 O
 def is_shortcut_only_link(a, href, text):
     href = href or ""
     text = clean_inline(text)
+
+    # 내부 contents 메뉴는 바로가기가 아니라 크롤링 탐색 대상
+    if "/portal/contents.do" in href and "mId=" in href:
+        return False
 
     if href.startswith(("javascript:", "mailto:", "tel:", "#")):
         return False
@@ -1125,23 +1279,65 @@ def is_shortcut_only_link(a, href, text):
 
     return is_valid_shortcut_link(text, href, full_url)
 
+# 하위링크 탐색  
 def extract_links_from_raw_html(html, current_url, parent_menu_path=None):
     parent_menu_path = parent_menu_path or []
 
     soup = BeautifulSoup(html, "html.parser")
-
     links = []
 
-    for a in soup.find_all("a", href=True):
+    for a in soup.find_all("a"):
         href = a.get("href", "").strip()
+        onclick = a.get("onclick", "").strip()
 
-        anchor_text = clean_inline(
-            a.get_text(" ", strip=True)
+        anchor_text = clean_inline(a.get_text(" ", strip=True))
+        title_text = clean_inline(a.get("title", ""))
+
+        if not anchor_text and title_text:
+            anchor_text = title_text.replace("선택됨", "").strip()
+
+        # href / onclick / data-* 속성 전체에서 mId 찾기
+        attr_texts = [href, onclick]
+
+        for attr_name, attr_value in a.attrs.items():
+            if isinstance(attr_value, str):
+                attr_texts.append(attr_value)
+
+        hidden_mid = ""
+
+        for text in attr_texts:
+            if not text:
+                continue
+
+            # mId=0104010000 형태
+            m = re.search(r"mId=([0-9]{10})", text)
+            if m:
+                hidden_mid = m.group(1)
+                break
+
+            # goMenu('0104010000') 형태
+            m = re.search(r"['\"]([0-9]{10})['\"]", text)
+            if m:
+                hidden_mid = m.group(1)
+                break
+
+        if hidden_mid:
+            href = f"/portal/contents.do?mId={hidden_mid}"
+
+        if not href:
+            continue
+
+        # 내부 contents.do 메뉴는 shortcut 검사 제외
+        is_internal_contents_menu = (
+            "/portal/contents.do" in href
+            and "mId=" in href
         )
 
         # 새창/바로가기 링크는 탐색하지 않음
-        # (대신 shortcut_link 문서로 따로 저장)
-        if is_shortcut_only_link(a, href, anchor_text):
+        if (
+            not is_internal_contents_menu
+            and is_shortcut_only_link(a, href, anchor_text)
+        ):
             continue
 
         normalized = normalize_url(current_url, href)
@@ -1149,12 +1345,9 @@ def extract_links_from_raw_html(html, current_url, parent_menu_path=None):
         if not normalized:
             continue
 
-        # 허용 범위 URL만 탐색
         if not is_allowed_url(normalized):
             continue
 
-        # 연도별 메뉴는 최근 5년만 허용
-        # 예: 제45회 (2024)
         if not is_recent_year_menu(anchor_text, normalized):
             continue
 
@@ -1174,17 +1367,14 @@ def extract_links_from_raw_html(html, current_url, parent_menu_path=None):
             "menu_path": menu_path,
         })
 
-    # 중복 제거
     dedup = {}
 
     for item in links:
         url = item["url"]
 
-        # 더 긴 menu_path 우선
         if (
             url not in dedup
-            or len(item["menu_path"])
-            > len(dedup[url]["menu_path"])
+            or len(item["menu_path"]) > len(dedup[url]["menu_path"])
         ):
             dedup[url] = item
 
@@ -1278,11 +1468,12 @@ def extract_document(html, url, menu_path=None):
 
     sections = extract_structured_sections(main_node)
     shortcut_links = extract_shortcut_links(main_node, url)
-    text = sections_to_text(title, menu_path, sections, shortcut_links)
+    attachments = extract_attachments(main_node, url)
+    text = sections_to_text(title, menu_path, sections, shortcut_links, attachments)
     text = remove_noise_lines(text)
     paragraphs = split_paragraphs(text)
 
-    return title, text, paragraphs, sections, shortcut_links
+    return title, text, paragraphs, sections, shortcut_links, attachments
 
 
 def is_menu_like_text(text):
@@ -1320,7 +1511,7 @@ def document_score(url, title, text, sections):
 # 저장 문서 생성
 # =========================================================
 def make_doc(url, parent_url, anchor_text, menu_path, html, extra_meta=None):
-    title, text, paragraphs, sections, shortcut_links = extract_document(html, url, menu_path)
+    title, text, paragraphs, sections, shortcut_links, attachments = extract_document(html, url, menu_path)
     soup_meta = BeautifulSoup(html, "html.parser")
     metadata = extract_metadata(soup_meta)
 
@@ -1341,6 +1532,8 @@ def make_doc(url, parent_url, anchor_text, menu_path, html, extra_meta=None):
         "views": extra_meta.get("views") if extra_meta.get("views") is not None else metadata.get("views"),
         "sections": sections,
         "shortcut_links": shortcut_links,
+        "attachments": attachments,
+        "attachment_count": len(attachments),
         "text": text,
         "paragraphs": paragraphs,
         "source": "saha.go.kr",
@@ -1599,13 +1792,15 @@ def crawl():
                 print("  저장 안 함: 목록/허브 또는 범위 외 페이지")
 
             added = 0
+    
             for link in links:
                 link_url = link["url"]
+
                 if link_url not in visited and link_url not in queued:
                     queue.append(link)
                     queued.add(link_url)
                     added += 1
-
+        
             print(f"  링크 추가: {added}개")
             time.sleep(REQUEST_DELAY)
 
