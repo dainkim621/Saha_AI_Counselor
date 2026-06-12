@@ -2,6 +2,9 @@ import { useEffect, useRef } from "react";
 import ReactMarkdown from "react-markdown";
 import type { Message } from "../App";
 import gouni from "../assets/gouni-profile.png";
+import remarkGfm from "remark-gfm";
+
+const BACKEND_URL = "http://localhost:8000";
 
 type ChatWindowProps = {
   messages: Message[];
@@ -40,21 +43,61 @@ function ChatWindow({ messages, isLoading }: ChatWindowProps) {
             }
           >
             {message.role === "assistant" ? (
-              <>
-                <ReactMarkdown>{message.content}</ReactMarkdown>
+              <div>
+                <ReactMarkdown
+                  remarkPlugins={[remarkGfm]}
+                  components={{
+                    a: ({ href, children }) => (
+                      <a
+                        href={href}
+                        target="_blank"
+                        rel="noreferrer"
+                        style={{
+                          color: "#2563eb",
+                          textDecoration: "underline",
+                        }}
+                      >
+                        {children}
+                      </a>
+                    ),
+                  }}
+                >
+                  {message.content}
+                </ReactMarkdown>
 
-                {message.fileUrl && (
-                  <a
-                    href={message.fileUrl}
-                    download={message.fileName}
-                    className="download-button"
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    📎 {message.fileName || "첨부파일 다운로드"}
-                  </a>
+                {message.files && message.files.length > 0 && (
+                  <div className="download-buttons-container">
+                    {message.files.map((file, fileIndex) => (
+                      <a
+  key={fileIndex}
+  href={
+    file.file_url.includes("FileDown.do")
+      ? file.file_url
+      : `${BACKEND_URL}${file.file_url}`
+  }
+  download
+  className="download-card"
+>
+  <div className="download-card-icon">📄</div>
+
+  <div className="download-card-content">
+    <div className="download-card-title">
+      {file.file_name}
+    </div>
+
+    <div className="download-card-subtitle">
+      클릭하여 파일 다운로드
+    </div>
+  </div>
+
+  <div className="download-card-arrow">
+    →
+  </div>
+</a>
+                    ))}
+                  </div>
                 )}
-              </>
+              </div>
             ) : (
               message.content
             )}

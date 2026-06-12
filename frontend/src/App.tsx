@@ -9,8 +9,7 @@ import ChatInput from "./components/ChatInput";
 export type Message = {
   role: "user" | "assistant";
   content: string;
-  fileUrl?: string;
-  fileName?: string;
+  files?: { file_name: string; file_url: string }[];
 };
 
 type SpeechRecognitionType = {
@@ -84,7 +83,6 @@ function App() {
     window.speechSynthesis.cancel();
 
     const utterance = new SpeechSynthesisUtterance(text);
-
     utterance.lang = "ko-KR";
     utterance.rate = 1;
     utterance.pitch = 1;
@@ -200,6 +198,7 @@ function App() {
         content: message.content,
       }));
 
+  
     setMessages((prev) => [...prev, userMessage]);
     setInput("");
     setIsLoading(true);
@@ -212,7 +211,7 @@ function App() {
         },
         body: JSON.stringify({
           question: trimmedQuestion,
-          history: history,
+          history: history, // 👈 ⭕ 밀리지 않은 완벽한 대화 이력이 전달됩니다!
         }),
       });
 
@@ -225,8 +224,7 @@ function App() {
       const aiMessage: Message = {
         role: "assistant",
         content: data.answer,
-        fileUrl: data.fileUrl,
-        fileName: data.fileName,
+        files: data.files, // 백엔드에서 파싱된 첨부파일 리스트도 함께 저장
       };
 
       setMessages((prev) => [...prev, aiMessage]);
@@ -235,7 +233,6 @@ function App() {
         role: "assistant",
         content: "서버 연결 중 오류가 발생했습니다.",
       };
-
       setMessages((prev) => [...prev, errorMessage]);
     } finally {
       setIsLoading(false);
@@ -292,7 +289,7 @@ function App() {
 
       <main className="main-layout">
         <section className="left-section">
-          <MascotCard onSelectQuestion={setInput} />
+          <MascotCard />
         </section>
 
         <section className="chat-section">
