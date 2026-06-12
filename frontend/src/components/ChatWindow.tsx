@@ -43,13 +43,20 @@ function ChatWindow({ messages, isLoading }: ChatWindowProps) {
             }
           >
             {message.role === "assistant" ? (
-              // 💡 말풍선 내부에는 순수하게 GPT의 친절한 답변 텍스트만 렌더링합니다.
               <div>
                 <ReactMarkdown
                   remarkPlugins={[remarkGfm]}
                   components={{
                     a: ({ href, children }) => (
-                      <a href={href} target="_blank" rel="noreferrer" style={{ color: "#2563eb", textDecoration: "underline" }}>
+                      <a
+                        href={href}
+                        target="_blank"
+                        rel="noreferrer"
+                        style={{
+                          color: "#2563eb",
+                          textDecoration: "underline",
+                        }}
+                      >
                         {children}
                       </a>
                     ),
@@ -58,32 +65,35 @@ function ChatWindow({ messages, isLoading }: ChatWindowProps) {
                   {message.content}
                 </ReactMarkdown>
 
-                {/* 💡 [핵심 추가] 백엔드가 files 배열을 보내줬고, 내용이 존재한다면 말풍선 하단에 버튼을 동적으로 생성합니다! */}
                 {message.files && message.files.length > 0 && (
-                  <div className="download-buttons-container" style={{ marginTop: "4px" }}>
+                  <div className="download-buttons-container">
                     {message.files.map((file, fileIndex) => (
                       <a
-                        key={fileIndex}
-                        href={file.file_url.includes("FileDown.do") ? file.file_url : `${BACKEND_URL}${file.file_url}`}
-                        download
-                        className="download-btn"
-                        style={{
-                          display: "inline-flex",
-                          alignItems: "center",
-                          gap: "6px",
-                          backgroundColor: "#10b981", // 수빈님이 지정해 둔 이쁜 초록색
-                          color: "#ffffff",
-                          fontWeight: "bold",
-                          padding: "6px 12px",
-                          borderRadius: "6px",
-                          marginTop: "8px",
-                          marginRight: "8px", // 여러 개일 때를 대비한 간격
-                          fontSize: "14px",
-                          textDecoration: "none"
-                        }}
-                      >
-                        📥 {file.file_name} 다운로드 받기
-                      </a>
+  key={fileIndex}
+  href={
+    file.file_url.includes("FileDown.do")
+      ? file.file_url
+      : `${BACKEND_URL}${file.file_url}`
+  }
+  download
+  className="download-card"
+>
+  <div className="download-card-icon">📄</div>
+
+  <div className="download-card-content">
+    <div className="download-card-title">
+      {file.file_name}
+    </div>
+
+    <div className="download-card-subtitle">
+      클릭하여 파일 다운로드
+    </div>
+  </div>
+
+  <div className="download-card-arrow">
+    →
+  </div>
+</a>
                     ))}
                   </div>
                 )}
