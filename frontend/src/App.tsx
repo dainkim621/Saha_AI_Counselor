@@ -77,12 +77,59 @@ function App() {
   const lastSpokenIndexRef = useRef<number>(-1);
   const recognitionRef = useRef<SpeechRecognitionType | null>(null);
 
+  const cleanTextForTTS = (text: string) => {
+    return text
+      // 이미지 링크: ![이름](주소) → 이름
+      .replace(/!\[([^\]]*)\]\([^)]+\)/g, "$1")
+
+      // 하이퍼링크: [여권주소.pdf](https://...) → 여권주소.pdf
+      .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
+
+      // 범위 표현 단위별 처리
+      .replace(/(\d+)\s*[~-]\s*(\d+)\s*일/g, "$1일에서 $2일")
+      .replace(/(\d+)\s*[~-]\s*(\d+)\s*주/g, "$1주에서 $2주")
+      .replace(/(\d+)\s*[~-]\s*(\d+)\s*개월/g, "$1개월에서 $2개월")
+      .replace(/(\d+)\s*[~-]\s*(\d+)\s*시간/g, "$1시간에서 $2시간")
+      .replace(/(\d+)\s*[~-]\s*(\d+)\s*분/g, "$1분에서 $2분")
+      .replace(/(\d+)\s*[~-]\s*(\d+)\s*년/g, "$1년에서 $2년")
+      .replace(/(\d+)\s*[~-]\s*(\d+)\s*월/g, "$1월에서 $2월")
+      .replace(/(\d+)\s*[~-]\s*(\d+)\s*개/g, "$1개에서 $2개")
+      .replace(/(\d+)\s*[~-]\s*(\d+)\s*명/g, "$1명에서 $2명")
+      .replace(/(\d+)\s*[~-]\s*(\d+)\s*건/g, "$1건에서 $2건")
+      .replace(/(\d+)\s*[~-]\s*(\d+)\s*회/g, "$1회에서 $2회")
+      .replace(/(\d+)\s*[~-]\s*(\d+)\s*원/g, "$1원에서 $2원")
+      .replace(/(\d+)\s*[~-]\s*(\d+)\s*층/g, "$1층에서 $2층")
+      .replace(/(\d+)\s*[~-]\s*(\d+)\s*시/g, "$1시에서 $2시")
+
+      // 전화기 이모티콘 제거
+      .replace(/[☎📞📱]/g, "")
+
+      // 볼드/이탤릭 제거
+      .replace(/\*\*([^*]+)\*\*/g, "$1")
+      .replace(/\*([^*]+)\*/g, "$1")
+
+      // 코드 기호 제거
+      .replace(/`([^`]+)`/g, "$1")
+
+      // 제목, 목록 기호 제거
+      .replace(/^#{1,6}\s+/gm, "")
+      .replace(/^\s*[-*+]\s+/gm, "")
+
+      // 남은 URL 제거
+      .replace(/https?:\/\/\S+/g, "")
+
+      // 남은 마크다운 특수문자 제거
+      .replace(/[*_~>#]/g, "")
+
+      .trim();
+  };
+
   const speakText = (text: string) => {
     if (!("speechSynthesis" in window)) return;
 
     window.speechSynthesis.cancel();
 
-    const utterance = new SpeechSynthesisUtterance(text);
+    const utterance = new SpeechSynthesisUtterance(cleanTextForTTS(text));
     utterance.lang = "ko-KR";
     utterance.rate = 1;
     utterance.pitch = 1;
@@ -198,7 +245,6 @@ function App() {
         content: message.content,
       }));
 
-  
     setMessages((prev) => [...prev, userMessage]);
     setInput("");
     setIsLoading(true);
@@ -224,7 +270,7 @@ function App() {
       const aiMessage: Message = {
         role: "assistant",
         content: data.answer,
-        files: data.files, // 백엔드에서 파싱된 첨부파일 리스트도 함께 저장
+        files: data.files,
       };
 
       setMessages((prev) => [...prev, aiMessage]);
