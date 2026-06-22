@@ -11,7 +11,7 @@ api_key = os.getenv("OPENAI_API_KEY")
 client = OpenAI(api_key=api_key)
 
 def get_embedding(text):
-    """최신 클라이언트 방식으로 OpenAI 1536차원 임베딩 생성"""
+    """OpenAI 1536차원 임베딩 생성"""
     response = client.embeddings.create(
         input=text,
         model="text-embedding-3-small" 
@@ -20,7 +20,7 @@ def get_embedding(text):
     
 def import_chunks():
     print("🛠️ 테이블 확인 및 생성 중...")
-    # 스키마 갱신을 위해 기존 테이블을 싹 밀고 새로 생성
+    # 기존 테이블을 삭제 후 새로 생성
     Base.metadata.drop_all(bind=engine) 
     Base.metadata.create_all(bind=engine)
     
@@ -37,7 +37,7 @@ def import_chunks():
     
     count = 0
     try:
-        # 🌟 JSONL 파일의 정석: 한 줄씩 읽으면서 바로 파싱하고 처리합니다.
+        # 한 줄씩 읽으면서 바로 파싱
         with open(file_path, "r", encoding="utf-8") as f:
             for line in f:
                 line = line.strip()
@@ -50,17 +50,17 @@ def import_chunks():
                     print(f"⚠️ 줄 파싱 실패 (스킵): {line[:30]}...")
                     continue
                 
-                # 🌟 안전장치: 전처리 완료된 필수 식별자 컬럼 체크
+                # 전처리 완료된 필수 식별자 컬럼 체크
                 chunk_id = data.get("chunk_id")
                 if not chunk_id:
                     continue
                     
-                # 🌟 중복 적재 방지: 부모 doc_id가 아니라 고유한 chunk_id로 조회해야 안전합니다.
+                # 중복 적재 방지(chunk_id로 조회)
                 existing_chunk = db.query(Notice).filter(Notice.chunk_id == chunk_id).first()
                 if existing_chunk:
                     continue
                 
-                # 🌟 필드명 정정: 최종 정제 파일의 본문 키값은 'chunk_text'입니다!
+                # 최종 정제 파일의 본문 키값은 'chunk_text'
                 content_text = data.get("chunk_text", "").strip()
                 if not content_text:
                     continue
@@ -70,7 +70,7 @@ def import_chunks():
                 # OpenAI 임베딩 생성
                 vector_data = get_embedding(content_text)
                 
-                # DB 데이터 모델 생성 (Notice 테이블 컬럼과 1:1 싱크 추가 우회 매핑)
+                # DB 데이터 모델 생성 
                 new_chunk = Notice(
                     chunk_id=chunk_id,  
                     doc_id=data.get("doc_id"),
@@ -92,17 +92,17 @@ def import_chunks():
                 db.add(new_chunk)
                 count += 1
                 
-                # 10개 단위로 트랜잭션 중간 커밋 (안정성 확보)
+                # 10개 단위로 트랜잭션 중간 커밋
                 if count % 10 == 0:
                     db.commit()
                     print(f"💾 중간 저장 완료 ({count}개 완료...)")
         
         # 남은 조각 최종 커밋
         db.commit()
-        print(f"\n✅ [성공] 총 {count}개의 데이터가 완벽하게 벡터 DB에 적재되었습니다!")
+        print(f"\n✅ [성공] 총 {count}개의 데이터가 벡터 DB에 적재되었습니다!")
         
     except Exception as e:
-        print(f"🔥 적재 중 크리티컬 에러 발생: {e}")
+        print(f"🔥 적재 중 에러 발생: {e}")
         db.rollback()
     finally:
         db.close()

@@ -211,7 +211,7 @@ function App() {
         },
         body: JSON.stringify({
           question: trimmedQuestion,
-          history: history, // 👈 ⭕ 밀리지 않은 완벽한 대화 이력이 전달됩니다!
+          history: history, // 밀리지 않은 대화 이력이 전달
         }),
       });
 

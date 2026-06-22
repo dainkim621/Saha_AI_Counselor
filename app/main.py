@@ -14,13 +14,13 @@ from fastapi.staticfiles import StaticFiles
 import os
 app = FastAPI(title="사하구 AI 상담사 API")
 
-# 🌟 프로젝트 루트 경로 계산
+# 루트 경로 계산
 BASE_DIR = os.path.dirname(os.path.abspath(__file__)) # app/ 폴더 위치 기준
 PROJECT_ROOT = os.path.abspath(os.path.join(BASE_DIR, "..")) # 최상위 루트
 
 PDF_DIR = os.path.join(PROJECT_ROOT, "data", "raw", "passport_pdfs")
 
-# 🌟 외부에서 /download/passport_pdfs/파일명.pdf 로 바로 다운로드할 수 있게 통로 개방!
+# 🌟 외부에서 /download/passport_pdfs/파일명.pdf 로 바로 다운로드할 수 있게
 app.mount("/download/passport_pdfs", StaticFiles(directory=PDF_DIR), name="passport_pdfs")
 
 # CORS 설정
@@ -52,15 +52,15 @@ class NoticeResponse(BaseModel):
     class Config:
         from_attributes = True
         
-# 💡 1. 프론트엔드가 보낼 JSON 바디 규격을 정의하는 Pydantic 모델
-# 웅변 형식: { "role": "user", "content": "..." }
+# 프론트엔드가 보낼 JSON 바디 규격을 정의하는 Pydantic 모델
+# { "role": "user", "content": "..." }
 class ChatMessage(BaseModel):
     role: str
     content: str
     
 #요청 데이터를 담을 규격 정의
 #사용자가 서버에 보내는 데이터의 규격/ 나한테 질문 할때는 question을 담아서 보내야됨. 
-# 웅변 형식: { "question": "...", "history": [...] }
+#{ "question": "...", "history": [...] }
 class ChatRequest(BaseModel):
     question: str
     history: List[ChatMessage] = []  # 기본값은 빈 리스트

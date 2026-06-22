@@ -14,7 +14,8 @@ OUTPUT_HTML = os.path.join(DATA_DIR, "processed", "saha_review_dashboard.html")
 # ---------------------------------------------------------------------------
 
 # 전역 중복 차단기는 함수 외부(모듈 최상위)에 선언해 두어야 
-# 모든 문서를 돌면서 웹사이트 전역 중복을 거를 수 있습니다.
+# 모든 문서를 돌면서 웹사이트 전역 중복을 거를 수 있음.
+
 seen_texts = set()
 
 def process_general_docs(doc):
@@ -23,7 +24,7 @@ def process_general_docs(doc):
     - 이제 file_path 대신 마스터가 읽어준 단일 doc(딕셔너리)을 인자로 받습니다.
     - chunks.append 대신, 이 문서 안에서 정제된 순수 데이터 리스트를 return 합니다.
     """
-    refined_sections = []  # 이 문서 안에서 살아남은 알맹이 데이터들을 담을 임시 바구니
+    refined_sections = []  # 이 문서 안에서 살아남은 데이터 담을 임시 상자
     
     doc_id = doc.get("doc_id")
     title = doc.get("title", "정보 안내")
@@ -79,14 +80,14 @@ def process_general_docs(doc):
         sub_title = " > ".join(heading_path) if heading_path else title
         refined_text = f"# {sub_title}\n\n{sec_text}"
         
-        # 마스터 파이프라인이 처리할 수 있도록 딱 필요한 "순수 알맹이 딕셔너리"만 만들어 담습니다.
+        # 마스터 파이프라인이 처리할 수 있도록 필요한 딕셔너리만 만들어 담기
         refined_sections.append({
             "title": sub_title,
             "page_type": "일반안내(contents)",
             "text": refined_text
         })
                 
-    return refined_sections  # 정제된 알맹이 리스트를 마스터에게 반환합니다.
+    return refined_sections  # 정제된 리스트를 마스터에게 반환
 
 def process_civil_forms(form):
     """2. 민원안내 서식 (saha_civil_forms.jsonl) 처리 함수
@@ -99,7 +100,7 @@ def process_civil_forms(form):
     dept = form.get("department", "해당부서")
     phone = form.get("phone", "안내번호")
     
-    # 1. 원본 데이터의 모든 필드를 빠짐없이 안전하게 가져옵니다.
+    # 1. 원본 데이터의 모든 필드 가져오기
     req_docs = form.get("required_documents", "").strip()
     place = form.get("submission_place", "").strip()
     criteria = form.get("review_criteria", "").strip()
@@ -117,8 +118,8 @@ def process_civil_forms(form):
             filename = att.get("filename", "첨부파일")
             file_url = att.get("file_url", "").strip()
             if file_url:
-                # 💡 마크다운 문법으로 링크를 심어줍니다.
-                # 나중에 챗봇 화면에서 이 주소를 기반으로 다운로드 링킹이 작동합니다!
+                # 마크다운 문법으로 링크를 심어줌.
+                # 나중에 챗봇 화면에서 이 주소를 기반으로 다운로드 링킹이 작동
                 download_links_str += f"\n- [{filename}]({file_url})"
                 
     # 2. 텍스트 조립 (데이터가 없으면 '내용 없음' 혹은 '정보 없음'으로 처리)
@@ -139,7 +140,7 @@ def process_civil_forms(form):
     full_text = "\n".join(text_lines) + download_links_str
     
     
-    # 3. 최종 청크 바구니에 담기
+    # 3. 최종 청크 객체를 딕셔너리 형태로 만들어서 마스터에게 반환
     return {
         "title": title,
         "page_type": "민원서식(civil_form)",
@@ -162,7 +163,7 @@ def process_bid_notices(bid):
     body_raw = bid.get("body", "").strip()
     
     # 만약 '1. 공사개요' 또는 '1. 용역개요' 처럼 실무 내용이 시작되는 부분을 찾으면 
-    # 그 전까지의 크롤링 껍데기 문장들은 과감히 잘라내 가독성을 높임.
+    # 그 전까지의 크롤링 껍데기 문장들은 잘라내 가독성을 높임.
     split_keyword = ""
     if "1. 공사개요" in body_raw:
         split_keyword = "1. 공사개요"
@@ -189,7 +190,7 @@ def process_bid_notices(bid):
     
     refined_text = "\n".join(text_lines)
     
-    # 4. 굳이 쪼갤 필요 없이 하나의 공고당 하나의 청크로 저장
+    # 4. 청킹 없이 하나의 공고당 하나의 청크로 저장
     return {
         "title": f"입찰정보 - {title}",
         "page_type": "입찰공고(bid_notice)",
@@ -214,13 +215,13 @@ def process_waste_guides(waste):
     raw_menu_path = waste.get("menu_path", [])
     
     # 챗봇 답변용으로 너무 광범위한 상위 메뉴('분야별정보', '환경/청소')는 
-    # 가독성을 위해 제외하고 필터링할 수 있습니다. (원치 않으시면 그냥 raw_menu_path 쓰셔도 됩니다!)
+    # 가독성을 위해 제외하고 필터링
     filtered_menu = [m for m in raw_menu_path if m not in ["분야별정보", "환경/청소"]]
     
     # 기본 메뉴 경로 문자열 빌드 (예: "폐기물 > 생활폐기물처리안내 > 생활쓰레기 배출요령")
     base_path_str = " > ".join(filtered_menu) if filtered_menu else title
 
-    # 챗봇에게 혼란을 주는 쓰레기 단어 차단 리스트
+    # 챗봇에게 혼란을 주는 단어 차단 리스트
     junk_words = ["Home", ">", "열기", "닫기", "인쇄하기"]
     
     for section in sections:
@@ -240,11 +241,11 @@ def process_waste_guides(waste):
             
         clean_section_text = "\n".join(filtered_lines)
         
-        # 3. 🌟 핵심: 일반 문서 스타일로 최종 상세 계층 경로 조립
-        # 현재 섹션의 heading_path가 있으면 중복을 피해 마지막 소제목들을 추출합니다.
+        # 3. 일반 문서 스타일로 최종 상세 계층 경로 조립
+        # 현재 섹션의 heading_path가 있으면 중복을 피해 마지막 소제목들을 추출
         heading_path = section.get("heading_path", [])
         
-        # 메뉴 경로와 섹션 소제목 경로를 융합하여 덩어리를 만듭니다.
+        # 메뉴 경로와 섹션 소제목 경로를 합쳐서 덩어리를 만듬.
         # 중복 방지를 위해 heading_path의 요소 중 base_path_str에 없는 참신한 소제목만 뒤에 붙여줍니다.
         unique_headings = [h for h in heading_path if h not in filtered_menu]
         
@@ -253,14 +254,14 @@ def process_waste_guides(waste):
         else:
             full_hierarchy = base_path_str
         
-        # 4. 💻 [제목 > 중제목 > 소제목] 포맷으로 본문(chunk_text) 데이터 완성!
+        # 4.  [제목 > 중제목 > 소제목] 포맷으로 본문(chunk_text) 완성
         text_lines = [
             f"# {full_hierarchy}",  # 👈 제일 윗줄에 대괄호 경로 명시! (일반 문서 양식 싱크)
             clean_section_text
         ]
         full_chunk_text = "\n".join(text_lines)
         
-        # 5. 마스터에게 토스할 바구니에 담기
+        # 5. 마스터에게 전달할 최종 청크 객체를 딕셔너리 형태로 만들어서 refined_chunks에 append
         refined_chunks.append({
             "title": full_hierarchy,
             "page_type": "waste_guide",
@@ -273,12 +274,12 @@ def process_passport_forms(pdf_doc):
     title = pdf_doc.get("title", "여권 서식 안내")
     raw_text = pdf_doc.get("text", "").strip()
     
-    # 원본 데이터 구조에 있는 attachments 배열에서 실제 파일명을 가져옵니다.
+    # 원본 데이터 구조에 있는 attachments 배열에서 실제 파일명을 가져오기
     attachments = pdf_doc.get("attachments", [])
     file_name = attachments[0].get("name") if attachments else f"{title}.pdf"
     
-    # 🌟 FastAPI 마운트 경로와 매칭되는 백엔드 다운로드 URL 설계
-    # 프론트엔드가 백엔드 주소(예: localhost:8000) 뒤에 이 경로를 붙여 다운로드하게 만듭니다.
+    # FastAPI 마운트 경로와 매칭되는 백엔드 다운로드 URL 설계
+    # 프론트엔드가 백엔드 주소(예: localhost:8000) 뒤에 이 경로를 붙여 다운로드하게 만듬.
     download_path = f"/download/passport_pdfs/{file_name}"
     
     lines = raw_text.split("\n")
@@ -288,11 +289,11 @@ def process_passport_forms(pdf_doc):
     menu_path = pdf_doc.get("menu_path", [])
     full_hierarchy = " > ".join(menu_path) if menu_path else f"외교부 여권안내 > {title}"
         
-    # 🌟 챗봇(LLM)이 답변 마지막에 다운로드 버튼 문법을 출력할 수 있도록 컨텍스트에 힌트 삽입!
+    # LLM이 답변 마지막에 다운로드 버튼 문법을 출력할 수 있도록 컨텍스트에 힌트 삽입
     text_lines = [
         f"# {full_hierarchy}",
         clean_pdf_text,
-        f"\nℹ️ 해당 서식 파일 다운로드 링크: [{file_name}]({download_path})" # 👈 컨텍스트 최하단에 주입
+        f"\nℹ️ 해당 서식 파일 다운로드 링크: [{file_name}]({download_path})" # 컨텍스트 하단에 주입
     ]
     full_chunk_text = "\n".join(text_lines)
     
@@ -349,7 +350,7 @@ def create_chunk_object(doc_id, chunk_index, **kwargs):
         "chunk_text": text_content,
         "text_hash": text_hash,  # 주석 푸실 때를 대비해 미리 매핑해 둡니다.
         
-        # 🌟 벡터 임베딩 (초기 전처리 단계에서는 None이었다가, 임베딩 모델 거친 후 채워집니다)
+        # 벡터 임베딩 (초기 전처리 단계에서는 None이었다가, 임베딩 모델 거친 후 채워짐)
         "embedding": kwargs.get("embedding", None)
     }
     
@@ -366,12 +367,12 @@ def run_preprocessing_pipeline(file_paths_dict):
     # file_paths_dict 예시: {"civil": "data/raw/saha_civil_forms.jsonl", "bid": "..."}
     for page_type, file_path in file_paths_dict.items():
         
-        # 🌟 2. 질문하신 '파일이 없을 때 안전하게 넘어가는 예외 처리'를 여기서 일괄 진행합니다!
+        #  파일이 없을 때 안전하게 넘어가는 예외 처리
         if not os.path.exists(file_path):
             print(f"⚠️ 경고: {file_path} 파일이 존재하지 않아 건너뜁니다.")
             continue # 다음 파일 처리로 패스!
             
-        # 파일이 안전하게 존재하는 게 확인되었으니 open 합니다.
+        # 파일이 안전하게 존재하는 게 확인되었으니 open
         with open(file_path, "r", encoding="utf-8") as f:
             for line in f:
                 if not line.strip(): continue
@@ -393,40 +394,38 @@ def run_preprocessing_pipeline(file_paths_dict):
                 if refined_data is None:
                     continue
                 
-                # 리스트 형태로 만들어서 마스터 바구니에 차곡차곡 append
+                # 리스트 형태로 만들어서 마스터가 일관되게 처리할 수 있도록 함 (단일 딕셔너리도 리스트로 감싸기)
                 if not isinstance(refined_data, list):
                     refined_data = [refined_data]
                     
                 for idx, item in enumerate(refined_data):
                     if item is None:
                         continue
-                    # 🌟 1. 원본 데이터(doc)에 있는 모든 유용한 메타데이터를 기본 베이스로 장착!
+                    # (1) 원본 데이터(doc)에 있는 모든 유용한 메타데이터를 기본 베이스로 함
                     base_meta = {
                         "url": doc.get("url"),
                         "published_at": doc.get("published_at") or doc.get("date"),
                         "views": doc.get("views", 0),
                         "menu_path": doc.get("menu_path", []),
-                        
-                        # 👉 말씀하신 대로 원본에 있는 부서와 전번을 마스터가 직접 챙깁니다!
                         "department": doc.get("department"),
                         "phone": doc.get("phone")
                     }
                     
-                    # 🌟 2. 전처리 함수가 다듬은 알맹이(title, text, page_type 등)를 위에 덮어씁니다.
+                    # (2) 전처리 함수가 다듬은 알맹이(title, text, page_type 등)를 위에 덮어씀
                     base_meta.update(item)
                     
-                    # 🌟 3. 최종 통합 객체 조립
+                    # (3) 최종 통합 객체 조립
                     chunk_obj = create_chunk_object(
                         doc_id=doc.get("doc_id"),
                         chunk_index=idx,
-                        **base_meta  # 완벽하게 조립된 메타데이터 뭉치를 던집니다!
+                        **base_meta  # 조립된 메타데이터와 본문이 담긴 딕셔너리를 풀어서 전달
                     )
                     final_db_ready_chunks.append(chunk_obj)   
                                         
     return final_db_ready_chunks
 
 # ---------------------------------------------------------------------------
-# [4] 시각화 HTML 생성 전용 함수
+# [4] 검수용 HTML 생성 전용 함수
 # ---------------------------------------------------------------------------
 def generate_html_dashboard(chunks, output_path):
     """수집된 청크 리스트를 바탕으로 인간 검수용 대시보드 HTML을 렌더링하는 함수"""
@@ -467,7 +466,7 @@ def generate_html_dashboard(chunks, output_path):
         ptype = chunk.get("page_type", "")
         card_cls, badge_cls = "card", "badge"
         
-        # 💡 [1] 새로 통합한 page_type 키워드 조건에 맞게 CSS 테마 매칭
+        # [1] 새로 통합한 page_type 키워드 조건에 맞게 CSS 테마 매칭
         if "civil" in ptype or "민원" in ptype: 
             card_cls, badge_cls = "card civil", "badge civil"
         elif "bid" in ptype or "입찰" in ptype: 
@@ -475,7 +474,7 @@ def generate_html_dashboard(chunks, output_path):
         elif "waste" in ptype or "폐기물" in ptype: 
             card_cls, badge_cls = "card waste", "badge waste"
             
-        # 💡 [2] chunk.get('text') 대신 스키마와 통일한 chunk_text를 안전하게 가져옴
+        # [2] chunk.get('text') 대신 스키마와 통일한 chunk_text를 안전하게 가져옴
         text_content = chunk.get("chunk_text", "") or ""
         safe_text = text_content.replace('<', '&lt;').replace('>', '&gt;')
             
@@ -515,7 +514,7 @@ def main():
     
     # (2) 마스터 파이프라인 함수 호출 - 이 함수 안에서 5개 전처리 함수가 모두 호출되어 각 파일별로 알맹이 데이터가 추출되고,
     # 이 함수 안에서 파일 유무 체크, 파일 열기, 각 파트별 전처리(다듬기), 
-    # 그리고 최종 create_chunk_object와 append까지 올인원으로 처리되어 꽉 찬 바구니가 리턴됩니다.
+    # 그리고 최종 create_chunk_object와 append까지 처리됩니다.
     all_chunks = run_preprocessing_pipeline(file_paths)
 
     # 3) 파일 저장 처리 (JSONL)
@@ -532,7 +531,7 @@ def main():
 
     # 4) 대시보드 웹 페이지 생성 함수 호출
     generate_html_dashboard(all_chunks, OUTPUT_HTML)
-    print(f"🖥️  [2단계 완수] 인간 검수용 대시보드 웹 뷰 완료 -> {OUTPUT_HTML}")
+    print(f"🖥️  [2단계 완수] ㄴ검수용 대시보드 웹 뷰 완료 -> {OUTPUT_HTML}")
     print("✨ 모든 파이프라인이 성공적으로 완결되었습니다! ^-^")
 
 
