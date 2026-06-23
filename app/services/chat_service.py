@@ -159,19 +159,29 @@ def ask_saha_ai(user_question: str, history: List[Dict[str, str]] = None):
                     "file_url": file_url
                 })
                 print(f"[로컬 파일 매칭] {file_name} 강제 첨부 성공")
-                
+    
+    #-----------------------
+    # 첨부 파일 버튼 중복 제거
     unique_files = []
     seen_urls = set()
+    seen_names = set() # 파일 이름 중복도 감시하기 위해 추가 (정규식이 긁어온 url이 미세하게 바뀌어서 중복제거가 잘 안되는 것 같음.)
     
-    #첨부 파일 버튼 중복 제거
     for file_info in attached_files:
+        # 양끝 공백을 완전히 깎아내고 소문자 변환(혹시 모를 영문 주소 대비) 처리
         url = file_info.get('file_url', '').strip()
-        if url not in seen_urls:
+        name = file_info.get('file_name', '').strip()
+        
+        # URL과 파일 이름 둘 다 기존에 등록된 적이 없을 때만 통과!
+        if url not in seen_urls and name not in seen_names:
             seen_urls.add(url)
+            seen_names.add(name)
             unique_files.append(file_info)
+        else:
+            print(f"✂️ [중복 차단 완료] 겹치는 파일 발견되어 제거함: {name}")
             
     # 정제된 유일한 파일 리스트로 교체
     attached_files = unique_files
+    #-----------------------
     
     return {
         "answer": gpt_answer,
