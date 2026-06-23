@@ -167,11 +167,11 @@ def ask_saha_ai(user_question: str, history: List[Dict[str, str]] = None):
     seen_names = set() # 파일 이름 중복도 감시하기 위해 추가 (정규식이 긁어온 url이 미세하게 바뀌어서 중복제거가 잘 안되는 것 같음.)
     
     for file_info in attached_files:
-        # 양끝 공백을 완전히 깎아내고 소문자 변환(혹시 모를 영문 주소 대비) 처리
+        # 양끝 공백 제거, 소문자 변환(혹시 모를 영문 주소 대비) 처리
         url = file_info.get('file_url', '').strip()
         name = file_info.get('file_name', '').strip()
         
-        # URL과 파일 이름 둘 다 기존에 등록된 적이 없을 때만 통과!
+        # URL과 파일 이름 둘 다 기존에 등록된 적이 없을 때만 통과
         if url not in seen_urls and name not in seen_names:
             seen_urls.add(url)
             seen_names.add(name)
