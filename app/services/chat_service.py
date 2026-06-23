@@ -68,7 +68,7 @@ def ask_saha_ai(user_question: str, history: List[Dict[str, str]] = None):
         print(f"   [{i+1}등 문서] 제목: {getattr(c, 'title', '무제')}, page_type: {p_type_str}")
         
         # 한글, 영문, 혹은 공백 유무에 상관없이 관련 단어가 감지되면 무조건 개방
-        if any(t in p_type_str for t in ["민원", "civil", "passport", "서식", "여권"]):
+        if any(t in p_type_str for t in ["민원", "civil", "passport", "서식", "여권", "필요", "준비", "서류", "신청서", "서식", "양식", "발급"]):
             
             # chunk_text 내의 마크다운 링크 추출
             link_pattern = r'\[((?:\[[^\]]+\]|[^\]])+)\]\((https?://[^\)]+|/[^\)]+)\)'
@@ -125,7 +125,26 @@ def ask_saha_ai(user_question: str, history: List[Dict[str, str]] = None):
         temperature=0.2 
     )
     gpt_answer = response.choices[0].message.content
+    # 1. 로컬에 저장되어 있는 실제 서식 파일 목록 정의
+    # (실제 /data/passport_pdfs/ 안의 파일명 넣기)(여권 pdf들은 수가 적고, 중요도가 높아서 ok)
+    local_files = {
+        "여권발급신청서": "/data/passport_pdfs/여권발급신청서.pdf",
+        "법정대리인동의서": "/data/passport_pdfs/법정대리인동의서.pdf",
+        "여권분실신고서": "/data/passport_pdfs/여권분실신고서.pdf",
+        "긴급여권발급신청사유서": "/data/passport_pdfs/긴급여권발급신청사유서.pdf"
+    }
 
+    # 2. GPT의 답변 내용(gpt_answer)이나 유저 질문에 파일 이름이 언급되었는지 검사
+    for file_name, file_url in local_files.items():
+        # 답변 멘트에 "여권발급신청서"가 포함되어 있거나, 유저가 질문에 언급했다면
+        if file_name in gpt_answer or file_name in user_question:
+            # 중복 체크 후 attached_files에 강제 주입
+            if not any(f['file_url'] == file_url for f in attached_files):
+                attached_files.append({
+                    "file_name": f"{file_name}.pdf",
+                    "file_url": file_url
+                })
+                print(f"[로컬 파일 매칭] {file_name} 강제 첨부 성공")
     return {
         "answer": gpt_answer,
         "files": attached_files
