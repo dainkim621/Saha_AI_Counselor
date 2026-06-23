@@ -142,10 +142,10 @@ def ask_saha_ai(user_question: str, history: List[Dict[str, str]] = None):
     # 1. 로컬에 저장되어 있는 실제 서식 파일 목록 정의
     # (실제 /data/passport_pdfs/ 안의 파일명 넣기)(여권 pdf들은 수가 적고, 중요도가 높아서 ok)
     local_files = {
-        "여권발급신청서": "/data/passport_pdfs/여권발급신청서.pdf",
-        "법정대리인동의서": "/data/passport_pdfs/법정대리인동의서.pdf",
-        "여권분실신고서": "/data/passport_pdfs/여권분실신고서.pdf",
-        "긴급여권발급신청사유서": "/data/passport_pdfs/긴급여권발급신청사유서.pdf"
+        "여권발급신청서": "/download/passport_pdfs/여권발급신청서.pdf",
+        "법정대리인동의서": "/download/passport_pdfs/법정대리인동의서.pdf",
+        "여권분실신고서": "/download/passport_pdfs/여권분실신고서.pdf",
+        "긴급여권발급신청사유서": "/download/passport_pdfs/긴급여권발급신청사유서.pdf"
     }
 
     # 2. GPT의 답변 내용(gpt_answer)이나 유저 질문에 파일 이름이 언급되었는지 검사
