@@ -170,11 +170,20 @@ def ask_saha_ai(user_question: str, history: List[Dict[str, str]] = None):
         
                 if ext.lower() == '.pdf':
                     
-                
-                    # 2. GPT가 최종적으로 만들어낸 답변 본문(gpt_answer) 안에 
-                    # 로컬 파일 이름이 글자 그대로 포함되어 있는지 검사함. 
-                    # 예: GPT가 본문에 "여권분실신고서.pdf 파일을 다운로드하세요"라고 적었다면 매칭 성공
-                    if pure_file_name in gpt_answer:
+                    is_matched = False
+                    
+                    # 법정대리인동의서 예외 처리 ("법정대리인 또는 보호자 동의서" 형태로 흩어진 경우 방어)
+                    if pure_file_name == "법정대리인동의서":
+                        if "법정대리인" in gpt_answer and "동의서" in gpt_answer:
+                            is_matched = True
+                            
+                   # 그 외 일반 파일들 
+                    else:
+                        if pure_file_name in gpt_answer:
+                            is_matched = True         
+                    
+                    # 최종 검증을 통과한 파일만 첨부
+                    if is_matched:
                         file_url = f"/download/passport_pdfs/{file_name_with_ext}"
                         
                         # 중복 수집 방지 체크 후 최종 바구니에 담기
@@ -209,7 +218,20 @@ def ask_saha_ai(user_question: str, history: List[Dict[str, str]] = None):
     # 정제된 유일한 파일 리스트로 교체
     attached_files = unique_files
     
+    # =========================================================================
+    # GPT 답변 본문의 불필요한 파일 하이퍼링크 제거
+    # =========================================================================
+    # GPT가 [여권분실신고서.pdf](url) 형태로 뱉은 마크다운을 -> "여권분실신고서.pdf" 일반 텍스트로 바꿉니다.
+    # (단, 외부 정보 안내 링크 같은 일반 웹사이트 http 하이퍼링크는 파괴되지 않고 살아남습니다!)
+    gpt_answer = re.sub(r'\[([^\]]+\.(?:pdf|hwp|doc|docx))\]\([^\)]+\)', r'\1', gpt_answer)
+    
+    # 혹시 URL 쪽에 확장자가 있는 경우도 방어
+    gpt_answer = re.sub(r'\[([^\]]+)\]\([^\)]+\.(?:pdf|hwp|doc|docx)\)', r'\1', gpt_answer)
+
+
+    #=================================
     # 최종 답변 및 첨부 파일 리스트 리턴
+    #=================================
     return {
         "answer": gpt_answer,
         "files": attached_files
