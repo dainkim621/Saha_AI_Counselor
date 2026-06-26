@@ -5,12 +5,9 @@ from openai import OpenAI
 from app.services.search_service import get_similar_chunks
 from typing import List, Dict
 
-
-# .env 파일의 내용을 환경변수로 불러옴
+# openAI API
 load_dotenv()
-# os.getenv를 통해 안전하게 키를 가져옴
 api_key = os.getenv("OPENAI_API_KEY")
-# 클라이언트를 생성할 때 변수를 넣어줌.
 client = OpenAI(api_key=api_key)
 
 def ask_saha_ai(user_question: str, history: List[Dict[str, str]] = None):
@@ -59,44 +56,51 @@ def ask_saha_ai(user_question: str, history: List[Dict[str, str]] = None):
     
     print(f"📦 DEBUG: get_similar_chunks가 물어온 문서 개수 = {len(relevant_chunks)}개")
 
+    #==================================================================
+    # [1] RAG 문서 기반 파일첨부 기능 정규식 링크 수집 (일반 민원 서식용 - 순수하게 다 받아줌)
+    #==================================================================
+    # < 1단계 > 유저 질문 및 재작성 쿼리 단어 추출
+    # 의미 없는 1글자 단어(조사 등)를 걸러내고 핵심 명사 위주로 세트(Set)를 만듬.
+    current_words = set([w for w in user_question.split() if len(w) > 1])
+    refined_words = set([w for w in refined_question.split() if len(w) > 1]) if refined_question else set()
+    # 두 쿼리의 단어를 모두 합쳐 '최종 검사 키워드 바구니' 생성
+    final_target_words = current_words | refined_words
+    
     for i, c in enumerate(relevant_chunks):
-        # if i > 0: 
-        #     break # 1등 문서만 검사하고 반복문을 완전히 종료 (또는 점수 기준 2등까지면 i > 1)
         p_type = getattr(c, 'page_type', '')
         p_type_str = str(p_type) if p_type is not None else ''
+        chunk_title = getattr(c, 'title', '무제')
         
-        
-        print(f"   [{i+1}등 문서] 제목: {getattr(c, 'title', '무제')}, page_type: {p_type_str}")
+        print(f"   [{i+1}등 문서] 제목: {chunk_title}, page_type: {p_type_str}")
         
         # 한글, 영문, 혹은 공백 유무에 상관없이 관련 단어가 감지되면 무조건 개방
-        if any(t in p_type_str for t in ["민원", "civil", "passport", "서식", "여권", "필요", "준비", "서류", "신청서", "서식", "양식", "발급"]):
+        if any(t in p_type_str for t in ["민원", "civil", "서식", "여권", "필요", "준비", "서류", "신청서", "서식", "양식", "발급"]):
             
-            # chunk_text 내의 마크다운 링크 추출
-            link_pattern = r'\[((?:\[[^\]]+\]|[^\]])+)\]\((https?://[^\)]+|/[^\)]+)\)'
-            matches = re.findall(link_pattern, c.chunk_text)
+            # RAG가 끼워 파는 엉뚱한 문서 쳐내기 (제목 연관성 검사)
+            # 예: 유저 질문은 "가족관계증명서"인데 3등 문서 제목이 "출입국 사실증명서"인 경우
+            # final_target_words에 '출입국'이 없으므로 False가 되어 억울한 오탐을 완벽히 차단
+            is_title_relevant = any(kw in chunk_title for kw in final_target_words)
             
-            print(f"   👉 정규식 검색 결과 발견된 링크 개수: {len(matches)}개")
+            # 문서 제목이 유저 질문 문맥과 일치할 때만 링크 추출 진행
+            if is_title_relevant:
+                # chunk_text 내의 마크다운 링크 추출
+                link_pattern = r'\[((?:\[[^\]]+\]|[^\]])+)\]\((https?://[^\)]+|/[^\)]+)\)'
+                matches = re.findall(link_pattern, c.chunk_text)
             
-            for name, url in matches:
-                if "saha.go.kr" in url or "/download/" in url:
-                    # 발견된 파일 이름이 유저 질문(또는 재작성 쿼리)의 핵심 키워드를 포함하는지 검사
-                    # 예: 질문이 '가족관계'면 파일명에 '가족'이 들어가거나, 청크 제목(c.title)에 '가족'이 있어야 함
-                    # 유저 질문에서 조사 등을 뗀 핵심 명사 위주로 매칭하면 좋음.
-                    
-                    # 질문이나 재작성 쿼리에서 핵심 단어 추출 (간단하게 단어 포함 여부 체크)
-                    query_keywords = [w for w in refined_question.split() if len(w) > 1]
-                    
-                    # 파일 이름이나 문서 제목에 질문의 핵심 키워드가 하나라도 겹치는지 확인
-                    is_relevant_file = any(kw in name or kw in getattr(c, 'title', '') for kw in query_keywords)
-                    
-                    # 만약 여권 관련 룰이 켜져있거나, 키워드가 매칭될 때만 최종 수집
-                    if is_relevant_file or "passport" in p_type_str:
-                        if not any(f['file_url'] == url for f in attached_files):
+                print(f"   👉 정규식 검색 결과 발견된 링크 개수: {len(matches)}개")
+            
+                for name, url in matches:
+                    if "saha.go.kr" in url or "/download/" in url:
+                        clean_name = name.strip()
+                        clean_url = url.strip()
+                        
+                        # 💡 일반 민원은 본문에 링크가 꽂혀있으므로 중복만 아니면 100% 안전하게 바구니에 다 담아줍니다!
+                        if not any(f['file_url'] == clean_url for f in attached_files):
                             attached_files.append({
-                                "file_name": name.strip(),
-                                "file_url": url.strip()
+                                "file_name": clean_name,
+                                "file_url": clean_url
                             })
-                            print(f" 파일 수집 성공 (필터링 통과): {name.strip()} -> {url.strip()}")
+                            print(f" 📄 [RAG 본문 수집 성공]: {clean_name}")
                 
 
     print(f"🎯 최종 프론트로 넘겨줄 attached_files 수집본: {attached_files}")
@@ -136,7 +140,7 @@ def ask_saha_ai(user_question: str, history: List[Dict[str, str]] = None):
     
     # 사용자의 원본 질문 투입
     messages.append({"role": "user", "content": user_question})
-
+    
     # 답변 생성
     response = client.chat.completions.create(
         model="gpt-4o",  
@@ -147,39 +151,43 @@ def ask_saha_ai(user_question: str, history: List[Dict[str, str]] = None):
     
     
     #==================================================================
-    # [1] 여권 pdf 파일 강제 첨부 로직 (rag로 수집되지 않는 파일은 로컬에서 강제 첨부)
+    # [2] 여권 pdf 파일 강제 첨부 로직 (rag로 수집되지 않는 여권 pdf 파일은 로컬에서 강제 첨부)
     #==================================================================
-    # 나중에 배포 환경에 맞춰 경로만 수정하면 됨
+    # 여권 관련 pdf 파일이 저장된 로컬 경로
     pdf_dir = "data/passport_pdfs"
     
     # 지정한 폴더가 실제로 존재할 때만 파일 자동 매칭
     if os.path.exists(pdf_dir):
-        # 폴더 안의 모든 파일 목록을 실시간으로 긁어옴 (예: ['여권발급신청서.pdf', '새로운서식.pdf'])
+        # 폴더 안의 모든 파일 목록을 리스트로 긁어옴 (예: ['여권발급신청서.pdf', '새로운서식.pdf'])
         all_local_files = os.listdir(pdf_dir)
     
-    for file_name_with_ext in all_local_files:
-            # 확장자(.pdf)를 떼어낸 순수 파일 이름 추출 (예: '여권발급신청서')
-            pure_file_name, ext = os.path.splitext(file_name_with_ext)
-    
-    # 오직 PDF 파일만 타겟으로 삼음
-            if ext.lower() == '.pdf':
-                # GPT 답변 멘트나 유저의 질문에 이 파일 이름이 언급되었는지 실시간 매칭
-                if pure_file_name in gpt_answer or pure_file_name in user_question:
+        # 1. 여권 관련 질문이 들어왔을 때만 이 로컬 스캔 엔진을 개방
+        if "여권" in user_question or (refined_question and "여권" in refined_question):
+            
+            for file_name_with_ext in all_local_files:
+                # 확장자를 뗀 순수 파일명 추출 (예: '여권발급신청서', '여권분실신고서')
+                pure_file_name, ext = os.path.splitext(file_name_with_ext)
+        
+                if ext.lower() == '.pdf':
                     
-                    # 프론트엔드가 요구하는 웹 다운로드 경로 형식으로 URL 매핑
-                    # (예: /download/passport_pdfs/여권발급신청서.pdf)
-                    file_url = f"/download/passport_pdfs/{file_name_with_ext}"
-                    
-                    # 바구니에 안전하게 강제 주입 (이후 하단의 v2 중복 필터가 최종 정제해 줍니다)
-                    attached_files.append({
-                        "file_name": file_name_with_ext,
-                        "file_url": file_url
-                    })
-                    print(f"📁 [디렉토리 자동 매칭] 폴더 내 신규 파일 발견 및 첨부: {file_name_with_ext}")
+                
+                    # 2. GPT가 최종적으로 만들어낸 답변 본문(gpt_answer) 안에 
+                    # 로컬 파일 이름이 글자 그대로 포함되어 있는지 검사함. 
+                    # 예: GPT가 본문에 "여권분실신고서.pdf 파일을 다운로드하세요"라고 적었다면 매칭 성공
+                    if pure_file_name in gpt_answer:
+                        file_url = f"/download/passport_pdfs/{file_name_with_ext}"
+                        
+                        # 중복 수집 방지 체크 후 최종 바구니에 담기
+                        if not any(f['file_url'] == file_url for f in attached_files):
+                            attached_files.append({
+                                "file_name": file_name_with_ext,
+                                "file_url": file_url
+                            })
+                            print(f" 📁 [챗봇 답변 매칭 성공] 본문 언급 확인되어 첨부 완료: {file_name_with_ext}")
     
     
     #===========================================================================
-    # [2] 첨부 파일 버튼 중복 제거 (여권 pdf가 rag로도 수집되고, 백엔드로도 수집되는 경우)
+    # [3] 첨부 파일 버튼 중복 제거 (여권 pdf가 rag로도 수집되고, 로컬에서도 강제 첨부되는 경우)
     #===========================================================================
     unique_files = []
     seen_urls = set()
@@ -201,21 +209,11 @@ def ask_saha_ai(user_question: str, history: List[Dict[str, str]] = None):
     # 정제된 유일한 파일 리스트로 교체
     attached_files = unique_files
     
-    #=================================
     # 최종 답변 및 첨부 파일 리스트 리턴
-    #=================================
     return {
         "answer": gpt_answer,
         "files": attached_files
     }
 
 
-# 테스트용 코드(답변 잘 나오는지)
-if __name__ == "__main__":
-    # 아까 검색 결과에 나왔던 '전자민원' 관련 질문으로 테스트
-    q = "주민등록등·초본, 전입세대열람 발급하려면 어떻게 해?" 
-    print(f"\n💬 질문: {q}")
-    print("-" * 30)
-    print(ask_saha_ai(q))
-    
     
