@@ -7,10 +7,10 @@ class Notice(Base):
     __tablename__ = "notices"
 
     #고유 식별자 (청크 단위 관리를 위해 수정)
-    # 기존 id 대신 JSONL에 있는 chunk_id를 PK로 쓰거나, 별도 PK를 둡니다.
+    # 기존 id 대신 JSONL에 있는 chunk_id를 PK로 쓰거나, 별도 PK를 둠.
     id = Column(Integer, primary_key=True, index=True) 
     chunk_id = Column(String, unique=True, index=True, nullable=False) # 예: doc_id_0
-    doc_id = Column(String, index=True, nullable=False)               # 원본 문서 ID
+    doc_id = Column(String, index=True, nullable=False) # 원본 문서 ID
     
     # 2. 메타데이터 (검색 및 필터링용)
     url = Column(String, nullable=False)
@@ -20,10 +20,10 @@ class Notice(Base):
     published_at = Column(Date, nullable=True) # 혹은 DateTime
     views = Column(Integer, default=0)
     menu_path = Column(JSON)       # ['전자민원', '사하구에 바란다'] 형태 저장
-    page_type = Column(String, nullable=True)     # 'contents' 또는 'civil_form_guide' 구분용
+    page_type = Column(String, nullable=True)     # 크롤러 타입 구분용
     
-    major = Column(String, nullable=True)                             # 대분류 (예: 증명민원 통합발급)
-    minor = Column(String, nullable=True)                             # 중분류 (예: 인감증명발급)
+    major = Column(String, nullable=True) # 대분류 (예: 증명민원 통합발급)
+    minor = Column(String, nullable=True) # 중분류 (예: 인감증명발급)
     context = Column(Text, nullable=True)
     
     # 3. 데이터 본체 (가장 중요!)
@@ -34,7 +34,7 @@ class Notice(Base):
     # 4. 시스템 날짜
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     
-    #본문 수정시 
+    # 크롤링 자동화 기능 만들면 주석 해제
     # updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
     # text_hash = Column(String(64), nullable=True, index=True) #텍스트 해시값/ 내용 변경 감지용 해시 
     # 5. 벡터 검색 위한 컬럼 (1536차원)

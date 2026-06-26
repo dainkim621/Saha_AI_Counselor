@@ -114,12 +114,17 @@ def ask_saha_ai(user_question: str, history: List[Dict[str, str]] = None):
             "content": (
             "너는 부산 사하구청의 친절하고 깔끔한 AI 상담사 '고우니'이야. 구민의 질문에 예의바르게 답변해줘야해."
             "[역할 및 출력 지침]\n"
-            "1. 구민의 질문에 제공된 [참고 정보](Context)를 바탕으로 정확하게 답변해줘.\n"
-            "2. [핵심] 큰 주제나 소제목(###)이 바뀔 때만 줄바꿈(엔터 2번)을 해주고, 같은 항목 안의 서술형 문장들은 한 줄로 부드럽게 이어 써줘.\n"
-            "3. 정보를 나열할 때는 반드시 마크다운 리스트 문법('- ')을 사용하되, 리스트 기호 하나당 딱 한 줄씩만 깔끔하게 작성해줘.\n"
-            "4. 소제목이나 강조하고 싶은 핵심 단어(예: **수수료**, **준비물**)에만 볼드체를 쓰고, 문장 전체에 남발하지 마.\n"
-            "5. 정보가 부족하거나 답변이 어려울 경우, 행정복지센터(동 주민센터)나 구청 관련 부서에 문의하도록 친절하게 유도해줘.\n\n"
-            "6. 구민들이 알아보기 쉽게 답변을 구조화해서 보여줘."
+            "1. 구민의 질문에 제공된 [참고 정보](Context)를 바탕으로 핵심만 정확하게 답변해줘.\n"
+            "2. [시각적 구조화] 절대 긴 줄글로만 나열하지 말고, 구민이 한눈에 정보를 파악할 수 있도록 적절한 이모지(아이콘)과 글머리 기호('-')를 적극적으로 사용해줘.\n"
+            "3. 큰 주제나 단계(Step)를 나눌 때는 '### 📍 1. 신청 방법' 처럼 소제목을 명확히 분리하고 줄바꿈을 해줘.\n"
+            "4. 구비서류나 체크리스트를 나열할 때는 아래 예시처럼 항목당 딱 한 줄씩 깔끔하게 리스트로 작성해줘.\n"
+            "   (예시)\n"
+            "   - 🪪 **신분증**: 주민등록증, 운전면허증 등\n"
+            "   - 📸 **여권용 컬러 사진 2매**: 최근 6개월 이내 촬영 (3.5cm × 4.5cm)\n"
+            "5. 소제목이나 중요 정보나 강조 단어(예: **수수료**, **주의사항**)는 볼드체 처리를 해주고, 문장 전체에 남발하지는 마.\n"
+            "6. 정보가 부족하거나 개별 확인이 필요한 경우, 행정복지센터나 구청 관련 부서 연락처를 안내하며 친절하게 유도해줘.\n\n"
+            "7. [★부서 및 연락처 안내] 참고 정보(Context) 본문 안에 담당 부서(과) 이름이나 전화번호가 포함되어 있다면, 답변 말미에 반드시 '📞 **담당 부서 안내**' 섹션을 만들어 따로 명시해줘. 없으면 그냥 없다고 해줘.\n"
+            "8. [★정보 출처 명시] 구민들이 신뢰할 수 있도록, 제공된 참고 정보의 '출처'와 'URL'을 기반으로 답변 맨 마지막 줄에 '🔗 **관련 정보 링크**' 형태로 마크다운 링크를 제공해줘.\n"
             f"--- [중요] 이번 질문에 대한 최신 참고 정보 ---\n"
             f"{context_text}\n"
             f"----------------------------------------"
@@ -139,39 +144,53 @@ def ask_saha_ai(user_question: str, history: List[Dict[str, str]] = None):
         temperature=0.2 
     )
     gpt_answer = response.choices[0].message.content
-    # 1. 로컬에 저장되어 있는 실제 서식 파일 목록 정의
-    # (실제 /data/passport_pdfs/ 안의 파일명 넣기)(여권 pdf들은 수가 적고, 중요도가 높아서 ok)
-    local_files = {
-        "여권발급신청서": "/download/passport_pdfs/여권발급신청서.pdf",
-        "법정대리인동의서": "/download/passport_pdfs/법정대리인동의서.pdf",
-        "여권분실신고서": "/download/passport_pdfs/여권분실신고서.pdf",
-        "긴급여권발급신청사유서": "/download/passport_pdfs/긴급여권발급신청사유서.pdf"
-    }
-
-    # 2. GPT의 답변 내용(gpt_answer)이나 유저 질문에 파일 이름이 언급되었는지 검사
-    for file_name, file_url in local_files.items():
-        # 답변 멘트에 "여권발급신청서"가 포함되어 있거나, 유저가 질문에 언급했다면
-        if file_name in gpt_answer or file_name in user_question:
-            # 중복 체크 후 attached_files에 강제 주입
-            if not any(f['file_url'] == file_url for f in attached_files):
-                attached_files.append({
-                    "file_name": f"{file_name}.pdf",
-                    "file_url": file_url
-                })
-                print(f"[로컬 파일 매칭] {file_name} 강제 첨부 성공")
     
-    #-----------------------
-    # 첨부 파일 버튼 중복 제거
+    
+    #==================================================================
+    # [1] 여권 pdf 파일 강제 첨부 로직 (rag로 수집되지 않는 파일은 로컬에서 강제 첨부)
+    #==================================================================
+    # 나중에 배포 환경에 맞춰 경로만 수정하면 됨
+    pdf_dir = "data/passport_pdfs"
+    
+    # 지정한 폴더가 실제로 존재할 때만 파일 자동 매칭
+    if os.path.exists(pdf_dir):
+        # 폴더 안의 모든 파일 목록을 실시간으로 긁어옴 (예: ['여권발급신청서.pdf', '새로운서식.pdf'])
+        all_local_files = os.listdir(pdf_dir)
+    
+    for file_name_with_ext in all_local_files:
+            # 확장자(.pdf)를 떼어낸 순수 파일 이름 추출 (예: '여권발급신청서')
+            pure_file_name, ext = os.path.splitext(file_name_with_ext)
+    
+    # 오직 PDF 파일만 타겟으로 삼음
+            if ext.lower() == '.pdf':
+                # GPT 답변 멘트나 유저의 질문에 이 파일 이름이 언급되었는지 실시간 매칭
+                if pure_file_name in gpt_answer or pure_file_name in user_question:
+                    
+                    # 프론트엔드가 요구하는 웹 다운로드 경로 형식으로 URL 매핑
+                    # (예: /download/passport_pdfs/여권발급신청서.pdf)
+                    file_url = f"/download/passport_pdfs/{file_name_with_ext}"
+                    
+                    # 바구니에 안전하게 강제 주입 (이후 하단의 v2 중복 필터가 최종 정제해 줍니다)
+                    attached_files.append({
+                        "file_name": file_name_with_ext,
+                        "file_url": file_url
+                    })
+                    print(f"📁 [디렉토리 자동 매칭] 폴더 내 신규 파일 발견 및 첨부: {file_name_with_ext}")
+    
+    
+    #===========================================================================
+    # [2] 첨부 파일 버튼 중복 제거 (여권 pdf가 rag로도 수집되고, 백엔드로도 수집되는 경우)
+    #===========================================================================
     unique_files = []
     seen_urls = set()
     seen_names = set() # 파일 이름 중복도 감시하기 위해 추가 (정규식이 긁어온 url이 미세하게 바뀌어서 중복제거가 잘 안되는 것 같음.)
     
     for file_info in attached_files:
-        # 양끝 공백 제거, 소문자 변환(혹시 모를 영문 주소 대비) 처리
+        # 양끝 공백을 없애고 소문자 변환(혹시 모를 영문 주소 대비) 처리
         url = file_info.get('file_url', '').strip()
         name = file_info.get('file_name', '').strip()
         
-        # URL과 파일 이름 둘 다 기존에 등록된 적이 없을 때만 통과
+        # URL과 파일 이름 둘 다 기존에 등록된 적이 없을 때만 통과!
         if url not in seen_urls and name not in seen_names:
             seen_urls.add(url)
             seen_names.add(name)
@@ -181,15 +200,17 @@ def ask_saha_ai(user_question: str, history: List[Dict[str, str]] = None):
             
     # 정제된 유일한 파일 리스트로 교체
     attached_files = unique_files
-    #-----------------------
     
+    #=================================
+    # 최종 답변 및 첨부 파일 리스트 리턴
+    #=================================
     return {
         "answer": gpt_answer,
         "files": attached_files
     }
 
 
-# 테스트용 코드
+# 테스트용 코드(답변 잘 나오는지)
 if __name__ == "__main__":
     # 아까 검색 결과에 나왔던 '전자민원' 관련 질문으로 테스트
     q = "주민등록등·초본, 전입세대열람 발급하려면 어떻게 해?" 
