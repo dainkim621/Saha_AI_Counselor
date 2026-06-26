@@ -170,11 +170,20 @@ def ask_saha_ai(user_question: str, history: List[Dict[str, str]] = None):
         
                 if ext.lower() == '.pdf':
                     
-                
-                    # 2. GPT가 최종적으로 만들어낸 답변 본문(gpt_answer) 안에 
-                    # 로컬 파일 이름이 글자 그대로 포함되어 있는지 검사함. 
-                    # 예: GPT가 본문에 "여권분실신고서.pdf 파일을 다운로드하세요"라고 적었다면 매칭 성공
-                    if pure_file_name in gpt_answer:
+                    is_matched = False
+                    
+                    # 법정대리인동의서 예외 처리 ("법정대리인 또는 보호자 동의서" 형태로 흩어진 경우 방어)
+                    if pure_file_name == "법정대리인동의서":
+                        if "법정대리인" in gpt_answer and "동의서" in gpt_answer:
+                            is_matched = True
+                            
+                   # 그 외 일반 파일들 
+                    else:
+                        if pure_file_name in gpt_answer:
+                            is_matched = True         
+                    
+                    # 최종 검증을 통과한 파일만 첨부
+                    if is_matched:
                         file_url = f"/download/passport_pdfs/{file_name_with_ext}"
                         
                         # 중복 수집 방지 체크 후 최종 바구니에 담기
