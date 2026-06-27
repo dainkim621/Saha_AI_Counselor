@@ -45,7 +45,7 @@ build/
 .DS_Store
 Thumbs.db
 
-# 전체 브랜치 공통: 에디터 / IDE
+# Editor / IDE
 .vscode/
 !.vscode/extensions.json
 .idea/
