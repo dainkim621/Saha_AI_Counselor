@@ -257,7 +257,7 @@ function App() {
         },
         body: JSON.stringify({
           question: trimmedQuestion,
-          history: history,
+          history: history, // 밀리지 않은 대화 이력이 전달
         }),
       });
 
