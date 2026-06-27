@@ -81,7 +81,10 @@ def ask_saha_ai(user_question: str, history: List[Dict[str, str]] = None):
                 if len(w) > 1 and w not in admin_stop_words
             ]
             
-            is_doc_relevant = any(kw in chunk_title for kw in keywords)
+            is_doc_relevant = any(kw in chunk_title or kw in c.chunk_text for kw in keywords)
+            
+            if not is_doc_relevant:
+                continue
             
             # 제목이 질문과 관련 없으면, 그 문서의 링크는 긁지 않음!
             if not is_doc_relevant:
@@ -102,7 +105,10 @@ def ask_saha_ai(user_question: str, history: List[Dict[str, str]] = None):
                             "file_url": url.strip()
                         })
                         print(f" 파일 수집 성공 (필터링 통과): {name.strip()} -> {url.strip()}")
-                
+
+            if len(attached_files) > 0:
+                print(f" 🎯 1등(또는 상위) 문서에서 파일 발견! 추가 탐색 중단.")
+                break    
 
     print(f"🎯 최종 프론트로 넘겨줄 attached_files 수집본: {attached_files}")
     # 참고할 본문 데이터 합치기
