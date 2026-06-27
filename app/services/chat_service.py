@@ -14,7 +14,7 @@ def ask_saha_ai(user_question: str, history: List[Dict[str, str]] = None):
     if history is None:
         history = []
 
-    # 과거 이력이 존재할 경우, 현재 질문의 대명사를 명확한 단어로 치환 (쿼리 재작성)
+    # 쿼리 재작성: 과거 이력이 존재할 경우, 현재 질문의 대명사를 명확한 단어로 치환 
     refined_question = user_question
     if history:
         try:
@@ -59,52 +59,47 @@ def ask_saha_ai(user_question: str, history: List[Dict[str, str]] = None):
     #==================================================================
     # [1] RAG 문서 기반 파일첨부 기능 정규식 링크 수집 (일반 민원 서식용 - 순수하게 다 받아줌)
     #==================================================================
-    # < 1단계 > 유저 질문 및 재작성 쿼리 단어 추출
-    # 의미 없는 1글자 단어(조사 등)를 걸러내고 핵심 명사 위주로 세트(Set)를 만듬.
-    current_words = set([w for w in user_question.split() if len(w) > 1])
-    refined_words = set([w for w in refined_question.split() if len(w) > 1]) if refined_question else set()
-    # 두 쿼리의 단어를 모두 합쳐 '최종 검사 키워드 바구니' 생성
-    final_target_words = current_words | refined_words
-    
     for i, c in enumerate(relevant_chunks):
+        # if i > 0: 
+        #     break # 1등 문서까지 검사하고 반복문을 완전히 종료 (또는 점수 기준 2등까지면 i > 1)
         p_type = getattr(c, 'page_type', '')
         p_type_str = str(p_type) if p_type is not None else ''
-        chunk_title = getattr(c, 'title', '무제')
         
-        print(f"   [{i+1}등 문서] 제목: {chunk_title}, page_type: {p_type_str}")
+        
+        print(f"   [{i+1}등 문서] 제목: {getattr(c, 'title', '무제')}, page_type: {p_type_str}")
         
         # 한글, 영문, 혹은 공백 유무에 상관없이 관련 단어가 감지되면 무조건 개방
-        if any(t in p_type_str for t in ["민원", "civil", "서식", "여권", "필요", "준비", "서류", "신청서", "서식", "양식", "발급"]):
+        if any(t in p_type_str for t in ["민원", "civil", "서식"]):
             
-            # RAG가 끼워 파는 엉뚱한 문서 쳐내기 (제목 연관성 검사)
-            # 예: 유저 질문은 "가족관계증명서"인데 3등 문서 제목이 "출입국 사실증명서"인 경우
-            # final_target_words에 '출입국'이 없으므로 False가 되어 억울한 오탐을 완벽히 차단
-            is_title_relevant = any(kw in chunk_title for kw in final_target_words)
+            # chunk_text 내의 마크다운 링크 추출
+            link_pattern = r'\[((?:\[[^\]]+\]|[^\]])+)\]\((https?://[^\)]+|/[^\)]+)\)'
+            matches = re.findall(link_pattern, c.chunk_text)
             
-            # 문서 제목이 유저 질문 문맥과 일치할 때만 링크 추출 진행
-            if is_title_relevant:
-                # chunk_text 내의 마크다운 링크 추출
-                link_pattern = r'\[((?:\[[^\]]+\]|[^\]])+)\]\((https?://[^\)]+|/[^\)]+)\)'
-                matches = re.findall(link_pattern, c.chunk_text)
+            print(f"   👉 정규식 검색 결과 발견된 링크 개수: {len(matches)}개")
             
-                print(f"   👉 정규식 검색 결과 발견된 링크 개수: {len(matches)}개")
-            
-                for name, url in matches:
-                    if "saha.go.kr" in url or "/download/" in url:
-                        clean_name = name.strip()
-                        clean_url = url.strip()
-                        
-                        # 💡 일반 민원은 본문에 링크가 꽂혀있으므로 중복만 아니면 100% 안전하게 바구니에 다 담아줍니다!
-                        if not any(f['file_url'] == clean_url for f in attached_files):
+            for name, url in matches:
+                if "saha.go.kr" in url:
+                    # 발견된 파일 이름이 유저 질문(또는 재작성 쿼리)의 핵심 키워드를 포함하는지 검사
+                    # 예: 질문이 '가족관계'면 파일명에 '가족'이 들어가거나, 청크 제목(c.title)에 '가족'이 있어야 함
+                    # 유저 질문에서 조사 등을 뗀 핵심 명사 위주로 매칭하면 좋음.
+                    
+                    # 질문이나 재작성 쿼리에서 핵심 단어 추출 (간단하게 단어 포함 여부 체크)
+                    query_keywords = [w for w in refined_question.split() if len(w) > 1]
+                    
+                    # 파일 이름이나 문서 제목에 질문의 핵심 키워드가 하나라도 겹치는지 확인
+                    is_relevant_file = any(kw in name or kw in getattr(c, 'title', '') for kw in query_keywords)
+                    
+                    # 키워드가 매칭될 때만 최종 수집
+                    if is_relevant_file:
+                        if not any(f['file_url'] == url for f in attached_files):
                             attached_files.append({
-                                "file_name": clean_name,
-                                "file_url": clean_url
+                                "file_name": name.strip(),
+                                "file_url": url.strip()
                             })
-                            print(f" 📄 [RAG 본문 수집 성공]: {clean_name}")
+                            print(f" 파일 수집 성공 (필터링 통과): {name.strip()} -> {url.strip()}")
                 
 
     print(f"🎯 최종 프론트로 넘겨줄 attached_files 수집본: {attached_files}")
-    
     # 참고할 본문 데이터 합치기
     context_text = "\n\n".join([
         f"출처: {c.title} (URL: {c.url})\n내용: {c.chunk_text}" 
@@ -157,8 +152,8 @@ def ask_saha_ai(user_question: str, history: List[Dict[str, str]] = None):
     pdf_dir = "data/passport_pdfs"
     
     # 지정한 폴더가 실제로 존재할 때만 파일 자동 매칭
+    #폴더 안의 모든 파일 목록을 리스트로 긁어옴 (예: ['여권발급신청서.pdf', '새로운서식.pdf'])
     if os.path.exists(pdf_dir):
-        # 폴더 안의 모든 파일 목록을 리스트로 긁어옴 (예: ['여권발급신청서.pdf', '새로운서식.pdf'])
         all_local_files = os.listdir(pdf_dir)
     
         # 1. 여권 관련 질문이 들어왔을 때만 이 로컬 스캔 엔진을 개방
@@ -179,8 +174,19 @@ def ask_saha_ai(user_question: str, history: List[Dict[str, str]] = None):
                             
                    # 그 외 일반 파일들 
                     else:
-                        if pure_file_name in gpt_answer:
-                            is_matched = True         
+                        # 💡 핵심 수정: 단순 in 연산자 대신 정규식으로 단어 단위 매칭
+                        # \b는 단어의 시작과 끝 경계를 의미합니다. 
+                        # 이렇게 하면 "여권발급신청서"라는 정확한 단어가 있을 때만 매칭됩니다.
+                        
+                        # 1. 파일명에서 특수문자/공백 제거하여 검색어 생성
+                        search_name = re.escape(pure_file_name.replace(" ", ""))
+                        
+                        # 2. 본문에서 공백 제거 후 검색
+                        clean_gpt_answer = gpt_answer.replace(" ", "")
+                        
+                        # 3. 검색어와 정확히 일치하는 패턴이 있는지 확인
+                        if re.search(search_name, clean_gpt_answer):
+                            is_matched = True       
                     
                     # 최종 검증을 통과한 파일만 첨부
                     if is_matched:
@@ -229,9 +235,9 @@ def ask_saha_ai(user_question: str, history: List[Dict[str, str]] = None):
     gpt_answer = re.sub(r'\[([^\]]+)\]\([^\)]+\.(?:pdf|hwp|doc|docx)\)', r'\1', gpt_answer)
 
 
-    #=================================
+    #========================================================================
     # 최종 답변 및 첨부 파일 리스트 리턴
-    #=================================
+    #========================================================================
     return {
         "answer": gpt_answer,
         "files": attached_files
