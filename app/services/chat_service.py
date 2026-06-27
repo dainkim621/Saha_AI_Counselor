@@ -59,17 +59,34 @@ def ask_saha_ai(user_question: str, history: List[Dict[str, str]] = None):
     #==================================================================
     # [1] RAG 문서 기반 파일첨부 기능 정규식 링크 수집 (일반 민원 서식용 - 순수하게 다 받아줌)
     #==================================================================
+    admin_stop_words = ["발급", "서류", "필요", "신청", "준비", "방법", "안내", "증명서", "확인", "신고", "처리", "절차", "비용"]
+    
+    # 쿼리에서 조사를 떼고, 행정 공통어를 제외한 '진짜 핵심 명사'만 남깁니다.
+    query_keywords = [
+        w for w in refined_question.split() 
+        if len(w) > 1 and w not in admin_stop_words
+    ]
     for i, c in enumerate(relevant_chunks):
-        # if i > 0: 
-        #     break # 1등 문서까지 검사하고 반복문을 완전히 종료 (또는 점수 기준 2등까지면 i > 1)
         p_type = getattr(c, 'page_type', '')
         p_type_str = str(p_type) if p_type is not None else ''
+        chunk_title = getattr(c, 'title', '무제')
         
+        print(f"   [{i+1}등 문서] 제목: {chunk_title}, page_type: {p_type_str}")
         
-        print(f"   [{i+1}등 문서] 제목: {getattr(c, 'title', '무제')}, page_type: {p_type_str}")
-        
-        # 한글, 영문, 혹은 공백 유무에 상관없이 관련 단어가 감지되면 무조건 개방
-        if any(t in p_type_str for t in ["민원", "civil", "서식"]):
+        # page_type이 민원/서식 관련일 경우에만 링크 수집
+        if any(t in p_type_str for t in ["민원", "civil", "서식", "form"]):
+            # 쿼리에서 조사를 떼고, 행정 공통어를 제외한 '진짜 핵심 명사'만
+            keywords = [
+                w for w in refined_question.split() 
+                if len(w) > 1 and w not in admin_stop_words
+            ]
+            
+            is_doc_relevant = any(kw in chunk_title for kw in keywords)
+            
+            # 제목이 질문과 관련 없으면, 그 문서의 링크는 긁지 않음!
+            if not is_doc_relevant:
+                print(f" 🚫 [필터링 제외] 문서 제목이 질문과 무관: {chunk_title}")
+                continue
             
             # chunk_text 내의 마크다운 링크 추출
             link_pattern = r'\[((?:\[[^\]]+\]|[^\]])+)\]\((https?://[^\)]+|/[^\)]+)\)'
@@ -79,24 +96,12 @@ def ask_saha_ai(user_question: str, history: List[Dict[str, str]] = None):
             
             for name, url in matches:
                 if "saha.go.kr" in url:
-                    # 발견된 파일 이름이 유저 질문(또는 재작성 쿼리)의 핵심 키워드를 포함하는지 검사
-                    # 예: 질문이 '가족관계'면 파일명에 '가족'이 들어가거나, 청크 제목(c.title)에 '가족'이 있어야 함
-                    # 유저 질문에서 조사 등을 뗀 핵심 명사 위주로 매칭하면 좋음.
-                    
-                    # 질문이나 재작성 쿼리에서 핵심 단어 추출 (간단하게 단어 포함 여부 체크)
-                    query_keywords = [w for w in refined_question.split() if len(w) > 1]
-                    
-                    # 파일 이름이나 문서 제목에 질문의 핵심 키워드가 하나라도 겹치는지 확인
-                    is_relevant_file = any(kw in name or kw in getattr(c, 'title', '') for kw in query_keywords)
-                    
-                    # 키워드가 매칭될 때만 최종 수집
-                    if is_relevant_file:
-                        if not any(f['file_url'] == url for f in attached_files):
-                            attached_files.append({
-                                "file_name": name.strip(),
-                                "file_url": url.strip()
-                            })
-                            print(f" 파일 수집 성공 (필터링 통과): {name.strip()} -> {url.strip()}")
+                    if not any(f['file_url'] == url for f in attached_files):
+                        attached_files.append({
+                            "file_name": name.strip(),
+                            "file_url": url.strip()
+                        })
+                        print(f" 파일 수집 성공 (필터링 통과): {name.strip()} -> {url.strip()}")
                 
 
     print(f"🎯 최종 프론트로 넘겨줄 attached_files 수집본: {attached_files}")
