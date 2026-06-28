@@ -11,6 +11,27 @@ type ChatWindowProps = {
   isLoading: boolean;
 };
 
+function formatMarkdown(content: string) {
+  return content
+    .split("\n")
+    .map((line) => {
+      const trimmedLine = line.trim();
+
+      // 📍 1. / 📌 2. 같은 본문 섹션 제목
+      if (/^[📍📌]\s*\d+\./.test(trimmedLine)) {
+        return `### ${trimmedLine}`;
+      }
+
+      // 📞 담당 부서 안내 / 🔗 관련 정보 링크 같은 하단 안내 제목
+      if (/^[📞☎️🔗🔎]\s*/.test(trimmedLine)) {
+        return `### ${trimmedLine}`;
+      }
+
+      return line;
+    })
+    .join("\n");
+}
+
 function ChatWindow({ messages, isLoading }: ChatWindowProps) {
   const bottomRef = useRef<HTMLDivElement | null>(null);
 
@@ -43,7 +64,7 @@ function ChatWindow({ messages, isLoading }: ChatWindowProps) {
             }
           >
             {message.role === "assistant" ? (
-              <div>
+              <div className="markdown-content">
                 <ReactMarkdown
                   remarkPlugins={[remarkGfm]}
                   components={{
@@ -62,38 +83,36 @@ function ChatWindow({ messages, isLoading }: ChatWindowProps) {
                     ),
                   }}
                 >
-                  {message.content}
+                  {formatMarkdown(message.content)}
                 </ReactMarkdown>
 
                 {message.files && message.files.length > 0 && (
                   <div className="download-buttons-container">
                     {message.files.map((file, fileIndex) => (
                       <a
-  key={fileIndex}
-  href={
-    file.file_url.includes("FileDown.do")
-      ? file.file_url
-      : `${BACKEND_URL}${file.file_url}`
-  }
-  download
-  className="download-card"
->
-  <div className="download-card-icon">📄</div>
+                        key={fileIndex}
+                        href={
+                          file.file_url.includes("FileDown.do")
+                            ? file.file_url
+                            : `${BACKEND_URL}${file.file_url}`
+                        }
+                        download
+                        className="download-card"
+                      >
+                        <div className="download-card-icon">📄</div>
 
-  <div className="download-card-content">
-    <div className="download-card-title">
-      {file.file_name}
-    </div>
+                        <div className="download-card-content">
+                          <div className="download-card-title">
+                            {file.file_name}
+                          </div>
 
-    <div className="download-card-subtitle">
-      클릭하여 파일 다운로드
-    </div>
-  </div>
+                          <div className="download-card-subtitle">
+                            클릭하여 파일 다운로드
+                          </div>
+                        </div>
 
-  <div className="download-card-arrow">
-    →
-  </div>
-</a>
+                        <div className="download-card-arrow">→</div>
+                      </a>
                     ))}
                   </div>
                 )}
