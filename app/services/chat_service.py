@@ -168,7 +168,7 @@ async def ask_saha_ai_stream(user_question: str, history: List[Dict[str, str]] =
     for chunk in response:
         content = chunk.choices[0].delta.content
         if content:
-            print(f"DEBUG: 스트리밍 조각 생성됨: {content}") # 💡 서버 로그에 이게 실시간으로 찍히나요?
+            # print(f"DEBUG: 스트리밍 조각 생성됨: {content}") # 스트리밍 되는지 확인용
             gpt_answer_accumulator += content # 바가지에 물(텍스트) 모으기
             yield json.dumps({'type': 'text', 'content': content}) # 프론트로 즉시 발송
             
