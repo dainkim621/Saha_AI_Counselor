@@ -1095,3 +1095,58 @@
 .app.font-xlarge .font-label {
   font-size: 22px;
 }
+
+.markdown-content p {
+  margin: 4px 0;
+}
+
+/* 📍 1. / 📌 2. / 📍 3. 같은 큰 섹션 제목 */
+.markdown-content .section-title {
+  margin-top: clamp(14px, 2.5vw, 22px);
+  margin-bottom: clamp(6px, 1.5vw, 10px);
+  font-weight: 700;
+}
+
+/* 첫 번째 섹션 제목은 위쪽 여백 제거 */
+.markdown-content .section-title:first-child {
+  margin-top: 0;
+}
+
+.markdown-content ol,
+.markdown-content ul {
+  margin: 6px 0;
+  padding-left: 22px;
+}
+
+.markdown-content li {
+  margin: 3px 0;
+}
+
+.markdown-content h1,
+.markdown-content h2,
+.markdown-content h3 {
+  margin-top: clamp(22px, 3vw, 28px);
+  margin-bottom: 4px;
+  font-size: 1em;
+  font-weight: 700;
+}
+
+.markdown-content h3:first-child {
+  margin-top: 0;
+}
+
+.markdown-content > *:first-child {
+  margin-top: 0;
+}
+
+.markdown-content > *:last-child {
+  margin-bottom: 0;
+}
+
+.user-bubble {
+  white-space: pre-wrap;
+}
+
+.assistant-bubble {
+  white-space: normal;
+}
