@@ -50,13 +50,7 @@ const fontModes = [
   "font-xlarge",
 ];
 
-const fontLabels = [
-  "아주 작게",
-  "작게",
-  "기본",
-  "크게",
-  "아주 크게",
-];
+const fontLabels = ["아주 작게", "작게", "기본", "크게", "아주 크게"];
 
 function App() {
   const [messages, setMessages] = useState<Message[]>([
@@ -79,13 +73,8 @@ function App() {
 
   const cleanTextForTTS = (text: string) => {
     return text
-      // 이미지 링크: ![이름](주소) → 이름
       .replace(/!\[([^\]]*)\]\([^)]+\)/g, "$1")
-
-      // 하이퍼링크: [여권주소.pdf](https://...) → 여권주소.pdf
       .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
-
-      // 범위 표현 단위별 처리
       .replace(/(\d+)\s*[~-]\s*(\d+)\s*일/g, "$1일에서 $2일")
       .replace(/(\d+)\s*[~-]\s*(\d+)\s*주/g, "$1주에서 $2주")
       .replace(/(\d+)\s*[~-]\s*(\d+)\s*개월/g, "$1개월에서 $2개월")
@@ -100,32 +89,20 @@ function App() {
       .replace(/(\d+)\s*[~-]\s*(\d+)\s*원/g, "$1원에서 $2원")
       .replace(/(\d+)\s*[~-]\s*(\d+)\s*층/g, "$1층에서 $2층")
       .replace(/(\d+)\s*[~-]\s*(\d+)\s*시/g, "$1시에서 $2시")
-
-      // 전화기 이모티콘 제거
       .replace(/[☎📞📱]/g, "")
-
-      // 볼드/이탤릭 제거
       .replace(/\*\*([^*]+)\*\*/g, "$1")
       .replace(/\*([^*]+)\*/g, "$1")
-
-      // 코드 기호 제거
       .replace(/`([^`]+)`/g, "$1")
-
-      // 제목, 목록 기호 제거
       .replace(/^#{1,6}\s+/gm, "")
       .replace(/^\s*[-*+]\s+/gm, "")
-
-      // 남은 URL 제거
       .replace(/https?:\/\/\S+/g, "")
-
-      // 남은 마크다운 특수문자 제거
       .replace(/[*_~>#]/g, "")
-
       .trim();
   };
 
   const speakText = (text: string) => {
     if (!("speechSynthesis" in window)) return;
+    if (!text.trim()) return;
 
     window.speechSynthesis.cancel();
 
@@ -144,17 +121,20 @@ function App() {
       return;
     }
 
+    // 스트리밍 중에는 계속 읽지 않도록 막음
+    if (isLoading) return;
     if (messages.length === 0) return;
 
     const lastIndex = messages.length - 1;
     const lastMessage = messages[lastIndex];
 
     if (lastMessage.role !== "assistant") return;
+    if (!lastMessage.content.trim()) return;
     if (lastSpokenIndexRef.current === lastIndex) return;
 
     lastSpokenIndexRef.current = lastIndex;
     speakText(lastMessage.content);
-  }, [messages, isTtsOn]);
+  }, [messages, isTtsOn, isLoading]);
 
   const handleStartStt = () => {
     if (isLoading) return;
@@ -245,7 +225,16 @@ function App() {
         content: message.content,
       }));
 
-    setMessages((prev) => [...prev, userMessage]);
+    setMessages((prev) => [
+      ...prev,
+      userMessage,
+      {
+        role: "assistant",
+        content: "",
+        files: [],
+      },
+    ]);
+
     setInput("");
     setIsLoading(true);
 
@@ -257,7 +246,7 @@ function App() {
         },
         body: JSON.stringify({
           question: trimmedQuestion,
-          history: history, // 밀리지 않은 대화 이력이 전달
+          history: history,
         }),
       });
 
@@ -265,21 +254,86 @@ function App() {
         throw new Error("백엔드 응답 오류");
       }
 
-      const data = await response.json();
+      if (!response.body) {
+        throw new Error("스트리밍 응답을 받을 수 없습니다.");
+      }
 
-      const aiMessage: Message = {
-        role: "assistant",
-        content: data.answer,
-        files: data.files,
-      };
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder("utf-8");
 
-      setMessages((prev) => [...prev, aiMessage]);
+      let buffer = "";
+      let isDone = false;
+
+      while (!isDone) {
+        const { value, done } = await reader.read();
+
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+
+        const events = buffer.split("\n\n");
+        buffer = events.pop() || "";
+
+        for (const event of events) {
+          if (!event.startsWith("data: ")) continue;
+
+          const data = event.replace("data: ", "").trim();
+
+          if (data === "[DONE]") {
+            isDone = true;
+            break;
+          }
+
+          const parsed = JSON.parse(data);
+
+          if (parsed.type === "text") {
+            console.log("프론트 수신 조각:", parsed.content);
+            setMessages((prev) => {
+              const updated = [...prev];
+              const lastIndex = updated.length - 1;
+
+              updated[lastIndex] = {
+                ...updated[lastIndex],
+                content: updated[lastIndex].content + parsed.content,
+              };
+
+              return updated;
+            });
+
+            await new Promise((resolve) => setTimeout(resolve, 20));
+          }
+
+          if (parsed.type === "files") {
+            setMessages((prev) => {
+              const updated = [...prev];
+              const lastIndex = updated.length - 1;
+
+              updated[lastIndex] = {
+                ...updated[lastIndex],
+                files: parsed.content,
+              };
+
+              return updated;
+            });
+          }
+
+          if (parsed.type === "error") {
+            throw new Error(parsed.content);
+          }
+        }
+      }
     } catch (error) {
-      const errorMessage: Message = {
-        role: "assistant",
-        content: "서버 연결 중 오류가 발생했습니다.",
-      };
-      setMessages((prev) => [...prev, errorMessage]);
+      setMessages((prev) => {
+        const updated = [...prev];
+        const lastIndex = updated.length - 1;
+
+        updated[lastIndex] = {
+          role: "assistant",
+          content: "서버 연결 중 오류가 발생했습니다.",
+        };
+
+        return updated;
+      });
     } finally {
       setIsLoading(false);
     }
