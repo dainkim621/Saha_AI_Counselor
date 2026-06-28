@@ -4,17 +4,18 @@ from dotenv import load_dotenv
 from openai import OpenAI
 from app.services.search_service import get_similar_chunks
 from typing import List, Dict
-
+import json
 # openAI API
 load_dotenv()
 api_key = os.getenv("OPENAI_API_KEY")
 client = OpenAI(api_key=api_key)
 
-def ask_saha_ai(user_question: str, history: List[Dict[str, str]] = None):
+async def ask_saha_ai_stream(user_question: str, history: List[Dict[str, str]] = None):
     if history is None:
         history = []
-
-    # 쿼리 재작성: 과거 이력이 존재할 경우, 현재 질문의 대명사를 명확한 단어로 치환 
+    #==================================================================
+    # [1] 쿼리 재작성: 과거 이력이 존재할 경우, 현재 질문의 대명사를 명확한 단어로 치환 
+    #==================================================================
     refined_question = user_question
     if history:
         try:
@@ -44,10 +45,15 @@ def ask_saha_ai(user_question: str, history: List[Dict[str, str]] = None):
             )
             refined_question = rewrite_response.choices[0].message.content.strip()
             print(f"🔍 쿼리 재작성 완료: '{user_question}' ➔ '{refined_question}'")
+            
         except Exception as e:
             print(f"⚠️ 쿼리 재작성 실패(기본 질문 사용): {e}")
             refined_question = user_question
 
+    #==================================================================
+    # [1] RAG 문서 기반 파일첨부 기능 정규식 링크 수집 (일반 민원 서식용 - 순수하게 다 받아줌)
+    #==================================================================
+    
     # 하이브리드로 고도화된 스크립트 호출 (상위 5개 가져오기)
     relevant_chunks = get_similar_chunks(refined_question, top_k=5)
     
@@ -56,9 +62,6 @@ def ask_saha_ai(user_question: str, history: List[Dict[str, str]] = None):
     
     print(f"📦 DEBUG: get_similar_chunks가 물어온 문서 개수 = {len(relevant_chunks)}개")
 
-    #==================================================================
-    # [1] RAG 문서 기반 파일첨부 기능 정규식 링크 수집 (일반 민원 서식용 - 순수하게 다 받아줌)
-    #==================================================================
     admin_stop_words = ["발급", "서류", "필요", "신청", "준비", "방법", "안내", "증명서", "확인", "신고", "처리", "절차", "비용"]
     
     # 쿼리에서 조사를 떼고, 행정 공통어를 제외한 '진짜 핵심 명사'만 남깁니다.
@@ -138,6 +141,7 @@ def ask_saha_ai(user_question: str, history: List[Dict[str, str]] = None):
             "6. 정보가 부족하거나 개별 확인이 필요한 경우, 행정복지센터나 구청 관련 부서 연락처를 안내하며 친절하게 유도해줘.\n\n"
             "7. [★부서 및 연락처 안내] 참고 정보(Context) 본문 안에 담당 부서(과) 이름이나 전화번호가 포함되어 있다면, 답변 말미에 반드시 '📞 **담당 부서 안내**' 섹션을 만들어 따로 명시해줘. 없으면 그냥 없다고 해줘.\n"
             "8. [★정보 출처 명시] 구민들이 신뢰할 수 있도록, 제공된 참고 정보의 '출처'와 'URL'을 기반으로 답변 맨 마지막 줄에 '🔗 **관련 정보 링크**' 형태로 마크다운 링크를 제공해줘.\n"
+            "9. [★파일 링크 금지] 답변에 첨부파일 이름을 언급할 때 절대 [파일명](URL) 같은 마크다운 하이퍼링크를 쓰지 말고, 그냥 텍스트로만 '파일명'을 적어줘.\n\n"
             f"--- [중요] 이번 질문에 대한 최신 참고 정보 ---\n"
             f"{context_text}\n"
             f"----------------------------------------"
@@ -154,19 +158,28 @@ def ask_saha_ai(user_question: str, history: List[Dict[str, str]] = None):
     response = client.chat.completions.create(
         model="gpt-4o",  
         messages=messages,
-        temperature=0.2 
+        temperature=0.2,
+        stream=True # 스트리밍 모드 활성화 글자가 콸콸콸~~
     )
-    gpt_answer = response.choices[0].message.content
+    # 실시간 텍스트 전송 및 답변 누적
+    gpt_answer_accumulator = "" # 물을 받을 빈 바가지 준비
+    # 한 글자씩 떨어지는 물방울(chunk)을 받아서 프론트로 넘김
     
+    for chunk in response:
+        content = chunk.choices[0].delta.content
+        if content:
+            print(f"DEBUG: 스트리밍 조각 생성됨: {content}") # 💡 서버 로그에 이게 실시간으로 찍히나요?
+            gpt_answer_accumulator += content # 바가지에 물(텍스트) 모으기
+            yield json.dumps({'type': 'text', 'content': content}) # 프론트로 즉시 발송
+            
+    #----------gpt 답변 생성 끝난 시점--------------
     
     #==================================================================
     # [2] 여권 pdf 파일 강제 첨부 로직 (rag로 수집되지 않는 여권 pdf 파일은 로컬에서 강제 첨부)
     #==================================================================
     # 여권 관련 pdf 파일이 저장된 로컬 경로
     pdf_dir = "data/passport_pdfs"
-    
     # 지정한 폴더가 실제로 존재할 때만 파일 자동 매칭
-    #폴더 안의 모든 파일 목록을 리스트로 긁어옴 (예: ['여권발급신청서.pdf', '새로운서식.pdf'])
     if os.path.exists(pdf_dir):
         all_local_files = os.listdir(pdf_dir)
     
@@ -176,14 +189,16 @@ def ask_saha_ai(user_question: str, history: List[Dict[str, str]] = None):
             for file_name_with_ext in all_local_files:
                 # 확장자를 뗀 순수 파일명 추출 (예: '여권발급신청서', '여권분실신고서')
                 pure_file_name, ext = os.path.splitext(file_name_with_ext)
-        
                 if ext.lower() == '.pdf':
-                    
                     is_matched = False
+                    # 1. 파일명에서 특수문자/공백 제거하여 검색어 생성
+                    search_name = re.escape(pure_file_name.replace(" ", ""))
+                    #  본문에서 공백 제거 후 검색, 방금 위에서 조립 완료한 gpt_answer_accumulator 사용!
+                    clean_gpt_answer = gpt_answer_accumulator.replace(" ", "")
                     
                     # 법정대리인동의서 예외 처리 ("법정대리인 또는 보호자 동의서" 형태로 흩어진 경우 방어)
                     if pure_file_name == "법정대리인동의서":
-                        if "법정대리인" in gpt_answer and "동의서" in gpt_answer:
+                        if "법정대리인" in gpt_answer_accumulator and "동의서" in gpt_answer_accumulator:
                             is_matched = True
                             
                    # 그 외 일반 파일들 
@@ -192,11 +207,6 @@ def ask_saha_ai(user_question: str, history: List[Dict[str, str]] = None):
                         # \b는 단어의 시작과 끝 경계를 의미합니다. 
                         # 이렇게 하면 "여권발급신청서"라는 정확한 단어가 있을 때만 매칭됩니다.
                         
-                        # 1. 파일명에서 특수문자/공백 제거하여 검색어 생성
-                        search_name = re.escape(pure_file_name.replace(" ", ""))
-                        
-                        # 2. 본문에서 공백 제거 후 검색
-                        clean_gpt_answer = gpt_answer.replace(" ", "")
                         
                         # 3. 검색어와 정확히 일치하는 패턴이 있는지 확인
                         if re.search(search_name, clean_gpt_answer):
@@ -212,7 +222,7 @@ def ask_saha_ai(user_question: str, history: List[Dict[str, str]] = None):
                                 "file_name": file_name_with_ext,
                                 "file_url": file_url
                             })
-                            print(f" 📁 [챗봇 답변 매칭 성공] 본문 언급 확인되어 첨부 완료: {file_name_with_ext}")
+                            print(f" 📁 [로컬 첨부 성공] 본문 언급 확인되어 첨부 완료: {file_name_with_ext}")
     
     
     #===========================================================================
@@ -237,25 +247,12 @@ def ask_saha_ai(user_question: str, history: List[Dict[str, str]] = None):
             
     # 정제된 유일한 파일 리스트로 교체
     attached_files = unique_files
-    
-    # =========================================================================
-    # GPT 답변 본문의 불필요한 파일 하이퍼링크 제거
-    # =========================================================================
-    # GPT가 [여권분실신고서.pdf](url) 형태로 뱉은 마크다운을 -> "여권분실신고서.pdf" 일반 텍스트로 바꿉니다.
-    # (단, 외부 정보 안내 링크 같은 일반 웹사이트 http 하이퍼링크는 파괴되지 않고 살아남습니다!)
-    gpt_answer = re.sub(r'\[([^\]]+\.(?:pdf|hwp|doc|docx))\]\([^\)]+\)', r'\1', gpt_answer)
-    
-    # 혹시 URL 쪽에 확장자가 있는 경우도 방어
-    gpt_answer = re.sub(r'\[([^\]]+)\]\([^\)]+\.(?:pdf|hwp|doc|docx)\)', r'\1', gpt_answer)
-
 
     #========================================================================
     # 최종 답변 및 첨부 파일 리스트 리턴
     #========================================================================
-    return {
-        "answer": gpt_answer,
-        "files": attached_files
-    }
-
+    yield json.dumps({'type': 'files', 'content': attached_files})
+    # 추가: 프론트엔드에 끝났음을 명확히 알림
+    yield json.dumps({'type': 'done'})
 
     

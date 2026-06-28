@@ -1,13 +1,14 @@
 from fastapi import FastAPI, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List
-
+from fastapi.responses import StreamingResponse
+import json
 from app.database import engine, get_db
 from . import models
 from .api import chat  # 기존 챗봇 라우터
 from .models import Notice
 from pydantic import BaseModel
-from app.services.chat_service import ask_saha_ai
+from app.services.chat_service import ask_saha_ai_stream
 
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -117,19 +118,27 @@ def root():
 #챗봇 api 엔드포인트 
 @app.post("/ai-chat", tags=["Chat"])
 async def chat_endpoint(request: ChatRequest):
-    try:
-        user_question = request.question
-        raw_history = [
-            {"role": msg.role, "content": msg.content} 
-            for msg in request.history
-        ]
-        result = ask_saha_ai(user_question=user_question, history=raw_history)        
-        return {
-            "question": user_question,
-            "answer": result["answer"],  # 고우니의 텍스트 답변
-            "files": result["files"]      # 파싱된 첨부파일 리스트
-        }
+    # StreamingResponse는 try-except 블록 밖에서 직접 반환해야 함. 
+    # generator 함수 내부에서 에러 처리를 해야 합니다.
+    
+    # 스트리밍 응답을 생성하는 제너레이터 정의
+    async def event_generator():
+        try:
+            user_question = request.question
+            raw_history = [{"role": msg.role, "content": msg.content} for msg in request.history]
+            
+            # ask_saha_ai_stream이 보내는 json 덩어리들을 받아서 SSE 포맷(data: ...)으로 쏴줌
+            async for chunk_data in ask_saha_ai_stream(user_question, raw_history):
+                # chunk_data는 이미 ask_saha_ai_stream 내부에서 
+                # {'type': 'text', 'content': ...} 
+                # 또는 {'type': 'files', 'content': ...} 
+                # 형태로 JSON 문자열이 되어 넘어옵니다.
+                yield f"data: {chunk_data}\n\n"
+                
+            yield "data: [DONE]\n\n"
 
-    except Exception as e:
-        print(f"🔥 백엔드 에러 발생: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        except Exception as e:
+            print(f"🔥 백엔드 에러 발생: {e}")
+            yield f"data: {json.dumps({'type': 'error', 'content': str(e)})}\n\n"
+    return StreamingResponse(event_generator(), media_type="text/event-stream")
+
