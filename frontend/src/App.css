@@ -1126,9 +1126,10 @@
 .markdown-content h2,
 .markdown-content h3 {
   margin-top: clamp(22px, 3vw, 28px);
-  margin-bottom: 4px;
-  font-size: 1em;
-  font-weight: 700;
+  margin-bottom: 6px;
+  font-size: 1.05em;
+  font-weight: 800;
+  color: #1e293b;
 }
 
 .markdown-content h3:first-child {
