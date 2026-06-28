@@ -54,8 +54,8 @@ async def ask_saha_ai_stream(user_question: str, history: List[Dict[str, str]] =
     # [1] RAG 문서 기반 파일첨부 기능 정규식 링크 수집 (일반 민원 서식용 - 순수하게 다 받아줌)
     #==================================================================
     
-    # 하이브리드로 고도화된 스크립트 호출 (상위 5개 가져오기)
-    relevant_chunks = get_similar_chunks(refined_question, top_k=5)
+    # 하이브리드로 고도화된 스크립트 호출 (상위 3개 가져오기)
+    relevant_chunks = get_similar_chunks(refined_question, top_k=3)
     
     # 디버깅 로그출력
     attached_files = []
