@@ -31,7 +31,7 @@ def reciprocal_rank_fusion(vector_results, keyword_results, k=60):
     sorted_docs = sorted(rrf_score.values(), key=lambda x: x["score"], reverse=True)
     return [item["doc"] for item in sorted_docs]
 
-def get_similar_chunks(query: str, top_k: int = 5): # k값을 조금 늘려주면 더 정확해짐. but 토큰이 늘어나서 비용이 증가할 수 있음.
+def get_similar_chunks(query: str, top_k: int = 3): # k값을 조금 늘려주면 더 정확해짐. but 토큰이 늘어나서 비용이 증가할 수 있음.
     db: Session = SessionLocal()
     
     # 1. 사용자의 질문을 벡터로 변환
