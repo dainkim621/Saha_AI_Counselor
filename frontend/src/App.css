@@ -725,6 +725,7 @@
 
 .message-row {
   display: flex;
+  align-items: flex-start;
   margin-bottom: 14px;
 }
 
@@ -737,6 +738,8 @@
 }
 
 .chat-avatar {
+  flex-shrink: 0;
+  margin-top: 6px;
   width: 42px;
   height: 42px;
 
@@ -750,7 +753,7 @@
 
   margin-right: 10px;
 
-  align-self: flex-end;
+  align-self: flex-start;
 
   box-shadow: 0 6px 16px rgba(37, 99, 235, 0.12);
 }
@@ -1097,7 +1100,14 @@
 }
 
 .markdown-content p {
-  margin: 4px 0;
+  margin: 8px 0;
+  line-height: 1.8;
+
+}
+
+/* 담당 부서 안내 */
+.markdown-content p:has(strong) {
+  margin-top: 32px !important;
 }
 
 /* 📍 1. / 📌 2. / 📍 3. 같은 큰 섹션 제목 */
@@ -1112,19 +1122,30 @@
   margin-top: 0;
 }
 
-.markdown-content ol,
+.markdown-content ol{
+  margin: 8px 0 12px 0;
+  padding-left: 22px;
+}
+
 .markdown-content ul {
   margin: 6px 0;
   padding-left: 22px;
 }
 
 .markdown-content li {
-  margin: 3px 0;
+  margin: 4px 0;
+  line-height: 1.7;
+}
+
+.markdown-content strong {
+  font-weight: 700;
 }
 
 .markdown-content h1,
 .markdown-content h2,
 .markdown-content h3 {
+  margin: 18px 0 10px;
+  line-height: 1.5;
   margin-top: clamp(22px, 3vw, 28px);
   margin-bottom: 6px;
   font-size: 1.05em;
