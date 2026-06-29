@@ -1105,6 +1105,11 @@
 
 }
 
+/* 담당 부서 안내 */
+.markdown-content p:has(strong) {
+  margin-top: 32px !important;
+}
+
 /* 📍 1. / 📌 2. / 📍 3. 같은 큰 섹션 제목 */
 .markdown-content .section-title {
   margin-top: clamp(14px, 2.5vw, 22px);

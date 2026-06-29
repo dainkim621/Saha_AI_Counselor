@@ -50,26 +50,20 @@ function ChatWindow({ messages, isLoading }: ChatWindowProps) {
           !message.content.trim() &&
           (!message.files || message.files.length === 0)
         ) {
-          if (
-            message.role === "assistant" &&
-            !message.content.trim() &&
-            (!message.files || message.files.length === 0)
-          ) {
-            return (
+          return (
             <div key={index} className="message-row assistant-row">
               <img
-              src={gouni}
-              alt="고우니"
-              className="chat-avatar chat-avatar-active"
-            />
-            
-            <div className="message-bubble assistant-bubble">
-              답변 중...
+                src={gouni}
+                alt="고우니"
+                className="chat-avatar chat-avatar-active"
+              />
+
+              <div className="message-bubble assistant-bubble">
+                답변 중...
+              </div>
             </div>
-          </div>
-        );
-      }
-    }
+          );
+        }
 
         return (
           <div
@@ -96,6 +90,28 @@ function ChatWindow({ messages, isLoading }: ChatWindowProps) {
                   <ReactMarkdown
                     remarkPlugins={[remarkGfm]}
                     components={{
+                      strong: ({ children }) => {
+                        const text = children?.toString() ?? "";
+
+                        if (text.includes("담당 부서 안내")) {
+                          return (
+                            <strong className="department-title">
+                              {children}
+                            </strong>
+                          );
+                        }
+
+                        if (text.includes("관련 정보 링크")) {
+                          return (
+                            <strong className="link-title">
+                              {children}
+                            </strong>
+                          );
+                        }
+
+                        return <strong>{children}</strong>;
+                      },
+
                       a: ({ href, children }) => (
                         <a
                           href={href}
