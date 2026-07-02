@@ -57,7 +57,8 @@ async def ask_saha_ai_stream(user_question: str, history: List[Dict[str, str]] =
     # 하이브리드로 고도화된 스크립트 호출 (상위 3개 가져오기)
     relevant_chunks = get_similar_chunks(refined_question, top_k=3)
     final_confidence_score = relevant_chunks[0].score if relevant_chunks else 0.0
-    
+    # 사용자가 안지루하게 유사도 먼저 보내기~~~~
+    yield json.dumps({'type': 'score', 'content': final_confidence_score})
     #테스트 
     for i, c in enumerate(relevant_chunks):
         p_type = getattr(c, 'page_type', '')
@@ -300,6 +301,7 @@ async def ask_saha_ai_stream(user_question: str, history: List[Dict[str, str]] =
     # 최종 답변 및 첨부 파일 리스트 리턴
     #========================================================================
     yield json.dumps({'type': 'files', 'content': attached_files})
+    yield json.dumps({'type': 'score', 'content': final_confidence_score})
     # 추가: 프론트엔드에 끝났음을 명확히 알림
     yield json.dumps({'type': 'done'})
 
