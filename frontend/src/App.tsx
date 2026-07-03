@@ -37,6 +37,7 @@ function App() {
   const [fontLevel, setFontLevel] = useState(2);
   const [isTtsOn, setIsTtsOn] = useState(false);
   const [isListening, setIsListening] = useState(false);
+  const [similarityScore, setSimilarityScore] = useState<number | null>(null);
 
   const lastSpokenIndexRef = useRef<number>(-1);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -232,6 +233,7 @@ function App() {
     ]);
 
     setInput("");
+    setSimilarityScore(null);
     setIsLoading(true);
 
     try {
@@ -281,6 +283,10 @@ function App() {
           }
 
           const parsed = JSON.parse(data);
+
+          if (parsed.type === "score") {
+            setSimilarityScore(Number(parsed.content));
+          }
 
           if (parsed.type === "text") {
             setMessages((prev) => {
@@ -388,7 +394,11 @@ function App() {
         </section>
 
         <section className="chat-section">
-          <ChatWindow messages={messages} isLoading={isLoading} />
+          <ChatWindow
+            messages={messages}
+            isLoading={isLoading}
+            similarityScore={similarityScore}
+          />
 
           <ChatInput
             input={input}

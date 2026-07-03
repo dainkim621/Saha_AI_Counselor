@@ -9,6 +9,7 @@ const BACKEND_URL = "http://localhost:8000";
 type ChatWindowProps = {
   messages: Message[];
   isLoading: boolean;
+  similarityScore: number | null;
 };
 
 function formatMarkdown(content: string) {
@@ -33,14 +34,14 @@ function formatMarkdown(content: string) {
     .join("\n");
 }
 
-function ChatWindow({ messages, isLoading }: ChatWindowProps) {
+function ChatWindow({ messages, isLoading, similarityScore }: ChatWindowProps) {
   const bottomRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({
       behavior: "smooth",
     });
-  }, [messages, isLoading]);
+  }, [messages, isLoading, similarityScore]);
 
   return (
     <div className="chat-window">
@@ -58,8 +59,38 @@ function ChatWindow({ messages, isLoading }: ChatWindowProps) {
                 className="chat-avatar chat-avatar-active"
               />
 
-              <div className="message-bubble assistant-bubble">
-                답변 중...
+              <div className="message-bubble assistant-bubble loading-bubble">
+                <div className="loading-text">답변 준비중...</div>
+
+                <div className="similarity-card">
+                  <div className="similarity-card-header">
+                    <span className="similarity-label">참고 정보 매칭도</span>
+                    <span className="similarity-score">
+                      {similarityScore !== null
+                        ? `${similarityScore}%`
+                        : "계산 중"}
+                    </span>
+                  </div>
+
+                  <div className="similarity-bar">
+                    <div
+                      className="similarity-bar-fill"
+                      style={{
+                        width:
+                          similarityScore !== null
+                            ? `${Math.min(
+                                Math.max(similarityScore, 0),
+                                100
+                              )}%`
+                            : "0%",
+                      }}
+                    />
+                  </div>
+
+                  <p className="similarity-desc">
+                    질문과 참고 문서가 얼마나 잘 맞는지 보여주는 값입니다.
+                  </p>
+                </div>
               </div>
             </div>
           );
@@ -87,6 +118,38 @@ function ChatWindow({ messages, isLoading }: ChatWindowProps) {
             >
               {message.role === "assistant" ? (
                 <div className="markdown-content">
+                  {isLoading &&
+                    index === messages.length - 1 &&
+                    similarityScore !== null && (
+                      <div className="similarity-card">
+                        <div className="similarity-card-header">
+                          <span className="similarity-label">
+                            참고 정보 매칭도
+                          </span>
+                          <span className="similarity-score">
+                            {similarityScore}%
+                          </span>
+                        </div>
+
+                        <div className="similarity-bar">
+                          <div
+                            className="similarity-bar-fill"
+                            style={{
+                              width: `${Math.min(
+                                Math.max(similarityScore, 0),
+                                100
+                              )}%`,
+                            }}
+                          />
+                        </div>
+
+                        <p className="similarity-desc">
+                          질문과 참고 문서가 얼마나 잘 맞는지 보여주는
+                          값입니다.
+                        </p>
+                      </div>
+                    )}
+
                   <ReactMarkdown
                     remarkPlugins={[remarkGfm]}
                     components={{
@@ -103,9 +166,7 @@ function ChatWindow({ messages, isLoading }: ChatWindowProps) {
 
                         if (text.includes("관련 정보 링크")) {
                           return (
-                            <strong className="link-title">
-                              {children}
-                            </strong>
+                            <strong className="link-title">{children}</strong>
                           );
                         }
 
