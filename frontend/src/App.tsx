@@ -6,41 +6,13 @@ import MascotCard from "./components/MascotCard";
 import ChatWindow from "./components/ChatWindow";
 import ChatInput from "./components/ChatInput";
 
+const BACKEND_URL = "http://localhost:8000";
+
 export type Message = {
   role: "user" | "assistant";
   content: string;
   files?: { file_name: string; file_url: string }[];
 };
-
-type SpeechRecognitionType = {
-  lang: string;
-  interimResults: boolean;
-  continuous: boolean;
-  start: () => void;
-  stop: () => void;
-  onresult: ((event: SpeechRecognitionEvent) => void) | null;
-  onend: (() => void) | null;
-  onerror: (() => void) | null;
-};
-
-type SpeechRecognitionEvent = {
-  results: {
-    [index: number]: {
-      [index: number]: {
-        transcript: string;
-      };
-    };
-  };
-};
-
-type SpeechRecognitionConstructor = new () => SpeechRecognitionType;
-
-declare global {
-  interface Window {
-    SpeechRecognition?: SpeechRecognitionConstructor;
-    webkitSpeechRecognition?: SpeechRecognitionConstructor;
-  }
-}
 
 const fontModes = [
   "font-xsmall",
@@ -62,14 +34,14 @@ function App() {
 
   const [isLoading, setIsLoading] = useState(false);
   const [input, setInput] = useState("");
-
   const [fontLevel, setFontLevel] = useState(2);
-
   const [isTtsOn, setIsTtsOn] = useState(false);
   const [isListening, setIsListening] = useState(false);
+  const [similarityScore, setSimilarityScore] = useState<number | null>(null);
 
   const lastSpokenIndexRef = useRef<number>(-1);
-  const recognitionRef = useRef<SpeechRecognitionType | null>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
 
   const cleanTextForTTS = (text: string) => {
     return text
@@ -121,7 +93,6 @@ function App() {
       return;
     }
 
-    // 스트리밍 중에는 계속 읽지 않도록 막음
     if (isLoading) return;
     if (messages.length === 0) return;
 
@@ -136,50 +107,76 @@ function App() {
     speakText(lastMessage.content);
   }, [messages, isTtsOn, isLoading]);
 
-  const handleStartStt = () => {
+  const handleStartStt = async () => {
     if (isLoading) return;
 
-    const SpeechRecognition =
-      window.SpeechRecognition || window.webkitSpeechRecognition;
-
-    if (!SpeechRecognition) {
-      alert("현재 브라우저에서는 음성 인식을 지원하지 않습니다.");
-      return;
-    }
-
     if (isListening) {
-      recognitionRef.current?.stop();
-      setIsListening(false);
+      mediaRecorderRef.current?.stop();
       return;
     }
 
-    const recognition = new SpeechRecognition();
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
 
-    recognition.lang = "ko-KR";
-    recognition.interimResults = false;
-    recognition.continuous = false;
+      audioChunksRef.current = [];
 
-    recognition.onresult = (event) => {
-      const transcript = event.results[0][0].transcript.trim();
+      const mediaRecorder = new MediaRecorder(stream);
+      mediaRecorderRef.current = mediaRecorder;
 
-      if (!transcript) return;
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          audioChunksRef.current.push(event.data);
+        }
+      };
 
-      setInput(transcript);
-      speakText(transcript);
-    };
+      mediaRecorder.onstop = async () => {
+        setIsListening(false);
+        stream.getTracks().forEach((track) => track.stop());
 
-    recognition.onend = () => {
+        const audioBlob = new Blob(audioChunksRef.current, {
+          type: "audio/webm",
+        });
+
+        const formData = new FormData();
+        formData.append("audio", audioBlob, "voice.webm");
+
+        try {
+          const response = await fetch(`${BACKEND_URL}/stt`, {
+            method: "POST",
+            body: formData,
+          });
+
+          if (!response.ok) {
+            throw new Error("STT 서버 응답 오류");
+          }
+
+          const data = await response.json();
+          const transcript = data.text?.trim();
+
+          if (!transcript) return;
+
+          setInput(transcript);
+          speakText(transcript);
+        } catch (error) {
+          speakText("음성 인식 중 오류가 발생했습니다.");
+        } finally {
+          mediaRecorderRef.current = null;
+          audioChunksRef.current = [];
+        }
+      };
+
+      setIsListening(true);
+      mediaRecorder.start();
+
+      setTimeout(() => {
+        if (mediaRecorder.state === "recording") {
+          mediaRecorder.stop();
+        }
+      }, 10000);
+    } catch (error) {
       setIsListening(false);
-    };
-
-    recognition.onerror = () => {
-      setIsListening(false);
-      speakText("음성 인식 중 오류가 발생했습니다.");
-    };
-
-    recognitionRef.current = recognition;
-    setIsListening(true);
-    recognition.start();
+      alert("마이크 권한을 허용해야 음성 입력을 사용할 수 있습니다.");
+    }
   };
 
   const handleToggleTts = () => {
@@ -236,10 +233,11 @@ function App() {
     ]);
 
     setInput("");
+    setSimilarityScore(null);
     setIsLoading(true);
 
     try {
-      const response = await fetch("http://localhost:8000/ai-chat", {
+      const response = await fetch(`${BACKEND_URL}/ai-chat`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -286,8 +284,11 @@ function App() {
 
           const parsed = JSON.parse(data);
 
+          if (parsed.type === "score") {
+            setSimilarityScore(Number(parsed.content));
+          }
+
           if (parsed.type === "text") {
-            console.log("프론트 수신 조각:", parsed.content);
             setMessages((prev) => {
               const updated = [...prev];
               const lastIndex = updated.length - 1;
@@ -359,7 +360,7 @@ function App() {
             onClick={handleStartStt}
             disabled={isLoading}
           >
-            {isListening ? "🎙️ 듣는 중" : "🎤 음성 입력"}
+            {isListening ? "🎙️ 녹음 중..." : "🎤 음성 입력"}
           </button>
 
           <button
@@ -393,7 +394,11 @@ function App() {
         </section>
 
         <section className="chat-section">
-          <ChatWindow messages={messages} isLoading={isLoading} />
+          <ChatWindow
+            messages={messages}
+            isLoading={isLoading}
+            similarityScore={similarityScore}
+          />
 
           <ChatInput
             input={input}
