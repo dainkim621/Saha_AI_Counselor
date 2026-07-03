@@ -45,7 +45,7 @@ def reciprocal_rank_fusion(vector_results, keyword_results, k=60):
 def get_similar_chunks(query: str, top_k: int = 3): # k값을 조금 늘려주면 더 정확해짐. but 토큰이 늘어나서 비용이 증가할 수 있음.
     db: Session = SessionLocal()
     
-    # 1. 사용자의 질문을 벡터로 변환
+    # 1. 쿼리 벡터화
     response = client.embeddings.create(
         input=query,
         model="text-embedding-3-small"
@@ -90,10 +90,11 @@ def get_similar_chunks(query: str, top_k: int = 3): # k값을 조금 늘려주�
                 # (raw_sim - 0.28) / (0.55 - 0.28) * 100
                 adjusted_sim = ((raw_sim - min_score) / (max_score - min_score)) * 100
                 
-            doc.score = round(adjusted_sim, 1)
+            doc.score = int(round(adjusted_sim, 1))
         else: # 혹시라도 벡터 값이 없는 문서라면 안정적으로 기본값 넣음
-            doc.score = 60.0 
-            
+            doc.score = 0.0
+        final_output = [doc for doc in final_output if doc.score >= 10.0]
+        
         final_output.append(doc)
     
     print(f"🔍 [하이브리드 검색 완료] 최종 합산된 문서 수: {len(final_output)}개")
