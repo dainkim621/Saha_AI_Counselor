@@ -142,11 +142,11 @@ def main():
     # (1) 각 전처리 파트별 RAW 파일 경로들을 하나의 딕셔너리로 묶어줍니다.
     # 원하는 파일 말고 다른 파일을 주석처리 해서 원하는 파일의 전처리 결과만 볼 수 있습니다. 
     file_paths = {
-        #"general": os.path.join(DATA_DIR, "raw", "saha_docs.jsonl"),
-        #"civil": os.path.join(DATA_DIR, "raw", "saha_civil_forms.jsonl"),
-        #"bid": os.path.join(DATA_DIR, "raw", "saha_bid_docs.jsonl"),
+        "general": os.path.join(DATA_DIR, "raw", "saha_docs.jsonl"),
+        "civil": os.path.join(DATA_DIR, "raw", "saha_civil_forms.jsonl"),
+        "bid": os.path.join(DATA_DIR, "raw", "saha_bid_docs.jsonl"),
         "waste": os.path.join(DATA_DIR, "raw", "saha_waste_docs.jsonl"),
-        #"passport": os.path.join(DATA_DIR, "raw", "passport_forms.jsonl")
+        "passport": os.path.join(DATA_DIR, "raw", "passport_forms.jsonl")
     }
     
     # (2) 마스터 파이프라인 함수 호출 - 이 함수 안에서 5개 전처리 함수가 모두 호출되어 각 파일별로 알맹이 데이터가 추출되고,
