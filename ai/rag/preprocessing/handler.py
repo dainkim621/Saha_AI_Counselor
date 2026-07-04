@@ -15,9 +15,13 @@ def check_merge_condition(unique_headings):
         
     last_heading = str(unique_headings[-1]).strip()
     
-    # 정규식 대신 리스트/문자열 in 검사를 쓰면 더 직관적입니다.
+    # 정규식 대신 리스트/문자열 in 검사를 쓰면 더 직관적
     # 정확히 한 글자이면서 월~일 중 하나인지 검사
     if last_heading in ["월", "화", "수", "목", "금", "토", "일"]:
+        return True
+    
+    # "소파"를 임시로 모았다가 루프가 끝나면 마지막에 합치기 때문에 그 페이지의 제일 뒷 청크에 합쳐져 있을 거임. 
+    if last_heading in ["소 파"]:
         return True
     
     # 확장:if문 추가해서 한 주제의 청크들을 전처리 단계에서 하나로 묶어주고 싶을 때, 여기서 조건을 추가하면 됨.
