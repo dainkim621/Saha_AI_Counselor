@@ -45,7 +45,7 @@ def reciprocal_rank_fusion(vector_results, keyword_results, k=60):
 def get_similar_chunks(query: str, top_k: int = 3): # k값을 조금 늘려주면 더 정확해짐. but 토큰이 늘어나서 비용이 증가할 수 있음.
     db: Session = SessionLocal()
     
-    # 1. 쿼리 벡터화
+    # 1. 사용자의 질문을 벡터로 변환
     response = client.embeddings.create(
         input=query,
         model="text-embedding-3-small"
@@ -79,10 +79,10 @@ def get_similar_chunks(query: str, top_k: int = 3): # k값을 조금 늘려주�
         if hasattr(doc, 'embedding') and doc.embedding is not None:
             # 0.0 ~ 1.0 사이로 나오는 유사도 값을 % 형식(0 ~ 100)으로 변환
             raw_sim = calculate_cosine_similarity(query_embedding, doc.embedding)
-            min_score = 0.28
-            max_score = 0.55
+            min_score = 0.25
+            max_score = 0.52
             
-            if raw_sim <= min_score:# (0.28보다 작으면 0점 처리)
+            if raw_sim <= min_score:# (0.25보다 작으면 0점 처리)
                 adjusted_sim = 0.0
             elif raw_sim >= max_score:# (0.55보다 크면 100점 처리)
                 adjusted_sim = 100.0
@@ -92,9 +92,8 @@ def get_similar_chunks(query: str, top_k: int = 3): # k값을 조금 늘려주�
                 
             doc.score = int(round(adjusted_sim, 1))
         else: # 혹시라도 벡터 값이 없는 문서라면 안정적으로 기본값 넣음
-            doc.score = 0.0
-        final_output = [doc for doc in final_output if doc.score >= 10.0]
-        
+            doc.score = 60.0 
+            
         final_output.append(doc)
     
     print(f"🔍 [하이브리드 검색 완료] 최종 합산된 문서 수: {len(final_output)}개")
@@ -118,12 +117,3 @@ def search_notices(query_embedding, db):
     ).limit(3).all()
     
     return results
-
-# 테스트용 코드
-if __name__ == "__main__":
-    test_query = "장학금 신청 기간 알려줘"
-    chunks = get_similar_chunks(test_query)
-    
-    print(f" 질문: {test_query}")
-    for i, chunk in enumerate(chunks):
-        print(f"[{i+1}] 유사도 점수 기반 추출: {chunk.title} - {chunk.chunk_text[:50]}...")
