@@ -12,6 +12,7 @@ export type Message = {
   role: "user" | "assistant";
   content: string;
   files?: { file_name: string; file_url: string }[];
+  similarityScore?: number;
 };
 
 const fontModes = [
@@ -37,9 +38,11 @@ function App() {
   const [fontLevel, setFontLevel] = useState(2);
   const [isTtsOn, setIsTtsOn] = useState(false);
   const [isListening, setIsListening] = useState(false);
+  const [similarityScore, setSimilarityScore] = useState<number | null>(null);
 
   const lastSpokenIndexRef = useRef<number>(-1);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const mediaStreamRef = useRef<MediaStream | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
 
   const cleanTextForTTS = (text: string) => {
@@ -106,6 +109,16 @@ function App() {
     speakText(lastMessage.content);
   }, [messages, isTtsOn, isLoading]);
 
+  const stopMicrophone = () => {
+    mediaStreamRef.current?.getTracks().forEach((track) => {
+      track.stop();
+      console.log("마이크 트랙 종료:", track.readyState);
+    });
+    
+    mediaStreamRef.current = null;
+    mediaRecorderRef.current = null;
+  };
+
   const handleStartStt = async () => {
     if (isLoading) return;
 
@@ -116,6 +129,7 @@ function App() {
 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      mediaStreamRef.current = stream;
 
       audioChunksRef.current = [];
 
@@ -130,7 +144,9 @@ function App() {
 
       mediaRecorder.onstop = async () => {
         setIsListening(false);
-        stream.getTracks().forEach((track) => track.stop());
+        stopMicrophone();
+        
+        console.log("마이크 종료됨");
 
         const audioBlob = new Blob(audioChunksRef.current, {
           type: "audio/webm",
@@ -173,8 +189,17 @@ function App() {
         }
       }, 10000);
     } catch (error) {
+      console.error("마이크 오류:", error);
+      
       setIsListening(false);
-      alert("마이크 권한을 허용해야 음성 입력을 사용할 수 있습니다.");
+      
+      alert(
+        `마이크 오류: ${
+          error instanceof Error
+            ? error.message
+            : "알 수 없는 오류"
+        }`
+      );
     }
   };
 
@@ -232,6 +257,7 @@ function App() {
     ]);
 
     setInput("");
+    setSimilarityScore(null);
     setIsLoading(true);
 
     try {
@@ -281,6 +307,23 @@ function App() {
           }
 
           const parsed = JSON.parse(data);
+
+          if (parsed.type === "score") {
+            const score = Number(parsed.content);
+            setSimilarityScore(score);
+
+            setMessages((prev) => {
+              const updated = [...prev];
+              const lastIndex = updated.length - 1;
+
+              updated[lastIndex] = {
+                ...updated[lastIndex],
+                similarityScore: score,
+              };
+
+              return updated;
+            });
+          }
 
           if (parsed.type === "text") {
             setMessages((prev) => {
@@ -388,7 +431,11 @@ function App() {
         </section>
 
         <section className="chat-section">
-          <ChatWindow messages={messages} isLoading={isLoading} />
+          <ChatWindow
+            messages={messages}
+            isLoading={isLoading}
+            similarityScore={similarityScore}
+          />
 
           <ChatInput
             input={input}

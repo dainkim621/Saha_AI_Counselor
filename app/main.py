@@ -5,7 +5,7 @@ from fastapi.responses import StreamingResponse
 import json
 from app.database import engine, get_db
 from . import models
-from .api import chat  # 기존 챗봇 라우터
+from .api import chat, stt  # 기존 챗봇 라우터
 from .models import Notice
 from pydantic import BaseModel
 from app.services.chat_service import ask_saha_ai_stream
@@ -68,6 +68,7 @@ class ChatRequest(BaseModel):
 
 # 3. 기존 챗봇 라우터 등록
 app.include_router(chat.router, prefix="/chat", tags=["Chat"])
+app.include_router(stt.router, tags=["STT"])
 
 # 4. 공지사항 조회 API 엔드포인트
 @app.get("/notices", response_model=List[NoticeResponse], tags=["Notices"])
