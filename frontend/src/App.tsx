@@ -12,6 +12,7 @@ export type Message = {
   role: "user" | "assistant";
   content: string;
   files?: { file_name: string; file_url: string }[];
+  similarityScore?: number;
 };
 
 const fontModes = [
@@ -308,7 +309,20 @@ function App() {
           const parsed = JSON.parse(data);
 
           if (parsed.type === "score") {
-            setSimilarityScore(Number(parsed.content));
+            const score = Number(parsed.content);
+            setSimilarityScore(score);
+
+            setMessages((prev) => {
+              const updated = [...prev];
+              const lastIndex = updated.length - 1;
+
+              updated[lastIndex] = {
+                ...updated[lastIndex],
+                similarityScore: score,
+              };
+
+              return updated;
+            });
           }
 
           if (parsed.type === "text") {

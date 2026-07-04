@@ -62,7 +62,7 @@ function ChatWindow({ messages, isLoading, similarityScore }: ChatWindowProps) {
               <div className="message-bubble assistant-bubble loading-bubble">
                 <div className="loading-text">답변 준비중...</div>
 
-                <div className="similarity-card">
+                <div className="similarity-card similarity-card-fixed">
                   <div className="similarity-card-header">
                     <span className="similarity-label">참고 정보 매칭도</span>
                     <span className="similarity-score">
@@ -118,37 +118,35 @@ function ChatWindow({ messages, isLoading, similarityScore }: ChatWindowProps) {
             >
               {message.role === "assistant" ? (
                 <div className="markdown-content">
-                  {isLoading &&
-                    index === messages.length - 1 &&
-                    similarityScore !== null && (
-                      <div className="similarity-card">
-                        <div className="similarity-card-header">
-                          <span className="similarity-label">
-                            참고 정보 매칭도
-                          </span>
-                          <span className="similarity-score">
-                            {similarityScore}%
-                          </span>
-                        </div>
-
-                        <div className="similarity-bar">
-                          <div
-                            className="similarity-bar-fill"
-                            style={{
-                              width: `${Math.min(
-                                Math.max(similarityScore, 0),
-                                100
-                              )}%`,
-                            }}
-                          />
-                        </div>
-
-                        <p className="similarity-desc">
-                          질문과 참고 문서가 얼마나 잘 맞는지 보여주는
-                          값입니다.
-                        </p>
+                  {message.similarityScore !== undefined && (
+                    <div className="similarity-card similarity-card-fixed">
+                      <div className="similarity-card-header">
+                        <span className="similarity-label">
+                          참고 정보 매칭도
+                        </span>
+                        <span className="similarity-score">
+                          {message.similarityScore}%
+                        </span>
                       </div>
-                    )}
+
+                      <div className="similarity-bar">
+                        <div
+                          className="similarity-bar-fill"
+                          style={{
+                            width: `${Math.min(
+                              Math.max(message.similarityScore, 0),
+                              100
+                            )}%`,
+                          }}
+                        />
+                      </div>
+
+                      <p className="similarity-desc">
+                        질문과 참고 문서가 얼마나 잘 맞는지 보여주는
+                        값입니다.
+                      </p>
+                    </div>
+                  )}
 
                   <ReactMarkdown
                     remarkPlugins={[remarkGfm]}
