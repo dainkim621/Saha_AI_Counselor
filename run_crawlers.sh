@@ -1,6 +1,8 @@
 #!/bin/bash
 
-cd /home/dain/Saha_AI_Counselor
+
+# 여기 주석 지우고 자기 프로젝트 파일 경로 적기
+# cd /home/dain/Saha_AI_Counselor
 
 source venv/bin/activate
 
