@@ -12,6 +12,15 @@ from bs4 import BeautifulSoup, NavigableString
 OUTPUT_DIR = "data/raw"
 OUTPUT_JSONL = os.path.join(OUTPUT_DIR, "saha_waste_docs.jsonl")
 
+DELTA_DIR = os.path.join(OUTPUT_DIR, "delta")
+HISTORY_DIR = os.path.join(OUTPUT_DIR, "history")
+# 오늘 수정된 파일 저장용
+OUTPUT_DELTA_JSONL = os.path.join(DELTA_DIR, "saha_waste_docs_delta.jsonl")
+# 변경 이력 누적 기록
+OUTPUT_CHANGE_HISTORY_JSONL = os.path.join(HISTORY_DIR, "waste_change_history.jsonl")
+# 변경 감지 기록 
+STATE_FILE = "data/state/waste_crawl_state.json"
+
 # 페이지 범위가 적어서 직접 URL 지정
 TARGET_PAGES = [
     {
@@ -93,6 +102,174 @@ def clean_inline(text):
 def make_doc_id(url):
     return hashlib.md5(url.encode("utf-8")).hexdigest()
 
+# 변경 감지
+def load_json_file(path):
+    if not os.path.exists(path):
+        return {}
+
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            content = f.read().strip()
+            if not content:
+                return {}
+            return json.loads(content)
+    except json.JSONDecodeError:
+        print(f"{path} 파싱 실패 → 빈 상태로 시작")
+        return {}
+
+
+def save_json_file(path, data):
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+
+
+def load_existing_docs(path):
+    docs = {}
+
+    if not os.path.exists(path):
+        return docs
+
+    with open(path, "r", encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+
+            try:
+                doc = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+
+            doc_id = doc.get("doc_id")
+            if doc_id:
+                docs[doc_id] = doc
+
+    print(f"[LOAD EXISTING WASTE DOCS] {len(docs)}개 읽음")
+    return docs
+
+
+def save_existing_docs(path, docs):
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+
+    with open(path, "w", encoding="utf-8") as f:
+        for doc in docs.values():
+            f.write(json.dumps(doc, ensure_ascii=False) + "\n")
+
+
+def make_content_hash(doc):
+    compare_data = {
+        "title": doc.get("title", ""),
+        "category": doc.get("category", ""),
+        "topic": doc.get("topic", ""),
+        "date": doc.get("date", ""),
+        "department": doc.get("department", ""),
+        "text": doc.get("text", ""),
+        "key_sections": doc.get("key_sections", []),
+    }
+
+    normalized = json.dumps(compare_data, ensure_ascii=False, sort_keys=True)
+    normalized = re.sub(r"\s+", " ", normalized).strip()
+
+    normalized = re.sub(r"조회수\s*[:：]?\s*\d+", "", normalized)
+    normalized = re.sub(r"조회\s*[:：]?\s*\d+", "", normalized)
+    normalized = re.sub(r"만족도조사.*", "", normalized)
+
+    return hashlib.md5(normalized.encode("utf-8")).hexdigest()
+
+
+def make_change_summary(old_doc, new_doc):
+    changes = []
+
+    fields_to_check = [
+        ("title", "제목"),
+        ("category", "분류"),
+        ("topic", "주제"),
+        ("date", "수정일"),
+        ("department", "담당부서"),
+        ("text", "본문"),
+    ]
+
+    for key, label in fields_to_check:
+        old_value = clean_text(old_doc.get(key, ""))
+        new_value = clean_text(new_doc.get(key, ""))
+
+        if old_value != new_value:
+            changes.append({
+                "type": "modified",
+                "field": label,
+                "old": old_value,
+                "new": new_value,
+            })
+
+    old_keys = set(old_doc.get("key_sections", []))
+    new_keys = set(new_doc.get("key_sections", []))
+
+    for item in sorted(new_keys - old_keys):
+        changes.append({
+            "type": "added",
+            "field": "핵심문장",
+            "new": item,
+        })
+
+    for item in sorted(old_keys - new_keys):
+        changes.append({
+            "type": "removed",
+            "field": "핵심문장",
+            "old": item,
+        })
+
+    if not changes:
+        return [{
+            "type": "system",
+            "message": "해시값은 변경되었지만 운영자가 확인할 주요 필드 차이는 찾지 못했습니다."
+        }]
+
+    return changes
+
+
+def attach_change_metadata(doc, old_doc, new_hash):
+    detected_at = time.strftime("%Y-%m-%d %H:%M:%S")
+
+    if old_doc:
+        doc["change_type"] = "UPDATED_DOCUMENT"
+        doc["change_reason"] = "기존 폐기물 안내 문서 내용이 변경됨"
+        doc["change_summary"] = make_change_summary(old_doc, doc)
+    else:
+        doc["change_type"] = "NEW_DOCUMENT"
+        doc["change_reason"] = "신규 폐기물 안내 문서"
+        doc["change_summary"] = [{
+            "type": "new",
+            "field": "document",
+            "message": "새로운 폐기물 안내 문서가 추가되었습니다."
+        }]
+
+    doc["detected_at"] = detected_at
+    doc["content_hash"] = new_hash
+
+    return doc
+
+
+def append_change_history(doc):
+    os.makedirs(os.path.dirname(OUTPUT_CHANGE_HISTORY_JSONL), exist_ok=True)
+
+    history_item = {
+        "detected_at": doc.get("detected_at", ""),
+        "change_type": doc.get("change_type", ""),
+        "change_reason": doc.get("change_reason", ""),
+        "title": doc.get("title", ""),
+        "url": doc.get("url", ""),
+        "doc_id": doc.get("doc_id", ""),
+        "page_type": doc.get("page_type", ""),
+        "category": doc.get("category", ""),
+        "topic": doc.get("topic", ""),
+        "department": doc.get("department", ""),
+        "change_summary": doc.get("change_summary", []),
+    }
+
+    with open(OUTPUT_CHANGE_HISTORY_JSONL, "a", encoding="utf-8") as f:
+        f.write(json.dumps(history_item, ensure_ascii=False) + "\n")
 
 def get_mid(url):
     qs = parse_qs(urlparse(url).query)
@@ -1331,13 +1508,19 @@ def extract_page(html, page_info):
 
 def crawl_waste_pages():
     ensure_dir(OUTPUT_DIR)
+    ensure_dir(DELTA_DIR)
+    ensure_dir(HISTORY_DIR)
+
+    crawl_state = load_json_file(STATE_FILE)
+    existing_docs = load_existing_docs(OUTPUT_JSONL)
 
     session = requests.Session()
     session.headers.update(HEADERS)
 
-    saved_count = 0
+    changed = 0
+    unchanged = 0
 
-    with open(OUTPUT_JSONL, "w", encoding="utf-8") as f:
+    with open(OUTPUT_DELTA_JSONL, "w", encoding="utf-8") as delta_out:
         for page in TARGET_PAGES:
             url = page["url"]
             print(f"[VISIT] {page['category']} / {page['topic']} / {url}")
@@ -1355,19 +1538,50 @@ def crawl_waste_pages():
                 print(f"  저장 안 함: 본문 부족 | {doc['title']}")
                 continue
 
-            f.write(json.dumps(doc, ensure_ascii=False) + "\n")
-            f.flush()
+            new_hash = make_content_hash(doc)
+            old_hash = crawl_state.get(doc["url"], {}).get("content_hash")
 
-            saved_count += 1
-            print(f"  저장 완료 ({saved_count}): {doc['title']}")
+            if old_hash == new_hash:
+                unchanged += 1
+                print(f"  변경 없음: {doc['title']}")
+                continue
+
+            old_doc = existing_docs.get(doc["doc_id"])
+            doc = attach_change_metadata(doc, old_doc, new_hash)
+
+            crawl_state[doc["url"]] = {
+                "content_hash": new_hash,
+                "last_crawled": time.strftime("%Y-%m-%d"),
+            }
+
+            existing_docs[doc["doc_id"]] = doc
+
+            delta_out.write(json.dumps(doc, ensure_ascii=False) + "\n")
+            delta_out.flush()
+
+            append_change_history(doc)
+
+            changed += 1
+
+            if old_doc:
+                print(f"  수정 감지: {doc['title']}")
+            else:
+                print(f"  신규 저장: {doc['title']}")
+
             print(f"  핵심문장 수: {len(doc['key_sections'])}")
 
             time.sleep(REQUEST_DELAY)
 
+    save_existing_docs(OUTPUT_JSONL, existing_docs)
+    save_json_file(STATE_FILE, crawl_state)
+
     print("\n폐기물 처리안내 크롤링 완료")
-    print(f"- 저장 문서 수: {saved_count}")
-    print(f"- 출력 파일: {OUTPUT_JSONL}")
-
-
+    print(f"- 전체 문서 수: {len(existing_docs)}")
+    print(f"- 신규/수정 문서 수: {changed}")
+    print(f"- 변경 없음: {unchanged}")
+    print(f"- 전체 파일: {OUTPUT_JSONL}")
+    print(f"- 변경분 파일: {OUTPUT_DELTA_JSONL}")
+    print(f"- 변경 이력 파일: {OUTPUT_CHANGE_HISTORY_JSONL}")
+    
 if __name__ == "__main__":
     crawl_waste_pages()
