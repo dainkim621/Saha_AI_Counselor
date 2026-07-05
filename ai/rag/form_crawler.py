@@ -13,6 +13,16 @@ LIST_URL = "https://www.saha.go.kr/portal/civil/list.do?mId=0103080100"
 OUTPUT_DIR = "data/raw"
 OUTPUT_FILE = os.path.join(OUTPUT_DIR, "saha_civil_forms.jsonl")
 
+DELTA_DIR = os.path.join(OUTPUT_DIR, "delta")
+HISTORY_DIR = os.path.join(OUTPUT_DIR, "history")
+# 오늘 신규/수정된 민원편람만 저장
+OUTPUT_DELTA_FILE = os.path.join(DELTA_DIR, "saha_civil_forms_delta.jsonl")
+# 변경 이력 누적 저장
+OUTPUT_CHANGE_HISTORY_FILE = os.path.join(HISTORY_DIR, "civil_forms_change_history.jsonl")
+
+# 변경 감지 기록 
+STATE_FILE = "data/state/civil_forms_crawl_state.json"
+
 RECENT_YEAR_LIMIT = 5   # 최근 몇년간 자료를 검색할건지
 CURRENT_YEAR = 2026
 MIN_YEAR = CURRENT_YEAR - RECENT_YEAR_LIMIT
@@ -160,8 +170,31 @@ def cut_civil_body(text):
 
     return clean_text(text)
 
-# 저장조건
+# 저장조건: 껍데기 문서는 저장 x
 def is_target_civil_doc(doc):
+    important_fields = [
+        "category",
+        "department",
+        "phone",
+        "processing_period",
+        "required_documents",
+        "submission_place",
+        "fee",
+        "notes",
+        "review_criteria",
+        "workflow",
+        "appeal",
+    ]
+
+    has_real_content = any(
+        clean_text(doc.get(field, "")) for field in important_fields
+    )
+
+    has_attachment = len(doc.get("attachments", [])) > 0
+
+    if not has_real_content and not has_attachment:
+        return False
+
     text = " ".join([
         doc.get("title", ""),
         doc.get("category", ""),
@@ -171,7 +204,6 @@ def is_target_civil_doc(doc):
     ])
 
     return any(keyword in text for keyword in TARGET_KEYWORDS)
-
 
 def extract_title(text):
     text = clean_text(text)
@@ -241,6 +273,201 @@ def make_plain_text(title, fields, attachments=None):
         parts.append("첨부파일: " + ", ".join(attachment_names))
 
     return "\n".join(parts)
+
+# 변경 감지용
+def load_json_file(path):
+    if not os.path.exists(path):
+        return {}
+
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            content = f.read().strip()
+            if not content:
+                return {}
+            return json.loads(content)
+    except json.JSONDecodeError:
+        print(f"{path} 파싱 실패 → 빈 상태로 시작")
+        return {}
+
+
+def save_json_file(path, data):
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+
+
+def load_existing_docs(path):
+    docs = {}
+
+    if not os.path.exists(path):
+        return docs
+
+    with open(path, "r", encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+
+            try:
+                doc = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+
+            doc_id = doc.get("doc_id")
+            if doc_id:
+                docs[doc_id] = doc
+
+    print(f"[LOAD EXISTING CIVIL FORMS] {len(docs)}개 읽음")
+    return docs
+
+
+def save_existing_docs(path, docs):
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+
+    with open(path, "w", encoding="utf-8") as f:
+        for doc in docs.values():
+            f.write(json.dumps(doc, ensure_ascii=False) + "\n")
+
+
+def make_content_hash(doc):
+    compare_data = {
+        "title": doc.get("title", ""),
+        "category": doc.get("category", ""),
+        "department": doc.get("department", ""),
+        "phone": doc.get("phone", ""),
+        "processing_period": doc.get("processing_period", ""),
+        "required_documents": doc.get("required_documents", ""),
+        "submission_place": doc.get("submission_place", ""),
+        "fee": doc.get("fee", ""),
+        "notes": doc.get("notes", ""),
+        "review_criteria": doc.get("review_criteria", ""),
+        "workflow": doc.get("workflow", ""),
+        "appeal": doc.get("appeal", ""),
+        "etc": doc.get("etc", ""),
+        "attachments": [
+            {
+                "filename": a.get("filename", ""),
+                "file_id": a.get("file_id", ""),
+                "file_sn": a.get("file_sn", ""),
+            }
+            for a in doc.get("attachments", [])
+        ],
+    }
+
+    normalized = json.dumps(compare_data, ensure_ascii=False, sort_keys=True)
+    normalized = re.sub(r"\s+", " ", normalized).strip()
+
+    return hashlib.md5(normalized.encode("utf-8")).hexdigest()
+
+
+def make_change_summary(old_doc, new_doc):
+    changes = []
+
+    fields_to_check = [
+        ("title", "제목"),
+        ("category", "민원분야"),
+        ("department", "담당부서"),
+        ("phone", "담당자 전화번호"),
+        ("processing_period", "처리기간"),
+        ("required_documents", "신청서 및 구비서류"),
+        ("submission_place", "제출처"),
+        ("fee", "수수료 및 기타비용"),
+        ("notes", "유의사항"),
+        ("review_criteria", "행정기관의 심사기준"),
+        ("workflow", "업무처리 흐름도"),
+        ("appeal", "이의신청"),
+        ("etc", "기타"),
+    ]
+
+    for key, label in fields_to_check:
+        old_value = clean_text(old_doc.get(key, ""))
+        new_value = clean_text(new_doc.get(key, ""))
+
+        if old_value != new_value:
+            changes.append({
+                "type": "modified",
+                "field": label,
+                "old": old_value,
+                "new": new_value,
+            })
+
+    old_files = {
+        a.get("filename", ""): a
+        for a in old_doc.get("attachments", [])
+        if a.get("filename")
+    }
+    new_files = {
+        a.get("filename", ""): a
+        for a in new_doc.get("attachments", [])
+        if a.get("filename")
+    }
+
+    for filename in new_files:
+        if filename not in old_files:
+            changes.append({
+                "type": "added",
+                "field": "첨부파일",
+                "new": filename,
+            })
+
+    for filename in old_files:
+        if filename not in new_files:
+            changes.append({
+                "type": "removed",
+                "field": "첨부파일",
+                "old": filename,
+            })
+
+    if not changes:
+        return [{
+            "type": "system",
+            "message": "해시값은 변경되었지만 운영자가 확인할 주요 필드 차이는 찾지 못했습니다."
+        }]
+
+    return changes
+
+
+def attach_change_metadata(doc, old_doc, new_hash):
+    detected_at = time.strftime("%Y-%m-%d %H:%M:%S")
+
+    if old_doc:
+        doc["change_type"] = "UPDATED_DOCUMENT"
+        doc["change_reason"] = "기존 민원편람/서식안내 문서 내용이 변경됨"
+        doc["change_summary"] = make_change_summary(old_doc, doc)
+    else:
+        doc["change_type"] = "NEW_DOCUMENT"
+        doc["change_reason"] = "신규 민원편람/서식안내 문서"
+        doc["change_summary"] = [{
+            "type": "new",
+            "field": "document",
+            "message": "새로운 민원편람/서식안내 문서가 추가되었습니다."
+        }]
+
+    doc["detected_at"] = detected_at
+    doc["content_hash"] = new_hash
+
+    return doc
+
+
+def append_change_history(doc):
+    os.makedirs(os.path.dirname(OUTPUT_CHANGE_HISTORY_FILE), exist_ok=True)
+
+    history_item = {
+        "detected_at": doc.get("detected_at", ""),
+        "change_type": doc.get("change_type", ""),
+        "change_reason": doc.get("change_reason", ""),
+        "title": doc.get("title", ""),
+        "url": doc.get("url", ""),
+        "doc_id": doc.get("doc_id", ""),
+        "page_type": doc.get("page_type", ""),
+        "category": doc.get("category", ""),
+        "department": doc.get("department", ""),
+        "change_summary": doc.get("change_summary", []),
+    }
+
+    with open(OUTPUT_CHANGE_HISTORY_FILE, "a", encoding="utf-8") as f:
+        f.write(json.dumps(history_item, ensure_ascii=False) + "\n")
 
 # 첨부파일 추출
 def extract_attachments(html, base_url):
@@ -328,9 +555,6 @@ def parse_detail_page(url, html):
     title = extract_title(main_text)
     fields = parse_fields(body_text)
     attachments = extract_attachments(html, url)
-    #디버그용
-    #print("[PARSED]", url, "/", title)
-    #print("[ATTACHMENTS]", attachments)
 
     return {
         "doc_id": make_id(url),
@@ -358,15 +582,22 @@ def parse_detail_page(url, html):
 
 def crawl_recent_civil_forms():
     ensure_dir(OUTPUT_DIR)
+    ensure_dir(DELTA_DIR)
+    ensure_dir(HISTORY_DIR)
+
+    crawl_state = load_json_file(STATE_FILE)
+    existing_docs = load_existing_docs(OUTPUT_FILE)
 
     session = requests.Session()
-    saved = 0
 
-    #### 크롤링할 민원 페이지 범위(여기조절) ####
-    START_CIVIL_ID = 2200
-    END_CIVIL_ID = 2000
+    saved = len(existing_docs)
+    changed = 0
+    unchanged = 0
 
-    with open(OUTPUT_FILE, "w", encoding="utf-8") as out:
+    START_CIVIL_ID = 2200  # 여기조절 
+    END_CIVIL_ID = 2100
+
+    with open(OUTPUT_DELTA_FILE, "w", encoding="utf-8") as delta_out:
         for civil_id in range(START_CIVIL_ID, END_CIVIL_ID - 1, -1):
             url = f"https://www.saha.go.kr/portal/civil/view.do?civilId={civil_id}&mId=0103080100"
             print(f"[DETAIL] civilId={civil_id}")
@@ -386,15 +617,48 @@ def crawl_recent_civil_forms():
                 print("  저장 안 함: 대상 민원 아님")
                 continue
 
-            out.write(json.dumps(doc, ensure_ascii=False) + "\n")
-            saved += 1
-            print(f"  저장 완료: {doc['title']}")
+            new_hash = make_content_hash(doc)
+            old_hash = crawl_state.get(doc["url"], {}).get("content_hash")
+
+            if old_hash == new_hash:
+                unchanged += 1
+                print(f"  변경 없음: {doc['title']}")
+                continue
+
+            old_doc = existing_docs.get(doc["doc_id"])
+            doc = attach_change_metadata(doc, old_doc, new_hash)
+
+            crawl_state[doc["url"]] = {
+                "content_hash": new_hash,
+                "last_crawled": time.strftime("%Y-%m-%d"),
+            }
+
+            existing_docs[doc["doc_id"]] = doc
+
+            delta_out.write(json.dumps(doc, ensure_ascii=False) + "\n")
+            delta_out.flush()
+
+            append_change_history(doc)
+
+            changed += 1
+
+            if old_doc:
+                print(f"  수정 감지: {doc['title']}")
+            else:
+                saved += 1
+                print(f"  신규 저장: {doc['title']}")
 
             time.sleep(REQUEST_DELAY)
 
+    save_existing_docs(OUTPUT_FILE, existing_docs)
+    save_json_file(STATE_FILE, crawl_state)
+
     print("\n수집 완료")
-    print(f"- 저장 문서 수: {saved}")
-    print(f"- 저장 파일: {OUTPUT_FILE}")
+    print(f"- 전체 문서 수: {len(existing_docs)}")
+    print(f"- 신규/수정 문서 수: {changed}")
+    print(f"- 변경 없음: {unchanged}")
+    print(f"- 전체 파일: {OUTPUT_FILE}")
+    print(f"- 변경분 파일: {OUTPUT_DELTA_FILE}")
 
 if __name__ == "__main__":
     crawl_recent_civil_forms()

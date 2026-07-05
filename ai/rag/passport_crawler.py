@@ -4,9 +4,10 @@ import json
 import hashlib
 from pypdf import PdfReader
 
-# pip install pypdf -> pdf 읽기 라이브러리 설치
-# 외교부 홈피 막아놓음 -> HTML 저장 후 로컬 파싱 하려했으나 ->
-# pdf도 미리보기, 브라우저에서 JS 실행 후에만 다운로드만 가능함 -> 직접 일일이 저장하기...
+# 외교부 여권 서식 페이지 : PDF 다운로드 링크를 바로 가져오기 어려움. 
+# 외교부 사이트가 PDF 다운로드를 JS/브라우저 동작 기반으로 처리하기 때문.
+# 우리가 로컬에 저장한 PDF를 FastAPI가 제공하는 file_url 제공..
+
 
 PDF_DIR = "data/raw/passport_pdfs"
 OUTPUT_JSONL = "data/raw/passport_forms.jsonl"
@@ -32,6 +33,10 @@ def filename_to_title(filename: str) -> str:
     name = name.replace("_", " ").replace("-", " ")
     name = re.sub(r"\s+", " ", name)
     return name.strip()
+
+# 로컬 첨부파일 기반
+def make_local_file_url(pdf_file: str) -> str:
+    return f"/files/passport_pdfs/{pdf_file}"
 
 
 def extract_pdf_text(pdf_path: str) -> str:
@@ -79,17 +84,17 @@ def crawl_local_passport_pdfs():
                 continue
 
             text = clean_text(f"""
-제목: {title}
-메뉴경로: 외교부 여권안내 > 여권기본사항 > 신청서식 모음
-출처페이지: {SOURCE_URL}
+                제목: {title}
+                메뉴경로: 외교부 여권안내 > 여권기본사항 > 신청서식 모음
+                출처페이지: {SOURCE_URL}
 
-[서식 정보]
-서식명: {title}
-파일명: {pdf_file}
+                [서식 정보]
+                서식명: {title}
+                파일명: {pdf_file}
 
-[PDF 본문]
-{pdf_text}
-""")
+                [PDF 본문]
+                {pdf_text}
+                """)
 
             doc = {
                 "doc_id": make_doc_id(f"passport.go.kr::{pdf_file}"),
@@ -107,11 +112,15 @@ def crawl_local_passport_pdfs():
                 "source": "passport.go.kr",
                 "attachments": [
                     {
-                        "name": pdf_file,
-                        "url": pdf_path,
-                        "type": "pdf",
+                        "filename": pdf_file,
+                        "file_url": make_local_file_url(pdf_file),
+                        "file_path": pdf_path,
+                        "extension": "pdf",
+                        "source_type": "local_pdf",
                     }
                 ],
+                "attachment_count": 1,
+
             }
 
             f.write(json.dumps(doc, ensure_ascii=False) + "\n")
