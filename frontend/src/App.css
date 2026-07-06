@@ -429,8 +429,8 @@
 }
 
 .voice-button {
-  height: 32px;
-  padding: 0 12px;
+  height: 34px;
+  padding: 0 14px;
 
   border: 1px solid #d1d5db;
   border-radius: 999px;
@@ -440,7 +440,7 @@
 
   cursor: pointer;
 
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 700;
 
   box-shadow: 0 2px 6px rgba(15, 23, 42, 0.08);
@@ -1006,8 +1006,8 @@
 .app.font-xsmall .header-text h1 { font-size: 34px; }
 .app.font-small .header-text h1 { font-size: 40px; }
 .app.font-normal .header-text h1 { font-size: 44px; }
-.app.font-large .header-text h1 { font-size: 54px; }
-.app.font-xlarge .header-text h1 { font-size: 62px; }
+.app.font-large .header-text h1 { font-size: 48px; }
+.app.font-xlarge .header-text h1 { font-size: 52px; }
 
 /* Header Description */
 .app.font-xsmall .header-description { font-size: 12px; }
@@ -1033,13 +1033,34 @@
 }
 
 .app.font-large .header-badge {
-  font-size: 16px;
-  height: 46px;
+  font-size: 14px;
+  height: 42px;
 }
 
 .app.font-xlarge .header-badge {
-  font-size: 18px;
-  height: 52px;
+  font-size: 15px;
+  height: 44px;
+}
+
+/* Guide Modal Font Size */
+.app.font-xsmall .guide-modal {
+  font-size: 13px;
+}
+
+.app.font-small .guide-modal {
+  font-size: 14px;
+}
+
+.app.font-normal .guide-modal {
+  font-size: 16px;
+}
+
+.app.font-large .guide-modal {
+  font-size: 19px;
+}
+
+.app.font-xlarge .guide-modal {
+  font-size: 22px;
 }
 
 /* Mascot */
@@ -1253,4 +1274,183 @@
   color: #64748b;
 
   line-height: 1.5;
+}
+
+/* =========================
+    Guide Modal
+========================= */
+
+.guide-open-button {
+  border: 1px solid rgba(37, 99, 235, 0.25);
+  background: #2563eb;
+  color: #ffffff;
+  cursor: pointer;
+}
+
+.guide-open-button:hover {
+  background: #1d4ed8;
+  transform: translateY(-1px);
+}
+
+.guide-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  padding: 20px;
+
+  background: rgba(15, 23, 42, 0.45);
+}
+
+.guide-modal {
+  width: 720px;
+  max-width: 92%;
+  max-height: 82vh;
+  overflow-y: auto;
+
+  padding: 28px;
+
+  border-radius: 26px;
+  background:
+    radial-gradient(circle at top left, rgba(219, 234, 254, 0.9), transparent 220px),
+    #ffffff;
+
+  color: #1f2937;
+
+  border: 1px solid #dbeafe;
+  box-shadow: 0 28px 70px rgba(15, 23, 42, 0.28);
+}
+
+.guide-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  gap: 12px;
+
+  margin-bottom: 12px;
+}
+
+.guide-modal-header h2 {
+  margin: 0;
+
+  font-size: 1.7em;
+  font-weight: 900;
+
+  color: #111827;
+}
+
+.guide-close-button {
+  width: 34px;
+  height: 34px;
+
+  border: none;
+  border-radius: 999px;
+
+  background: #f1f5f9;
+  color: #475569;
+
+  cursor: pointer;
+
+  font-size: 18px;
+  font-weight: 900;
+}
+
+.guide-close-button:hover {
+  background: #e2e8f0;
+}
+
+.guide-intro {
+  margin: 0 0 18px;
+
+  font-size: 1em;
+  font-weight: 600;
+  line-height: 1.7;
+
+  color: #475569;
+}
+
+.guide-section {
+  margin-top: 18px;
+  padding: 18px 20px;
+
+  border: 1px solid #dbeafe;
+  border-radius: 20px;
+
+  background: linear-gradient(135deg, #f8fbff 0%, #ffffff 100%);
+}
+
+.guide-section h3 {
+  margin: 0 0 10px;
+
+  font-size: 16px;
+  font-weight: 900;
+
+  color: #1d4ed8;
+}
+
+.guide-section ul {
+  margin: 0;
+  padding-left: 22px;
+
+  list-style: none;
+}
+
+.guide-section li {
+  position: relative;
+
+  margin: 8px 0;
+  padding-left: 18px;
+
+  font-size: 0.95em;
+  line-height: 1.7;
+}
+
+.guide-section li::before {
+  content: "•";
+
+  position: absolute;
+  left: 0;
+
+  color: #2563eb;
+  font-weight: 900;
+}
+
+.guide-confirm-button {
+  width: 100%;
+
+  margin-top: 20px;
+  padding: 13px 16px;
+
+  border: none;
+  border-radius: 14px;
+
+  background: #2563eb;
+  color: #ffffff;
+
+  cursor: pointer;
+
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.guide-confirm-button:hover {
+  background: #1d4ed8;
+}
+
+/* =========================
+    Chat Height Expansion
+    (글자 크기 확대 시 채팅창 하단 여백 보정)
+========================= */
+
+.app.font-large .chat-section {
+  height: calc(100vh - 275px);
+}
+
+.app.font-xlarge .chat-section {
+  height: calc(100vh - 265px);
 }

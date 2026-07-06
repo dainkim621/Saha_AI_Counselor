@@ -1,6 +1,11 @@
 import gouni from "../assets/gouni.png";
 
-function Header() {
+type HeaderProps = {
+  // 이용 가이드 버튼을 눌렀을 때 실행할 함수
+  onGuideClick: () => void;
+};
+
+function Header({ onGuideClick }: HeaderProps) {
   return (
     <header className="header">
       {/* 은은한 배경 원형 레이어 */}
@@ -13,6 +18,7 @@ function Header() {
           <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
         </svg>
       </div>
+
       <div className="header-pattern pattern-2">
         <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
@@ -22,7 +28,9 @@ function Header() {
           <polyline points="10 9 9 9 8 9"></polyline>
         </svg>
       </div>
+
       <div className="header-pattern pattern-3">✨</div>
+
       <div className="header-pattern pattern-4">
         <svg width="52" height="52" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <circle cx="12" cy="12" r="10"></circle>
@@ -30,6 +38,7 @@ function Header() {
           <line x1="12" y1="17" x2="12.01" y2="17"></line>
         </svg>
       </div>
+
       {/* 추가 패턴 5: 돋보기 */}
       <div className="header-pattern pattern-5">
         <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -37,6 +46,7 @@ function Header() {
           <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
         </svg>
       </div>
+
       {/* 추가 패턴 6: 체크박스 */}
       <div className="header-pattern pattern-6">
         <svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -44,6 +54,7 @@ function Header() {
           <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
         </svg>
       </div>
+
       {/* 추가 패턴 7: 전구 */}
       <div className="header-pattern pattern-7">
         <svg width="42" height="42" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -57,14 +68,27 @@ function Header() {
         {/* 왼쪽: 타이틀 및 정보 영역 */}
         <div className="header-text">
           <p className="header-kicker">SAHA AI CIVIL SERVICE</p>
+
           <h1>사하구 AI 민원 상담사</h1>
+
           <p className="header-description">
             민원 서류, 신청 절차, 준비물을 쉽고 빠르게 안내해드려요.
           </p>
+
+          {/* 챗봇 주요 특징 뱃지 영역 */}
           <div className="header-badge-list">
             <span className="header-badge">🤖 AI 민원 안내</span>
             <span className="header-badge">📄 서류 · 절차 안내</span>
             <span className="header-badge">🕒 24시간 상담 가능</span>
+            
+            {/* 이용 가이드 모달을 여는 버튼 */}
+            <button
+            type="button"
+            className="header-badge guide-open-button"
+            onClick={onGuideClick}
+            >
+              📖 이용 가이드
+            </button>
           </div>
         </div>
 
@@ -74,8 +98,8 @@ function Header() {
             <p className="bubble-greet">안녕하세요!</p>
             <p className="bubble-main">궁금한 정보를 쉽고 빠르게</p>
             <p className="bubble-highlight">안내해드릴게요.</p>
-  
           </div>
+
           <img src={gouni} alt="인사하는 고우니" className="header-gouni" />
         </div>
       </div>
