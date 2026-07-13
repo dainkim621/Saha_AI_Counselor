@@ -4,16 +4,55 @@ import hashlib
 from datetime import datetime
 from .domains import process_general_docs, process_civil_forms, process_bid_notices, process_waste_guides, process_passport_forms
 from .review import generate_html_dashboard
-# ---------------------------------------------------------------------------
-# [1] 전역 경로 설정 (실제 파일 위치에 맞게 세팅)
-# ---------------------------------------------------------------------------
-DATA_DIR = "data"
-OUTPUT_JSONL = os.path.join(DATA_DIR, "processed", "saha_clean_chunks.jsonl")
-OUTPUT_HTML = os.path.join(DATA_DIR, "processed", "saha_review_dashboard.html")
 
-# ---------------------------------------------------------------------------
-# [3] 상위 마스터 함수 
-# ---------------------------------------------------------------------------
+# ========================================================================
+# [1] 전역 경로 설정 (실제 파일 위치에 맞게 세팅)
+# ========================================================================
+DATA_DIR = "data"
+OUTPUT_JSONL = os.path.join(DATA_DIR, "processed", "saha_clean_chunks.jsonl") # 전처리 파일
+OUTPUT_HTML = os.path.join(DATA_DIR, "processed", "saha_review_dashboard.html") # 전처리 검수용 파일
+
+# ========================================================================
+# [2] 메인 실행 컨트롤러 
+# ========================================================================
+def main():
+    print("🚀 크롤링 데이터 전처리 및 시각화 빌드 가동...")
+    
+    # (1) 각 전처리 파트별 RAW 파일 경로들을 하나의 딕셔너리로 묶어줍니다.
+    # 원하는 파일 말고 다른 파일을 주석처리 해서 원하는 파일의 전처리 결과만 볼 수 있습니다. 
+    file_paths = {
+        "general": os.path.join(DATA_DIR, "raw", "saha_docs.jsonl"),
+        "civil": os.path.join(DATA_DIR, "raw", "saha_civil_forms.jsonl"),
+        "bid": os.path.join(DATA_DIR, "raw", "saha_bid_docs.jsonl"),
+        "waste": os.path.join(DATA_DIR, "raw", "saha_waste_docs.jsonl"),
+        "passport": os.path.join(DATA_DIR, "raw", "passport_forms.jsonl")
+    }
+    
+    # (2) 마스터 파이프라인 함수 호출 - 이 함수 안에서 5개 전처리 함수가 모두 호출되어 각 파일별로 알맹이 데이터가 추출되고,
+    # 이 함수 안에서 파일 유무 체크, 파일 열기, 각 파트별 전처리(다듬기), 
+    # 그리고 최종 create_chunk_object와 append까지 처리됩니다.
+    all_chunks = run_preprocessing_pipeline(file_paths)
+
+    # 3) 파일 저장 처리 (JSONL)
+    if not all_chunks:
+        print("⚠️ 수집된 데이터 청크가 0개입니다. 소스 파일들의 경로('data/')나 위치를 다시 확인해주세요!")
+        return
+
+    os.makedirs(os.path.dirname(OUTPUT_JSONL), exist_ok=True)
+    with open(OUTPUT_JSONL, "w", encoding="utf-8") as out_f:
+        for chunk in all_chunks:
+            out_f.write(json.dumps(chunk, ensure_ascii=False) + "\n")
+            
+    print(f"✅ [1단계 완수] 통합 적재용 JSONL 완료 -> {OUTPUT_JSONL} ({len(all_chunks)}개 청크)")
+
+    # 4) 대시보드 웹 페이지 생성 함수 호출
+    generate_html_dashboard(all_chunks, OUTPUT_HTML)
+    print(f"🖥️  [2단계 완수] 검수용 대시보드 웹 뷰 완료 -> {OUTPUT_HTML}")
+    print("✨ 모든 파이프라인이 성공적으로 완결되었습니다! ^-^")
+    
+# ========================================================================
+# [2] 상위 마스터 함수 
+# =======================================================================
 
 def create_chunk_object(doc_id, chunk_index, **kwargs):
     """
@@ -78,7 +117,7 @@ def run_preprocessing_pipeline(file_paths_dict):
         #  파일이 없을 때 안전하게 넘어가는 예외 처리
         if not os.path.exists(file_path):
             print(f"⚠️ 경고: {file_path} 파일이 존재하지 않아 건너뜁니다.")
-            continue # 다음 파일 처리로 패스!
+            continue # 다음 파일 처리로 패스
             
         # 파일이 안전하게 존재하는 게 확인되었으니 open
         with open(file_path, "r", encoding="utf-8") as f:
@@ -133,43 +172,7 @@ def run_preprocessing_pipeline(file_paths_dict):
     return final_db_ready_chunks
 
 
-# ---------------------------------------------------------------------------
-# [5] 메인 실행 컨트롤러 
-# ---------------------------------------------------------------------------
-def main():
-    print("🚀 크롤링 데이터 전처리 및 시각화 빌드 가동...")
-    
-    # (1) 각 전처리 파트별 RAW 파일 경로들을 하나의 딕셔너리로 묶어줍니다.
-    # 원하는 파일 말고 다른 파일을 주석처리 해서 원하는 파일의 전처리 결과만 볼 수 있습니다. 
-    file_paths = {
-        "general": os.path.join(DATA_DIR, "raw", "saha_docs.jsonl"),
-        "civil": os.path.join(DATA_DIR, "raw", "saha_civil_forms.jsonl"),
-        "bid": os.path.join(DATA_DIR, "raw", "saha_bid_docs.jsonl"),
-        "waste": os.path.join(DATA_DIR, "raw", "saha_waste_docs.jsonl"),
-        "passport": os.path.join(DATA_DIR, "raw", "passport_forms.jsonl")
-    }
-    
-    # (2) 마스터 파이프라인 함수 호출 - 이 함수 안에서 5개 전처리 함수가 모두 호출되어 각 파일별로 알맹이 데이터가 추출되고,
-    # 이 함수 안에서 파일 유무 체크, 파일 열기, 각 파트별 전처리(다듬기), 
-    # 그리고 최종 create_chunk_object와 append까지 처리됩니다.
-    all_chunks = run_preprocessing_pipeline(file_paths)
 
-    # 3) 파일 저장 처리 (JSONL)
-    if not all_chunks:
-        print("⚠️ 수집된 데이터 청크가 0개입니다. 소스 파일들의 경로('data/')나 위치를 다시 확인해주세요!")
-        return
-
-    os.makedirs(os.path.dirname(OUTPUT_JSONL), exist_ok=True)
-    with open(OUTPUT_JSONL, "w", encoding="utf-8") as out_f:
-        for chunk in all_chunks:
-            out_f.write(json.dumps(chunk, ensure_ascii=False) + "\n")
-            
-    print(f"✅ [1단계 완수] 통합 적재용 JSONL 완료 -> {OUTPUT_JSONL} ({len(all_chunks)}개 청크)")
-
-    # 4) 대시보드 웹 페이지 생성 함수 호출
-    generate_html_dashboard(all_chunks, OUTPUT_HTML)
-    print(f"🖥️  [2단계 완수] 검수용 대시보드 웹 뷰 완료 -> {OUTPUT_HTML}")
-    print("✨ 모든 파이프라인이 성공적으로 완결되었습니다! ^-^")
 
 
 if __name__ == "__main__":

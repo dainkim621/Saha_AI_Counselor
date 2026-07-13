@@ -9,5 +9,6 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: saha1234  # 팀 공용 비번
       POSTGRES_DB: saha_db
+      TZ: Asia/Seoul
     volumes:
       - ./postgres_data:/var/lib/postgresql/data
