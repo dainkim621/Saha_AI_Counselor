@@ -147,7 +147,7 @@ def import_chunks():
                     page_type=data.get("page_type", "contents"),
                     source=data.get("source", "saha.go.kr"),
                     menu_path=data.get("menu_path", []),
-                    
+                    published_at=data.get("published_at", None),
                     chunk_text=content_text,
                     chunk_index=data.get("chunk_index", 0),
                     embedding=vector_data,

@@ -36,6 +36,6 @@ class Notice(Base):
     
     # 크롤링 자동화 기능 만들면 주석 해제
     # updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
-    # text_hash = Column(String(64), nullable=True, index=True) #텍스트 해시값/ 내용 변경 감지용 해시 
+    text_hash = Column(String, nullable=True)
     # 5. 벡터 검색 위한 컬럼 (1536차원)
     embedding = Column(Vector(1536))

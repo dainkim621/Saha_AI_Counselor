@@ -54,9 +54,34 @@ def main():
                     
                     # 수정된 문서는 DB에서 청크 날리기
                     # [최종 버전의 올바른 모습]
-                    if change_type == "UPDATED_DOCUMENT" and doc_id not in updated_doc_ids:
-                        delete_chunks_by_doc_id(db, doc_id) # cursor와 cat 대신 db(세션)만 넘김!
-                        updated_doc_ids.add(doc_id)
+                    # [run_delta.py] 수정된 버전
+                    if change_type == "UPDATED_DOCUMENT":
+                        # 1. 이번에 새로 전처리된 청크들 중에서 이 doc_id에 해당하는 것들만 가져옴
+                        # (이미 final_delta_chunks 리스트에 들어있으므로, 거기서 찾아도 됩니다!)
+                        target_chunks = [c for c in final_delta_chunks if c.get("doc_id") == doc_id]
+                        
+                        # 2. DB에 이미 있는 해당 doc_id의 모든 청크들을 가져옴
+                        existing_chunks = db.query(Notice).filter(Notice.doc_id == doc_id).all()
+                        
+                        # 3. 해시값을 비교하여 하나라도 다르면 삭제 후 재적재 수행
+                        # (단순화를 위해 해시 리스트로 비교하거나, chunk_id별로 비교할 수 있습니다)
+                        is_changed = True
+                        
+                        # [간단 버전] 청크 개수가 다르거나, 해시값이 하나라도 다르면 변경된 것으로 간주
+                        if len(target_chunks) == len(existing_chunks):
+                            existing_hashes = sorted([c.text_hash for c in existing_chunks])
+                            new_hashes = sorted([c.get("text_hash") for c in target_chunks])
+                            if existing_hashes == new_hashes:
+                                is_changed = False
+                                
+                        if not is_changed:
+                            print(f"⏩ [패스] 내용 변경 없음 (doc_id: {doc_id})")
+                            continue # 변경사항 없으면 다음 문서로!
+
+                        # 4. 해시가 다를 때만 기존 데이터 삭제 (재적재는 파이프라인 후반부에서 진행)
+                        if doc_id not in updated_doc_ids:
+                            delete_chunks_by_doc_id(db, doc_id)
+                            updated_doc_ids.add(doc_id)
         
         if not target_doc_ids:
             print("💤 오늘 추가/변경된 문서가 없어 파이프라인을 종료합니다.")
