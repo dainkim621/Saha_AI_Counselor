@@ -54,8 +54,8 @@ def insert_delta_chunks(db: Session, chunks_list: list):
                 continue
             
             raw_published_at = data.get("published_at")
-            if not raw_published_at or raw_published_at.strip() == "":
-                raw_published_at = None # 빈 문자열 대신 NULL(None)을 넣음
+            if not raw_published_at or str(raw_published_at).strip() == "":
+                raw_published_at = None
             
             print(f"🔮 임베딩 생성 중 ➡️ {data.get('title', '정보')} ({chunk_id})")
             

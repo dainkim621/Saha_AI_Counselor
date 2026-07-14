@@ -17,7 +17,7 @@ class Notice(Base):
     source = Column(String, default="saha.go.kr")
     title = Column(String, nullable=False)
     author = Column(String) 
-    published_at = Column(Date, nullable=True) # 혹은 DateTime
+    published_at = Column(String, nullable=True) # 혹은 DateTime
     views = Column(Integer, default=0)
     menu_path = Column(JSON)       # ['전자민원', '사하구에 바란다'] 형태 저장
     page_type = Column(String, nullable=True)     # 크롤러 타입 구분용
