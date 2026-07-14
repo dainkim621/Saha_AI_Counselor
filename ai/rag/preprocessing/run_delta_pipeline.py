@@ -4,7 +4,7 @@ import psycopg2
 from ai.rag.preprocessing.preprocess_exe import run_preprocessing_pipeline
 from app.services.import_data import delete_chunks_by_doc_id, insert_delta_chunks
 from app.database import SessionLocal, engine, Base
-
+from app.models import Notice
 DATA_DIR = "data"
 OUTPUT_LATEST_JSONL = os.path.join(DATA_DIR, "processed", "delta", "saha_clean_delta.jsonl") # 전처리 파일
 #OUTPUT_HTML = os.path.join(DATA_DIR, "delta", "delta_review_dashboard.html") # 전처리 검수용 파일
@@ -32,7 +32,7 @@ def main():
         "bid": os.path.join(DATA_DIR, "raw", "saha_bid_docs.jsonl"),
         "waste": os.path.join(DATA_DIR, "raw", "saha_waste_docs.jsonl")
     }
-    
+    final_delta_chunks = []
     try:
         # [1단계] 수정된 문서 ID 수집 및 기존 DB 데이터 삭제
         updated_doc_ids = set()
