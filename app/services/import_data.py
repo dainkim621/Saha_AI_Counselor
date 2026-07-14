@@ -71,6 +71,7 @@ def insert_delta_chunks(db: Session, chunks_list: list):
                 source=data.get("source", "saha.go.kr"),
                 menu_path=data.get("menu_path", []),
                 chunk_text=content_text,
+                text_hash=data.get("text_hash"),
                 chunk_index=data.get("chunk_index", 0),
                 embedding=vector_data, # 생성된 벡터값 쏙 넣기
                 major=data.get("major", ""),
@@ -151,7 +152,7 @@ def import_chunks():
                     chunk_text=content_text,
                     chunk_index=data.get("chunk_index", 0),
                     embedding=vector_data,
-                    
+                    text_hash=data.get("text_hash"),
                     # 수집 데이터 최상위에 평탄화되어 있는 필드들을 안전하게 백업
                     major=data.get("major", ""),
                     minor=data.get("minor", ""),
