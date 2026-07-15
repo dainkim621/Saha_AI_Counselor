@@ -54,8 +54,8 @@ def insert_delta_chunks(db: Session, chunks_list: list):
                 continue
             
             raw_published_at = data.get("published_at")
-            if not raw_published_at: # null이거나 빈 문자열("")이면
-                raw_published_at = datetime.now().strftime("%Y-%m-%d") # "2026-07-14" 형태로 생성
+            if not raw_published_at or str(raw_published_at).strip() == "":
+                raw_published_at = None
             
             print(f"🔮 임베딩 생성 중 ➡️ {data.get('title', '정보')} ({chunk_id})")
             
@@ -71,6 +71,7 @@ def insert_delta_chunks(db: Session, chunks_list: list):
                 source=data.get("source", "saha.go.kr"),
                 menu_path=data.get("menu_path", []),
                 chunk_text=content_text,
+                text_hash=data.get("text_hash"),
                 chunk_index=data.get("chunk_index", 0),
                 embedding=vector_data, # 생성된 벡터값 쏙 넣기
                 major=data.get("major", ""),
@@ -151,7 +152,7 @@ def import_chunks():
                     chunk_text=content_text,
                     chunk_index=data.get("chunk_index", 0),
                     embedding=vector_data,
-                    
+                    text_hash=data.get("text_hash"),
                     # 수집 데이터 최상위에 평탄화되어 있는 필드들을 안전하게 백업
                     major=data.get("major", ""),
                     minor=data.get("minor", ""),
