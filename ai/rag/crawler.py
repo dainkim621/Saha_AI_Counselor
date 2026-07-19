@@ -52,6 +52,12 @@ HEADERS = {
         "Chrome/124.0.0.0 Safari/537.36"
     )
 }
+# 제외 URL
+EXCLUDED_URL_KEYWORDS = [
+    "mId=0203000000",  # 신고센터 시작 페이지에서 친절공무원 추천으로 연결되는 경우
+    "mId=0203010000",  # 친절공무원 추천 메뉴 및 게시판 전체
+]
+
 # 제외 키워드
 SHORTCUT_DENY_TEXTS = [
     "블로그", "인스타그램", "페이스북", "카카오",
@@ -573,24 +579,59 @@ def extract_title(soup):
                 return candidate
     return ""
 
-
 def extract_metadata(soup):
     full_text = soup.get_text("\n", strip=True)
 
     department = ""
+    phone = ""
     date = ""
     views = None
 
-    dept_patterns = [
-        r"담당부서\s*[:：]?\s*([^\n|]+)",
-        r"콘텐츠\s*관리부서\s*[:：]?\s*([^\n|]+)",
-        r"작성자\s*[:：]?\s*([^\n|]+)",
-    ]
-    for pattern in dept_patterns:
-        m = re.search(pattern, full_text)
-        if m:
-            department = clean_inline(m.group(1))
-            break
+    # contents.do 페이지 하단 형식:
+    # 담당자
+    # 민원여권과 (051-220-4815)
+    manager_match = re.search(
+        r"담당자\s*\n?\s*"
+        r"([가-힣A-Za-z0-9·ㆍ\s]+?)"
+        r"\s*\(\s*(0\d{1,2}-\d{3,4}-\d{4})\s*\)",
+        full_text
+    )
+
+    if manager_match:
+        department = clean_inline(manager_match.group(1))
+        phone = clean_inline(manager_match.group(2))
+
+    # 위 형식으로 찾지 못했을 때 기존 패턴 사용
+    if not department:
+        dept_patterns = [
+            r"담당부서\s*[:：]?\s*([^\n|()]+)",
+            r"콘텐츠\s*관리부서\s*[:：]?\s*([^\n|()]+)",
+            r"작성자\s*[:：]?\s*([^\n|()]+)",
+        ]
+
+        for pattern in dept_patterns:
+            match = re.search(pattern, full_text)
+
+            if match:
+                department = clean_inline(match.group(1))
+                break
+
+    # 부서와 함께 전화번호를 찾지 못한 경우에만 담당자 영역에서 재검색
+    if not phone:
+        manager_area_match = re.search(
+            r"담당자\s*(.{0,150}?)최근업데이트",
+            full_text,
+            re.DOTALL
+        )
+
+        if manager_area_match:
+            phone_match = re.search(
+                r"(0\d{1,2}-\d{3,4}-\d{4})",
+                manager_area_match.group(1)
+            )
+
+            if phone_match:
+                phone = phone_match.group(1)
 
     date_patterns = [
         r"최근업데이트\s*[:：]?\s*((?:20\d{2})[./-]\s*\d{1,2}[./-]\s*\d{1,2})",
@@ -599,24 +640,29 @@ def extract_metadata(soup):
         r"작성일\s*[:：]?\s*((?:20\d{2})[./-]\s*\d{1,2}[./-]\s*\d{1,2})",
         r"게시일\s*[:：]?\s*((?:20\d{2})[./-]\s*\d{1,2}[./-]\s*\d{1,2})",
     ]
+
     for pattern in date_patterns:
-        m = re.search(pattern, full_text)
-        if m:
-            date = normalize_date(m.group(1))
+        match = re.search(pattern, full_text)
+
+        if match:
+            date = normalize_date(match.group(1))
             break
 
     view_patterns = [
         r"조회수\s*[:：]?\s*([\d,]+)",
         r"조회\s*[:：]?\s*([\d,]+)",
     ]
+
     for pattern in view_patterns:
-        m = re.search(pattern, full_text)
-        if m:
-            views = normalize_views(m.group(1))
+        match = re.search(pattern, full_text)
+
+        if match:
+            views = normalize_views(match.group(1))
             break
 
     return {
         "department": department,
+        "phone": phone,
         "date": date,
         "views": views,
     }
@@ -1447,9 +1493,78 @@ def make_change_summary(old_text, new_text, max_changes=20):
             r"\1",
             text
         )
+        # 목록 번호(No.)는 변경 비교 대상에서 제외
+        text = re.sub(
+            r"(?m)^\s*\d+\s*\|\s*(.+?\|\s*.+?\|\s*\d{4}\.\d{2}\.\d{2})\s*$",
+            r"\1",
+            text
+        )
         text = re.sub(r"조회수\s*[:：]?\s*\d+", "", text)
         text = re.sub(r"조회\s*[:：]?\s*\d+", "", text)
         return text
+
+    def extract_board_rows(text):
+        rows = []
+
+        pattern = re.compile(
+            r"(?m)^\s*(\d+)\s*\|\s*(.+?)\s*\|\s*(.+?)\s*\|\s*(\d{4}\.\d{2}\.\d{2})(?:\s*\|\s*\d+)?\s*$"
+        )
+
+        for m in pattern.finditer(text or ""):
+            rows.append({
+                "number": m.group(1),
+                "title": clean_inline(m.group(2)),
+                "department": clean_inline(m.group(3)),
+                "date": m.group(4),
+            })
+
+        return rows
+
+    # Total 개수가 줄었거나 특정 제목이 사라진 경우 “삭제 가능성”으로 알려줌
+    def make_board_change_summary(old_text, new_text):
+        old_rows = extract_board_rows(old_text)
+        new_rows = extract_board_rows(new_text)
+
+        if not old_rows or not new_rows:
+            return []
+
+        old_keys = {
+            (r["title"], r["department"], r["date"]): r
+            for r in old_rows
+        }
+
+        new_keys = {
+            (r["title"], r["department"], r["date"]): r
+            for r in new_rows
+        }
+
+        changes = []
+
+        for key, old_row in old_keys.items():
+            if key not in new_keys:
+                changes.append({
+                    "type": "removed",
+                    "field": "게시판 목록",
+                    "message": "게시글이 목록에서 사라졌습니다. 삭제, 비공개, 이동 처리되었을 가능성이 있습니다.",
+                    "old": f"{old_row['number']} | {old_row['title']} | {old_row['department']} | {old_row['date']}",
+                })
+
+        for key, new_row in new_keys.items():
+            if key not in old_keys:
+                changes.append({
+                    "type": "added",
+                    "field": "게시판 목록",
+                    "message": "게시글이 목록에 새로 추가되었습니다.",
+                    "new": f"{new_row['number']} | {new_row['title']} | {new_row['department']} | {new_row['date']}",
+                })
+
+        return changes
+
+    board_changes = make_board_change_summary(old_text, new_text)
+
+    if board_changes:
+        return board_changes
+
     old_text = normalize_for_compare(old_text)
     new_text = normalize_for_compare(new_text)
 
@@ -1598,6 +1713,8 @@ def make_content_hash(text):
 
     # 단독 숫자 줄 제거: 조회수만 따로 추출된 경우
     text = re.sub(r"(?m)^\s*\d+\s*$", "", text)
+    
+
 
     # 게시판 목록형 행의 마지막 조회수 제거
     # 예: 3154 | 제목 | 환경과 | 2026.06.24 | 37
@@ -1606,6 +1723,12 @@ def make_content_hash(text):
         r"\1",
         text
     )
+    # 목록 번호(No.)는 변경 비교 대상에서 제외
+    text = re.sub(
+        r"(?m)^\s*\d+\s*\|\s*(.+?\|\s*.+?\|\s*\d{4}\.\d{2}\.\d{2})\s*$",
+        r"\1",
+        text
+    )   
 
     text = re.sub(r"조회수\s*[:：]?\s*\d+", "", text)
     text = re.sub(r"조회\s*[:：]?\s*\d+", "", text)
@@ -1767,8 +1890,14 @@ def make_doc(url, parent_url, anchor_text, menu_path, html, extra_meta=None):
         "page_type": page_type,
         "title": extra_meta.get("title") or title,
         "department": extra_meta.get("department") or metadata.get("department", ""),
+        "author": extra_meta.get("department") or metadata.get("department", ""),
+        "phone": extra_meta.get("phone") or metadata.get("phone", ""),
         "date": extra_meta.get("date") or metadata.get("date", ""),
-        "views": extra_meta.get("views") if extra_meta.get("views") is not None else metadata.get("views"),
+        "views": (
+            extra_meta.get("views")
+            if extra_meta.get("views") is not None
+            else metadata.get("views")
+        ),
         "sections": sections,
         "shortcut_links": shortcut_links,
         "attachments": attachments,
@@ -1821,6 +1950,10 @@ def crawl():
                 parent_url = item.get("parent_url", "")
                 anchor_text = item.get("anchor_text", "")
                 menu_path = item.get("menu_path", [])
+
+                if any(keyword in url for keyword in EXCLUDED_URL_KEYWORDS):
+                    print(f"[EXCLUDED] {url}")
+                    continue
 
                 if url in visited:
                     continue
@@ -2089,6 +2222,10 @@ def crawl():
         
                 for link in links:
                     link_url = link["url"]
+
+                    if any(keyword in link_url for keyword in EXCLUDED_URL_KEYWORDS):
+                        print(f"  제외 URL: {link_url}")
+                        continue
 
                     if link_url not in visited and link_url not in queued:
                         queue.append(link)
