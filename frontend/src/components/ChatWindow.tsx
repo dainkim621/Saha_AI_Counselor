@@ -88,7 +88,13 @@ function ChatWindow({ messages, isLoading, similarityScore }: ChatWindowProps) {
                   </div>
 
                   <p className="similarity-desc">
-                    질문과 참고 문서가 얼마나 잘 맞는지 보여주는 값입니다.
+                    {similarityScore === null
+                      ? "유사도 계산 중입니다."
+                      : similarityScore >= 80
+                      ? "✅ 신뢰할 수 있는 정보입니다."
+                      : similarityScore >= 60
+                      ? "🟡 참고할 수 있는 정보입니다."
+                      : "⚠️ 참고 문서와의 유사도가 낮습니다."}
                   </p>
                 </div>
               </div>
@@ -142,8 +148,11 @@ function ChatWindow({ messages, isLoading, similarityScore }: ChatWindowProps) {
                       </div>
 
                       <p className="similarity-desc">
-                        질문과 참고 문서가 얼마나 잘 맞는지 보여주는
-                        값입니다.
+                        {message.similarityScore >= 80
+                          ? "✅ 신뢰할 수 있는 정보입니다."
+                          : message.similarityScore >= 60
+                          ? "🟡 참고할 수 있는 정보입니다."
+                          : "⚠️ 참고 문서와의 유사도가 낮습니다."}
                       </p>
                     </div>
                   )}
