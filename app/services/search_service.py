@@ -103,7 +103,7 @@ def get_similar_chunks(query: str, top_k: int = 3): # k값을 조금 늘려주�
         print("DEBUG: ❌ 검색 결과가 없습니다!")
 
     db.close()
-    return final_output
+    return final_output, query_embedding
 
 def search_notices(query_embedding, db):
     # 유사도 임계값(Threshold) 설정 
