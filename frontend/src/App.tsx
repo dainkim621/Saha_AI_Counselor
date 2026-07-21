@@ -5,6 +5,7 @@ import Header from "./components/Header";
 import MascotCard from "./components/MascotCard";
 import ChatWindow from "./components/ChatWindow";
 import ChatInput from "./components/ChatInput";
+import QuickMenu from "./components/QuickMenu";
 
 // FastAPI 백엔드 서버 주소
 const BACKEND_URL = "http://localhost:8000";
@@ -28,6 +29,16 @@ const fontModes = [
 
 // 화면에 표시되는 글자 크기 이름
 const fontLabels = ["아주 작게", "작게", "기본", "크게", "아주 크게"];
+
+// 현재 화면에 표시할 FAQ 목록
+// (현재는 임시 데이터이며,
+// 추후 백엔드에서 주간 FAQ를 받아오면 이 부분만 변경하면 됨)
+const quickQuestions = [
+  "전입신고는 어떻게 하나요?",
+  "여권 발급에 필요한 서류는 무엇인가요?",
+  "무인민원발급기는 어디에 있나요?",
+  "대형폐기물 배출은 어떻게 신청하나요?",
+];
 
 function App() {
   // 채팅 메시지 목록
@@ -526,6 +537,15 @@ function App() {
       <main className="main-layout">
         <section className="left-section">
           <MascotCard />
+
+          <QuickMenu
+            // 화면에 표시할 FAQ 질문 목록 전달
+            questions={quickQuestions}
+            // FAQ 버튼을 누르면 해당 질문을 바로 챗봇에 전송
+            onSelect={sendMessage}
+            // 챗봇이 답변 생성 중일 때는 FAQ 버튼 비활성화
+            disabled={isLoading}
+          />
         </section>
 
         <section className="chat-section">
