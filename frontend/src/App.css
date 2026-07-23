@@ -672,43 +672,115 @@
     Quick Menu
 ========================= */
 
+/* 자주 묻는 질문 전체 카드 */
 .quick-menu {
-  background-color: white;
+  background-color: #ffffff;
+
   border-radius: 20px;
-  padding: 18px;
   border: 1px solid #e5e7eb;
+
+  padding: 18px;
+
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.04);
 }
 
-.quick-menu h3 {
-  margin: 8px 0;
+/* 제목과 최근 7일 기준을 감싸는 영역 */
+.quick-menu-header {
+  display: flex;
+  flex-direction: column;
+
+  gap: 6px;
+
+  margin-bottom: 12px;
 }
 
+/* 이번 주 자주 묻는 질문 제목 */
+.quick-menu-header h3 {
+  margin: 0;
+
+  font-size: 16px;
+  font-weight: 800;
+  line-height: 1.4;
+
+  color: #111827;
+}
+
+/* 최근 7일 기준 문구 */
+.quick-menu-header span {
+  font-size: 13px;
+  font-weight: 500;
+
+  color: #64748b;
+}
+
+/* 질문 버튼 목록 */
 .quick-button-list {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+
+  gap: 9px;
 }
 
+/* 각 질문 버튼 */
 .quick-button-list button {
-  padding: 12px 14px;
+  display: flex;
+  align-items: flex-start;
+
+  width: 100%;
+
+  padding: 12px 13px;
 
   border: 1px solid #d1d5db;
-  background-color: #f9fafb;
-
   border-radius: 12px;
+
+  background-color: #f9fafb;
+  color: #1f2937;
 
   cursor: pointer;
   text-align: left;
 
   font-size: 14px;
+  font-weight: 500;
   line-height: 1.5;
 
-  transition: 0.2s;
+  transition:
+    background-color 0.2s,
+    border-color 0.2s,
+    transform 0.2s;
 }
 
-.quick-button-list button:hover {
-  background-color: #eef2ff;
+/* 질문 버튼에 마우스를 올렸을 때 */
+.quick-button-list button:hover:not(:disabled) {
+  background-color: #eff6ff;
   border-color: #93c5fd;
+
+  transform: translateY(-1px);
+}
+
+/* 답변 생성 중 비활성화 상태 */
+.quick-button-list button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* 질문 내용 */
+.quick-question-text {
+  flex: 1;
+  min-width: 0;
+
+  word-break: keep-all;
+  overflow-wrap: break-word;
+}
+
+/* 질문이 하나도 없을 때 표시되는 안내 문구 */
+.quick-menu-empty {
+  margin: 0;
+  padding: 12px 0;
+
+  font-size: 13px;
+  line-height: 1.5;
+
+  color: #64748b;
 }
 
 /* =========================
