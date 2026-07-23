@@ -31,7 +31,7 @@ OUTPUT_CHANGE_HISTORY_FILE = os.path.join(HISTORY_DIR, "bid_change_history.jsonl
 # 변경 감지 기록 
 STATE_FILE = "data/state/bid_crawl_state.json"
 
-MAX_LIST_PAGES = 5
+MAX_LIST_PAGES = 1  # 매일 최대 10개의 정보 확인 
 REQUEST_DELAY = 0.7
 TIMEOUT = 15
 
@@ -62,6 +62,19 @@ def clean_inline(text):
     text = clean_text(text)
     return re.sub(r"\s+", " ", text).strip()
 
+# 현재년도 확인 함수
+def is_current_year_bid(date_text):
+    if not date_text:
+        return False
+
+    current_year = time.strftime("%Y")
+
+    match = re.search(r"\b(20\d{2})\b", str(date_text))
+
+    if not match:
+        return False
+
+    return match.group(1) == current_year
 
 def make_id(url):
     return hashlib.md5(url.encode("utf-8")).hexdigest()
@@ -253,6 +266,52 @@ def append_change_history(doc):
     with open(OUTPUT_CHANGE_HISTORY_FILE, "a", encoding="utf-8") as f:
         f.write(json.dumps(history_item, ensure_ascii=False) + "\n")
 
+# 삭제된 입찰정보 기록용 
+def append_deleted_bid_history(doc, reason):
+    if reason == "OLD_YEAR":
+        change_reason = "현재 연도가 아닌 입찰정보이므로 저장 대상에서 제외"
+        message = (
+            "현재 연도 공고가 아니므로 입찰정보 데이터에서 제거되었습니다."
+        )
+    else:
+        change_reason = "현재 입찰정보 목록에서 공고가 사라짐"
+        message = (
+            "입찰정보 목록에서 공고가 사라졌습니다. "
+            "공고 기간 종료 또는 사이트 삭제 처리 가능성이 있습니다."
+        )
+
+    history_item = {
+        "detected_at": time.strftime("%Y-%m-%d %H:%M:%S"),
+        "change_type": "DELETED_DOCUMENT",
+        "change_reason": change_reason,
+        "title": doc.get("title", ""),
+        "url": doc.get("url", ""),
+        "doc_id": doc.get("doc_id", ""),
+        "page_type": doc.get("page_type", ""),
+        "category": doc.get("category", ""),
+        "notice_id": doc.get("notice_id", ""),
+        "notice_no": doc.get("notice_no", ""),
+        "department": doc.get("department", ""),
+        "change_summary": [
+            {
+                "type": "removed",
+                "field": "document",
+                "message": message,
+            }
+        ],
+    }
+
+    os.makedirs(
+        os.path.dirname(OUTPUT_CHANGE_HISTORY_FILE),
+        exist_ok=True,
+    )
+
+    with open(
+        OUTPUT_CHANGE_HISTORY_FILE,
+        "a",
+        encoding="utf-8",
+    ) as f:
+        f.write(json.dumps(history_item, ensure_ascii=False) + "\n")
 
 def fetch(session, url):
     response = session.get(url, headers=HEADERS, timeout=TIMEOUT)
@@ -590,7 +649,16 @@ def crawl_bid_pages():
 
     changed = 0
     unchanged = 0
+    deleted = 0
+
+    # 현재 사이트에 실제로 남아 있는 공고 판별용
+    current_notice_ids = set()
+
+    # 중복 방문 방지용
     visited_notice_ids = set()
+
+    # 목록 요청이 한 번이라도 정상적으로 성공했는지 확인
+    list_crawl_succeeded = False
 
     start_html = fetch(session, START_URL)
 
@@ -607,6 +675,7 @@ def crawl_bid_pages():
 
             try:
                 list_html = fetch_list_page(session, page)
+                list_crawl_succeeded = True
 
             except Exception as e:
                 print(f"  목록 요청 실패: {e}")
@@ -624,6 +693,9 @@ def crawl_bid_pages():
 
             for link in detail_links:
                 notice_id = link["notice_id"]
+
+                # 현재 입찰정보 목록에 존재하는 공고로 기록
+                current_notice_ids.add(notice_id)
 
                 if notice_id in visited_notice_ids:
                     continue
@@ -648,6 +720,12 @@ def crawl_bid_pages():
                     doc["notice_id"] = notice_id
                     doc["source_url"] = START_URL
                     doc["list_url"] = LIST_URL
+                    if not is_current_year_bid(doc.get("date", "")):
+                        print(
+                            f"    저장 안 함: 현재 연도 공고 아님 "
+                            f"({doc.get('date', '작성일 없음')})"
+                        )
+                        continue
 
                 except Exception as e:
                     print(f"    상세 요청 실패: {e}")
@@ -691,13 +769,61 @@ def crawl_bid_pages():
 
             time.sleep(REQUEST_DELAY)
 
+
+    # 현재 입찰정보 목록에서 사라진 기존 공고 삭제 
+    # 1. 2026년 이전 연도 공고 2. 현재 연도지만 현재 사이트 목록에서 사라진 공고
+    if list_crawl_succeeded:
+        removed_doc_ids = []
+
+        removed_docs = {}
+
+        for doc_id, old_doc in existing_docs.items():
+            old_notice_id = str(
+                old_doc.get("notice_id", "")
+            ).strip()
+
+            old_date = old_doc.get("date", "")
+
+            if not is_current_year_bid(old_date):
+                removed_docs[doc_id] = "OLD_YEAR"
+                continue
+
+            if old_notice_id and old_notice_id not in current_notice_ids:
+                removed_docs[doc_id] = "NOT_IN_LIST"
+        # 삭제실행
+        for doc_id, delete_reason in removed_docs.items():
+            removed_doc = existing_docs.pop(doc_id)
+
+            removed_url = removed_doc.get("url", "")
+
+            if removed_url:
+                crawl_state.pop(removed_url, None)
+
+            append_deleted_bid_history(
+                removed_doc,
+                delete_reason,
+            )
+
+            deleted += 1
+
+            print(
+                f"    입찰공고 삭제: "
+                f"{removed_doc.get('title', '')} "
+                f"[{delete_reason}]"
+            )
+    else:
+        print(
+            "목록 수집에 성공하지 못해 "
+            "기존 입찰공고 삭제를 수행하지 않습니다."
+        )
     save_existing_docs(OUTPUT_FILE, existing_docs)
     save_json_file(STATE_FILE, crawl_state)
 
     print("\n입찰정보 크롤링 완료")
-    print(f"- 전체 문서 수: {len(existing_docs)}")
+    print(f"- 현재 유효 입찰공고 수: {len(existing_docs)}")
     print(f"- 신규/수정 문서 수: {changed}")
     print(f"- 변경 없음: {unchanged}")
+    print(f"- 목록에서 삭제된 종료 공고 수: {deleted}")
     print(f"- 전체 파일: {OUTPUT_FILE}")
     print(f"- 변경분 파일: {OUTPUT_DELTA_FILE}")
     print(f"- 변경 이력 파일: {OUTPUT_CHANGE_HISTORY_FILE}")
