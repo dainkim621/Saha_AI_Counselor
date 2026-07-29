@@ -293,7 +293,7 @@ def extract_title(soup, fallback_title):
             return parts[0]
     return fallback_title
 
-
+# 페이지 하단의 담당자 정보, 최근 업데이트 날짜, 조회수를 추출
 def extract_metadata(soup):
     full_text = soup.get_text("\n", strip=True)
 
@@ -302,34 +302,61 @@ def extract_metadata(soup):
     date = ""
     views = ""
 
-    # 담당부서/과
-    m = re.search(
-        r"(?:담당부서|부서)\s*[:：]?\s*([^\n]+)",
-        full_text
+    # 1. 담당자 영역에서 부서명과 전화번호 함께 추출
+    # 예: 담당자\n자원순환과 (051-220-4432)
+    manager_match = re.search(
+        r"담당자\s*\n+\s*"
+        r"([^\n()]+?)"
+        r"\s*\(\s*"
+        r"(0\d{1,2}-\d{3,4}-\d{4})"
+        r"\s*\)",
+        full_text,
     )
-    if m:
-        department = clean_inline(m.group(1))
 
-    # 전화번호
-    m = re.search(
-        r"(0\d{1,2}-\d{3,4}-\d{4})",
-        full_text
+    if manager_match:
+        department = clean_inline(manager_match.group(1))
+        phone = manager_match.group(2)
+
+    # 2. HTML 변환 과정에서 줄바꿈이 사라진 경우 보조 처리
+    # 예: 담당자 자원순환과 (051-220-4432)
+
+    if not department:
+        manager_match = re.search(
+            r"담당자\s*[:：]?\s*"
+            r"([가-힣A-Za-z0-9·\s]+?)"
+            r"\s*\(\s*"
+            r"(0\d{1,2}-\d{3,4}-\d{4})"
+            r"\s*\)",
+            full_text,
+        )
+
+        if manager_match:
+            department = clean_inline(manager_match.group(1))
+            phone = manager_match.group(2)
+
+    # 3. 최근 업데이트 날짜
+    date_match = re.search(
+        r"(?:최근업데이트|최종수정일|수정일)"
+        r"\s*[:：]?\s*"
+        r"((?:20\d{2})[./-]\s*\d{1,2}[./-]\s*\d{1,2})",
+        full_text,
     )
-    if m:
-        phone = m.group(1)
 
-    # 수정일
-    m = re.search(
-        r"(최근업데이트|최종수정일|수정일)\s*[:：]?\s*((?:20\d{2})[./-]\s*\d{1,2}[./-]\s*\d{1,2})",
-        full_text
+    if date_match:
+        date = (
+            date_match.group(1)
+            .replace(".", "-")
+            .replace("/", "-")
+        )
+
+    # 4. 조회수
+    views_match = re.search(
+        r"조회수\s*[:：]?\s*([\d,]+)",
+        full_text,
     )
-    if m:
-        date = m.group(2).replace(".", "-").replace("/", "-")
 
-    # 조회수
-    m = re.search(r"조회수\s*[:：]?\s*([\d,]+)", full_text)
-    if m:
-        views = m.group(1).replace(",", "")
+    if views_match:
+        views = views_match.group(1).replace(",", "")
 
     return {
         "department": department,

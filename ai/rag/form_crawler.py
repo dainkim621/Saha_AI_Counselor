@@ -595,7 +595,7 @@ def crawl_recent_civil_forms():
     unchanged = 0
 
     START_CIVIL_ID = 2200  # 여기조절 
-    END_CIVIL_ID = 2100
+    END_CIVIL_ID = 1300 # 최소 id, 여기서 더 안내려감
 
     with open(OUTPUT_DELTA_FILE, "w", encoding="utf-8") as delta_out:
         for civil_id in range(START_CIVIL_ID, END_CIVIL_ID - 1, -1):
