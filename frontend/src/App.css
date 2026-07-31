@@ -1166,6 +1166,93 @@
 .app.font-large .message-bubble { font-size: 20px; }
 .app.font-xlarge .message-bubble { font-size: 24px; }
 
+/* =========================
+    Feedback Font Size
+========================= */
+
+/* 만족도 질문 */
+.app.font-xsmall .feedback-question {
+  font-size: 13px;
+}
+
+.app.font-small .feedback-question {
+  font-size: 14px;
+}
+
+.app.font-normal .feedback-question {
+  font-size: 16px;
+}
+
+.app.font-large .feedback-question {
+  font-size: 20px;
+}
+
+.app.font-xlarge .feedback-question {
+  font-size: 24px;
+}
+
+/* 만족 / 불만족 버튼 */
+.app.font-xsmall .feedback-button {
+  font-size: 13px;
+}
+
+.app.font-small .feedback-button {
+  font-size: 14px;
+}
+
+.app.font-normal .feedback-button {
+  font-size: 16px;
+}
+
+.app.font-large .feedback-button {
+  font-size: 20px;
+}
+
+.app.font-xlarge .feedback-button {
+  font-size: 24px;
+}
+
+/* 불만족 사유 */
+.app.font-xsmall .feedback-reason-title,
+.app.font-xsmall .feedback-reason-button,
+.app.font-xsmall .feedback-complete-message {
+  font-size: 13px;
+}
+
+.app.font-small .feedback-reason-title,
+.app.font-small .feedback-reason-button,
+.app.font-small .feedback-complete-message {
+  font-size: 14px;
+}
+
+.app.font-normal .feedback-reason-title,
+.app.font-normal .feedback-reason-button,
+.app.font-normal .feedback-complete-message {
+  font-size: 16px;
+}
+
+.app.font-large .feedback-reason-title,
+.app.font-large .feedback-reason-button,
+.app.font-large .feedback-complete-message {
+  font-size: 20px;
+}
+
+.app.font-xlarge .feedback-reason-title,
+.app.font-xlarge .feedback-reason-button,
+.app.font-xlarge .feedback-complete-message {
+  font-size: 24px;
+}
+
+.app.font-large .feedback-button,
+.app.font-large .feedback-reason-button {
+  min-height: 46px;
+}
+
+.app.font-xlarge .feedback-button,
+.app.font-xlarge .feedback-reason-button {
+  min-height: 52px;
+}
+
 /* Input */
 .app.font-xsmall .chat-input-box input { font-size: 13px; }
 .app.font-small .chat-input-box input { font-size: 14px; }
@@ -1537,16 +1624,29 @@
 
 /* 답변 아래에 표시되는 만족도 평가 전체 영역 */
 .answer-feedback {
-  margin-top: 18px;
-  padding-top: 14px;
-  border-top: 1px solid #e5e7eb;
+  margin-top: 24px;
+
+  /* 위쪽 구분선과 내용 사이 간격 */
+  padding-top: 18px;
+
+  /* 위의 마크다운 본문 시작 위치와 맞춤 */
+  padding-left: 12px;
+  padding-right: 16px;
+
+  border-top: 1px solid #dbe3ec;
+  border-left: none;
+  border-right: none;
+  border-bottom: none;
+  border-radius: 0;
+
+  background-color: transparent;
 }
 
 /* "이 답변이 도움이 되었나요?" 문구 */
 .feedback-question {
-  margin: 0 0 10px;
+  margin: 0 0 12px;
   font-size: 14px;
-  font-weight: 600;
+  font-weight: 700;
   color: #4b5563;
 }
 
@@ -1559,14 +1659,14 @@
 
 /* 만족·불만족 버튼 공통 디자인 */
 .feedback-button {
-  min-height: 40px;
-  padding: 8px 14px;
+  min-height: 36px;
+  padding: 7px 12px;
   border: 1px solid #d1d5db;
-  border-radius: 10px;
+  border-radius: 9px;
   background-color: #ffffff;
   color: #374151;
   font-family: inherit;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 600;
   cursor: pointer;
   transition:

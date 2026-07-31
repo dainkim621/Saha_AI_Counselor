@@ -197,7 +197,11 @@ function ChatWindow({
    * 만족도 평가를 저장할 때 질문과 답변을 함께 저장하기 위해 사용함
    */
   const findPreviousUserQuestion = (assistantMessageIndex: number) => {
-    for (let index = assistantMessageIndex - 1; index >= 0; index -= 1) {
+    for (
+      let index = assistantMessageIndex - 1;
+      index >= 0;
+      index -= 1
+    ) {
       if (messages[index].role === "user") {
         return messages[index].content;
       }
@@ -341,10 +345,57 @@ function ChatWindow({
          *
          * 아직 평가하지 않은 메시지는 기본 상태를 사용함
          */
-        const currentFeedback: FeedbackState = feedbackStates[index] ?? {
-          showReasons: false,
-          submitted: false,
-        };
+        const currentFeedback: FeedbackState =
+          feedbackStates[index] ?? {
+            showReasons: false,
+            submitted: false,
+          };
+
+        /*
+         * 현재 챗봇 답변보다 앞에 사용자 질문이 있는지 확인
+         *
+         * 처음 표시되는 인사 메시지는 앞에 사용자 질문이 없기 때문에
+         * 만족도 평가가 표시되지 않음
+         */
+        const previousUserQuestion =
+          findPreviousUserQuestion(index);
+
+        /*
+         * 현재 메시지가 전체 메시지 중 마지막 메시지인지 확인
+         *
+         * 답변 스트리밍 중인 메시지는 일반적으로
+         * 메시지 목록의 마지막에 위치함
+         */
+        const isLastMessage =
+          index === messages.length - 1;
+
+        /*
+         * 현재 마지막 챗봇 답변이 생성 중인지 확인
+         *
+         * isLoading이 true인 동안에는 답변 글자가
+         * 스트리밍 방식으로 출력되고 있는 상태임
+         */
+        const isCurrentAnswerStreaming =
+          message.role === "assistant" &&
+          isLastMessage &&
+          isLoading;
+
+        /*
+         * 만족도 평가 영역을 표시할 조건
+         *
+         * 1. 챗봇이 작성한 메시지여야 함
+         * 2. 해당 답변 앞에 사용자 질문이 있어야 함
+         * 3. 답변 내용이 비어 있지 않아야 함
+         * 4. 현재 답변이 스트리밍 중인 상태가 아니어야 함
+         *
+         * 따라서 처음 인사 메시지와 답변 생성 중에는
+         * 만족도 평가가 표시되지 않음
+         */
+        const shouldShowFeedback =
+          message.role === "assistant" &&
+          previousUserQuestion.trim() !== "" &&
+          message.content.trim() !== "" &&
+          !isCurrentAnswerStreaming;
 
         /*
          * 챗봇 메시지는 생성되었지만 아직 답변 내용이 없는 경우
@@ -357,7 +408,10 @@ function ChatWindow({
           (!message.files || message.files.length === 0)
         ) {
           return (
-            <div key={index} className="message-row assistant-row">
+            <div
+              key={index}
+              className="message-row assistant-row"
+            >
               {/* 답변 생성 중인 챗봇 프로필 이미지 */}
               <img
                 src={gouni}
@@ -367,7 +421,9 @@ function ChatWindow({
 
               <div className="message-bubble assistant-bubble loading-bubble">
                 {/* 답변 생성 중임을 사용자에게 안내 */}
-                <div className="loading-text">답변 준비중...</div>
+                <div className="loading-text">
+                  답변 준비중...
+                </div>
 
                 {/* 현재 계산 중인 참고 정보 매칭도 */}
                 <div className="similarity-card similarity-card-fixed">
@@ -391,7 +447,10 @@ function ChatWindow({
                         width:
                           similarityScore !== null
                             ? `${Math.min(
-                                Math.max(similarityScore, 0),
+                                Math.max(
+                                  similarityScore,
+                                  0
+                                ),
                                 100
                               )}%`
                             : "0%",
@@ -416,7 +475,7 @@ function ChatWindow({
         }
 
         /*
-         * 사용자 메시지 또는 생성이 완료된 챗봇 메시지를 출력
+         * 사용자 메시지 또는 내용이 있는 챗봇 메시지를 출력
          */
         return (
           <div
@@ -451,7 +510,12 @@ function ChatWindow({
                  * 만족도 평가 기능을 포함함
                  */
                 <div className="markdown-content">
-                  {/* 해당 메시지에 저장된 유사도 점수가 있는 경우 표시 */}
+                  {/*
+                   * 해당 메시지에 저장된 유사도 점수가 있는 경우 표시
+                   *
+                   * 유사도 카드는 답변 스트리밍 중에도
+                   * 기존과 동일하게 답변 위쪽에 먼저 표시됨
+                   */}
                   {message.similarityScore !== undefined && (
                     <div className="similarity-card similarity-card-fixed">
                       <div className="similarity-card-header">
@@ -470,7 +534,10 @@ function ChatWindow({
                           className="similarity-bar-fill"
                           style={{
                             width: `${Math.min(
-                              Math.max(message.similarityScore, 0),
+                              Math.max(
+                                message.similarityScore,
+                                0
+                              ),
                               100
                             )}%`,
                           }}
@@ -502,9 +569,12 @@ function ChatWindow({
                        * 별도의 CSS 클래스를 적용
                        */
                       strong: ({ children }) => {
-                        const text = children?.toString() ?? "";
+                        const text =
+                          children?.toString() ?? "";
 
-                        if (text.includes("담당 부서 안내")) {
+                        if (
+                          text.includes("담당 부서 안내")
+                        ) {
                           return (
                             <strong className="department-title">
                               {children}
@@ -512,7 +582,9 @@ function ChatWindow({
                           );
                         }
 
-                        if (text.includes("관련 정보 링크")) {
+                        if (
+                          text.includes("관련 정보 링크")
+                        ) {
                           return (
                             <strong className="link-title">
                               {children}
@@ -520,7 +592,9 @@ function ChatWindow({
                           );
                         }
 
-                        return <strong>{children}</strong>;
+                        return (
+                          <strong>{children}</strong>
+                        );
                       },
 
                       /*
@@ -548,126 +622,147 @@ function ChatWindow({
                    * 챗봇 답변에 다운로드 파일이 포함된 경우
                    * 파일마다 다운로드 카드 표시
                    */}
-                  {message.files && message.files.length > 0 && (
-                    <div className="download-buttons-container">
-                      {message.files.map((file, fileIndex) => (
-                        <a
-                          key={fileIndex}
-                          href={
-                            /*
-                             * 사하구청 원본 다운로드 주소인 경우
-                             * 주소를 그대로 사용
-                             *
-                             * 백엔드가 제공하는 파일인 경우
-                             * 백엔드 주소를 앞에 붙여 사용
-                             */
-                            file.file_url.includes("FileDown.do")
-                              ? file.file_url
-                              : `${BACKEND_URL}${file.file_url}`
-                          }
-                          download
-                          className="download-card"
-                        >
-                          <div className="download-card-icon">📄</div>
+                  {message.files &&
+                    message.files.length > 0 && (
+                      <div className="download-buttons-container">
+                        {message.files.map(
+                          (file, fileIndex) => (
+                            <a
+                              key={fileIndex}
+                              href={
+                                /*
+                                 * 사하구청 원본 다운로드 주소인 경우
+                                 * 주소를 그대로 사용
+                                 *
+                                 * 백엔드가 제공하는 파일인 경우
+                                 * 백엔드 주소를 앞에 붙여 사용
+                                 */
+                                file.file_url.includes(
+                                  "FileDown.do"
+                                )
+                                  ? file.file_url
+                                  : `${BACKEND_URL}${file.file_url}`
+                              }
+                              download
+                              className="download-card"
+                            >
+                              <div className="download-card-icon">
+                                📄
+                              </div>
 
-                          <div className="download-card-content">
-                            <div className="download-card-title">
-                              {file.file_name}
-                            </div>
+                              <div className="download-card-content">
+                                <div className="download-card-title">
+                                  {file.file_name}
+                                </div>
 
-                            <div className="download-card-subtitle">
-                              클릭하여 파일 다운로드
-                            </div>
-                          </div>
+                                <div className="download-card-subtitle">
+                                  클릭하여 파일 다운로드
+                                </div>
+                              </div>
 
-                          <div className="download-card-arrow">→</div>
-                        </a>
-                      ))}
-                    </div>
-                  )}
+                              <div className="download-card-arrow">
+                                →
+                              </div>
+                            </a>
+                          )
+                        )}
+                      </div>
+                    )}
 
                   {/*
                    * 챗봇 답변 만족도 평가 영역
                    *
+                   * 처음 인사 메시지에는 표시되지 않음
+                   *
+                   * 답변이 스트리밍되는 동안에는 표시되지 않고,
+                   * 답변 생성이 모두 끝난 뒤에 표시됨
+                   *
                    * 평가 제출 전에는 만족/불만족 버튼을 표시하고,
                    * 평가 제출 후에는 완료 문구를 표시함
                    */}
-                  <div className="answer-feedback">
-                    {!currentFeedback.submitted ? (
-                      <>
-                        <p className="feedback-question">
-                          이 답변이 도움이 되었나요?
-                        </p>
+                  {shouldShowFeedback && (
+                    <div className="answer-feedback">
+                      {!currentFeedback.submitted ? (
+                        <>
+                          <p className="feedback-question">
+                            이 답변이 도움이 되었나요?
+                          </p>
 
-                        <div className="feedback-button-group">
-                          {/* 만족 평가 버튼 */}
-                          <button
-                            type="button"
-                            className="feedback-button positive-feedback-button"
-                            onClick={() =>
-                              handlePositiveFeedback(
-                                index,
-                                message.content
-                              )
-                            }
-                          >
-                            👍 도움이 됐어요
-                          </button>
+                          <div className="feedback-button-group">
+                            {/* 만족 평가 버튼 */}
+                            <button
+                              type="button"
+                              className="feedback-button positive-feedback-button"
+                              onClick={() =>
+                                handlePositiveFeedback(
+                                  index,
+                                  message.content
+                                )
+                              }
+                            >
+                              👍 도움이 됐어요
+                            </button>
 
-                          {/* 불만족 사유 선택 영역을 여는 버튼 */}
-                          <button
-                            type="button"
-                            className="feedback-button negative-feedback-button"
-                            onClick={() =>
-                              handleNegativeFeedbackClick(index)
-                            }
-                          >
-                            👎 도움이 안 됐어요
-                          </button>
-                        </div>
-
-                        {/*
-                         * 사용자가 "도움이 안 됐어요"를 선택했을 때만
-                         * 불만족 사유 선택 버튼 표시
-                         */}
-                        {currentFeedback.showReasons && (
-                          <div className="feedback-reason-area">
-                            <p className="feedback-reason-title">
-                              어떤 점이 아쉬웠나요?
-                            </p>
-
-                            <div className="feedback-reason-list">
-                              {feedbackReasons.map((reason) => (
-                                <button
-                                  key={reason.value}
-                                  type="button"
-                                  className="feedback-reason-button"
-                                  onClick={() =>
-                                    handleReasonSelect(
-                                      index,
-                                      message.content,
-                                      reason.value
-                                    )
-                                  }
-                                >
-                                  {reason.label}
-                                </button>
-                              ))}
-                            </div>
+                            {/* 불만족 사유 선택 영역을 여는 버튼 */}
+                            <button
+                              type="button"
+                              className="feedback-button negative-feedback-button"
+                              onClick={() =>
+                                handleNegativeFeedbackClick(
+                                  index
+                                )
+                              }
+                            >
+                              👎 도움이 안 됐어요
+                            </button>
                           </div>
-                        )}
-                      </>
-                    ) : (
-                      /*
-                       * 사용자가 평가를 완료한 뒤 표시되는 문구
-                       */
-                      <p className="feedback-complete-message">
-                        {currentFeedback.rating === "positive"
-                          ? "👍 소중한 의견 감사합니다."
-                          : "의견이 전달되었습니다. 답변 개선에 참고하겠습니다."}
-                      </p>
-                    )}
-                  </div>
+
+                          {/*
+                           * 사용자가 "도움이 안 됐어요"를 선택했을 때만
+                           * 불만족 사유 선택 버튼 표시
+                           */}
+                          {currentFeedback.showReasons && (
+                            <div className="feedback-reason-area">
+                              <p className="feedback-reason-title">
+                                어떤 점이 아쉬웠나요?
+                              </p>
+
+                              <div className="feedback-reason-list">
+                                {feedbackReasons.map(
+                                  (reason) => (
+                                    <button
+                                      key={reason.value}
+                                      type="button"
+                                      className="feedback-reason-button"
+                                      onClick={() =>
+                                        handleReasonSelect(
+                                          index,
+                                          message.content,
+                                          reason.value
+                                        )
+                                      }
+                                    >
+                                      {reason.label}
+                                    </button>
+                                  )
+                                )}
+                              </div>
+                            </div>
+                          )}
+                        </>
+                      ) : (
+                        /*
+                         * 사용자가 평가를 완료한 뒤 표시되는 문구
+                         */
+                        <p className="feedback-complete-message">
+                          {currentFeedback.rating ===
+                          "positive"
+                            ? "👍 소중한 의견 감사합니다."
+                            : "의견이 전달되었습니다. 답변 개선에 참고하겠습니다."}
+                        </p>
+                      )}
+                    </div>
+                  )}
                 </div>
               ) : (
                 /*
