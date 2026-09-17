@@ -3,6 +3,14 @@ from pgvector.sqlalchemy import Vector  # 추가
 from sqlalchemy.sql import func
 from app.database import Base
 
+class ChatLog(Base):  # 기존에 사용하시는 Base 상속
+    __tablename__ = "user_chat_logs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    search_query = Column(Text, nullable=False)          # 정제된 쿼리 (refined_question)
+    embedding = Column(Vector(1536), nullable=True)      # 임베딩 벡터 (사용하는 모델 차원에 맞춤, 예: OpenAI는 1536)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    
 class Notice(Base):
     __tablename__ = "notices"
 

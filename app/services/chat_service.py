@@ -7,6 +7,8 @@ from app.database import SessionLocal
 from app.models import UserChatLog
 from typing import List, Dict
 import json
+from app.database import SessionLocal, engine, Base
+
 # openAI API
 load_dotenv()
 api_key = os.getenv("OPENAI_API_KEY")
@@ -68,6 +70,8 @@ async def ask_saha_ai_stream(user_question: str, history: List[Dict[str, str]] =
                         "너는 사용자의 질문을 분석하여 RAG 검색에 최적화된 독립적인 검색용 쿼리로 재작성하는 전문가야. "
                         "이전 대화 기록을 바탕으로, 사용자의 최신 질문에 포함된 '그거', '거기', '이거' 등의 대명사를 명확한 행정 용어로 바꾸어 단 한 줄의 핵심 검색어로 재작성해줘. "
                         "설명은 빼고 오직 단 한 줄의 검색용 문장만 출력해야 해."
+                        "입력받은 질문의 핵심 의도를 100% 보존하되, 사용자가 입력한 핵심 단어(예: 소파, 책상 등) 외에 **임의로 '대형폐기물' 같은 상위 카테고리 단어를 마음대로 덧붙여서 검색 범위를 넓히지 마.** "
+            "검색 효율을 위해 불필요한 서술어('얼마인가', '알려줘' 등)는 최소화하고 명사 위주의 깔끔한 검색어로 만들어줘."
                     )
                 }
             ]
@@ -95,11 +99,12 @@ async def ask_saha_ai_stream(user_question: str, history: List[Dict[str, str]] =
     # [1] RAG 문서 기반 파일첨부 기능 정규식 링크 수집 (일반 민원 서식용 - 순수하게 다 받아줌)
     #==================================================================
     
+    # 하이브리드 검색 (상위 3개)
     # relevant_chunks  → 검색된 사하구청 문서
-    # query_embedding  → 검색할 때 이미 생성했던 질문 벡터    
+    # query_embedding  → 검색할 때 이미 생성했던 질문 벡터
     relevant_chunks, query_embedding = get_similar_chunks(
-    refined_question,
-    top_k=3
+        refined_question,
+        top_k=3
     )
 
     #==================================================================
@@ -119,7 +124,7 @@ async def ask_saha_ai_stream(user_question: str, history: List[Dict[str, str]] =
             .first()
         )
 
-        # 2. 원본 질문이 없으면 refined_query도 확인
+        # 2. 같은 원본 질문이 없으면 refined_query도 확인
         if existing_log is None:
             existing_log = (
                 log_db.query(UserChatLog)
@@ -171,8 +176,9 @@ async def ask_saha_ai_stream(user_question: str, history: List[Dict[str, str]] =
 
     finally:
         log_db.close()
- 
+
     final_confidence_score = relevant_chunks[0].score if relevant_chunks else 0.0
+        
     # 사용자가 안지루하게 유사도 먼저 보내기~~~~ 유사도를 먼저 보내서 답변이 도움이 되는지 판단하게끔 함
     yield json.dumps({'type': 'score', 'content': float(final_confidence_score)}) + " "
     #테스트 
@@ -260,7 +266,7 @@ async def ask_saha_ai_stream(user_question: str, history: List[Dict[str, str]] =
             "[역할]\n"
             "1. 반드시 제공된 [참고 정보(Context)]만을 기반으로 답변해.\n"
             "2. 참고 정보에 없는 내용은 추측하지 말고, 행정복지센터나 구청 관련 부서 연락처를 안내하며 친절하게 유도해줘.\.\n"
-            "3. 불필요하게 긴 설명은 피하고 핵심 위주로 간결하게 설명해.\n\n"
+            "3. 불필요하게 긴 설명은 피하되, 참고 정보에 포함된 세부 항목(예: 규격별 수수료, 종류 등)은 임의로 생략하거나 요약하지 말고 모두 누락 없이 작성해. 💡\n\n"
             
             "[출력 형식 규칙]\n"
             "1. 모든 답변은 Markdown 형식으로 작성해.\n"
@@ -294,9 +300,19 @@ async def ask_saha_ai_stream(user_question: str, history: List[Dict[str, str]] =
             
             "[관련 정보 링크]\n"
             "1. 참고 정보(Context)에 출처 URL이 있다면 답변 마지막에 반드시 아래 형식으로 작성해.\n\n"
-            
             "### 🔗 관련 정보 링크\n"
             "- [여권 발급 안내](URL)\n\n"
+            "2. 만약 참고 정보에 URL이 존재하지 않거나 빈 값인 경우, 빈칸으로 두지 말고 아래와 같이 작성합니다.\n\n"
+            "### 🔗 관련 정보 링크\n"
+            "- 관련 온라인 상세 페이지가 존재하지 않습니다. 가까운 부서로 문의해주세요.\n\n"
+            
+            "[파생 질문 안내 규칙]\n"
+            "1. 답변의 가장 마지막에는 구민이 이어서 궁금해할 만한 연관 파생 질문 2개를 반드시 포함합니다.\n"
+            "2. 파생 질문은 아래 형식의 제목과 번호 매기기 리스트를 사용해 작성합니다.\n\n"
+            
+            "### ❓ 추천 파생 질문\n"
+            "1. 첫 번째 파생 질문 내용을 작성합니다.\n"
+            "2. 두 번째 파생 질문 내용을 작성합니다.\n\n"
             
             "[파일 관련 규칙]\n"
             "1. 첨부파일 이름은 절대 마크다운 링크 형태로 출력하지 마.\n"

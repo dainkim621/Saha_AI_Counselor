@@ -241,9 +241,19 @@ def process_waste_guides(waste):
         
         # 분리한 함수를 사용하여 병합 예외 대상인지 검사 
         if check_merge_condition(unique_headings):
-            # 맨 마지막 원소(요일)를 제외한 나머지를 상위 경로로 사용
-            parent_headings = unique_headings[:-1]
-            current_day = unique_headings[-1]  # 예: "월"
+            
+            # 💡 [핵심 분기] 요일인지, 아니면 소파 같은 일반 항목인지 구분!
+            last_item = unique_headings[-1]
+            is_day_of_week = last_item in ["월", "화", "수", "목", "금", "토", "일"]
+            
+            if is_day_of_week:
+                # 1. 요일 데이터: 기존 방식대로 마지막 요일 글자를 떼어내고 부모 경로만 사용
+                parent_headings = unique_headings[:-1]
+                current_unit = last_item  # 예: "월"
+            else:
+                # 2. 소파 같은 일반 데이터: 제목을 자르지 않고 전체 경로를 그대로 사용!
+                parent_headings = unique_headings  # 👈 전체 유지!
+                current_unit = last_item   # 예: "소파"
             
             if parent_headings:
                 full_hierarchy = f"{base_path_str} > {' > '.join(parent_headings)}"
@@ -253,7 +263,7 @@ def process_waste_guides(waste):
             # 해당 상위 경로 그룹에 요일과 본문을 차곡차곡 누적 (청크 생성을 뒤로 미룸)
             if full_hierarchy not in weekly_groups:
                 weekly_groups[full_hierarchy] = []
-            weekly_groups[full_hierarchy].append((current_day, clean_section_text))
+            weekly_groups[full_hierarchy].append((current_unit, clean_section_text))
         
         
         
