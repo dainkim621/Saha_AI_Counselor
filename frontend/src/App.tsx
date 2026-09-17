@@ -30,162 +30,7 @@ const fontModes = [
 // 화면에 표시되는 글자 크기 이름
 const fontLabels = ["아주 작게", "작게", "기본", "크게", "아주 크게"];
 
-// 브라우저 localStorage에 저장할 질문 기록 타입
-type QuestionLog = {
-  // 사용자가 입력한 질문
-  question: string;
 
-  // 질문이 입력된 날짜와 시간
-  askedAt: string;
-};
-
-// 질문 기록이 없을 때 표시할 기본 FAQ
-const defaultWeeklyQuestions = [
-  "전입신고는 어떻게 하나요?",
-  "여권 발급에 필요한 서류는 무엇인가요?",
-  "무인민원발급기는 어디에 있나요?",
-  "대형폐기물 배출은 어떻게 신청하나요?",
-];
-
-// localStorage에 질문 기록을 저장할 때 사용할 이름
-const QUESTION_LOG_STORAGE_KEY = "weeklyQuestionLogs";
-
-// 최근 질문으로 인정할 기간: 7일
-const SEVEN_DAYS_IN_MS = 7 * 24 * 60 * 60 * 1000;
-
-// QuickMenu에 표시할 최대 질문 개수
-const WEEKLY_QUESTION_LIMIT = 4;
-
-/**
- * 질문 앞뒤의 공백과 중복 공백을 정리하는 함수
- *
- * 예:
- * "  전입신고는   어떻게 하나요?  "
- * → "전입신고는 어떻게 하나요?"
- */
-const normalizeQuestion = (question: string) => {
-  return question.trim().replace(/\s+/g, " ");
-};
-
-/**
- * localStorage에서 저장된 질문 기록을 불러오는 함수
- *
- * 저장된 값이 없거나 JSON 형식이 잘못된 경우
- * 빈 배열을 반환한다.
- */
-const getStoredQuestionLogs = (): QuestionLog[] => {
-  try {
-    const storedLogs = localStorage.getItem(QUESTION_LOG_STORAGE_KEY);
-
-    // 아직 저장된 질문 기록이 없는 경우
-    if (!storedLogs) {
-      return [];
-    }
-
-    const parsedLogs = JSON.parse(storedLogs);
-
-    // 저장된 데이터가 배열이 아니면 잘못된 데이터로 판단
-    if (!Array.isArray(parsedLogs)) {
-      return [];
-    }
-
-    return parsedLogs;
-  } catch (error) {
-    console.error("질문 기록 불러오기 오류:", error);
-    return [];
-  }
-};
-
-/**
- * 전체 질문 기록 중 최근 7일 이내에 입력된 질문만 반환
- */
-const filterRecentQuestionLogs = (
-  logs: QuestionLog[]
-): QuestionLog[] => {
-  // 현재 시간에서 7일을 뺀 시간
-  const sevenDaysAgo = Date.now() - SEVEN_DAYS_IN_MS;
-
-  return logs.filter((log) => {
-    const askedTime = new Date(log.askedAt).getTime();
-
-    return (
-      // 날짜 형식이 정상이어야 함
-      !Number.isNaN(askedTime) &&
-      // 최근 7일 이내의 기록이어야 함
-      askedTime >= sevenDaysAgo
-    );
-  });
-};
-
-/**
- * 최근 7일 질문을 입력 횟수 순으로 정렬하여
- * 상위 질문 목록을 반환하는 함수
- */
-const calculateWeeklyQuestions = (
-  logs: QuestionLog[]
-): string[] => {
-  /*
-   * Map의 key:
-   * 공백을 정리한 질문 문자열
-   *
-   * Map의 value:
-   * 질문 원문, 입력 횟수, 마지막 입력 시간
-   */
-  const questionCount = new Map<
-    string,
-    {
-      question: string;
-      count: number;
-      latestAskedAt: number;
-    }
-  >();
-
-  logs.forEach((log) => {
-    const normalizedQuestion = normalizeQuestion(log.question);
-
-    // 공백뿐인 질문은 집계하지 않음
-    if (!normalizedQuestion) {
-      return;
-    }
-
-    const askedTime = new Date(log.askedAt).getTime();
-    const existingQuestion =
-      questionCount.get(normalizedQuestion);
-
-    if (existingQuestion) {
-      // 이미 등장한 질문이면 입력 횟수를 1 증가
-      existingQuestion.count += 1;
-
-      // 같은 질문이 마지막으로 입력된 시간 갱신
-      existingQuestion.latestAskedAt = Math.max(
-        existingQuestion.latestAskedAt,
-        askedTime
-      );
-    } else {
-      // 처음 등장한 질문이면 새로운 항목으로 등록
-      questionCount.set(normalizedQuestion, {
-        question: normalizedQuestion,
-        count: 1,
-        latestAskedAt: askedTime,
-      });
-    }
-  });
-
-  return Array.from(questionCount.values())
-    .sort((a, b) => {
-      // 1순위: 입력 횟수가 많은 질문
-      if (b.count !== a.count) {
-        return b.count - a.count;
-      }
-
-      // 2순위: 입력 횟수가 같으면 최근에 입력한 질문
-      return b.latestAskedAt - a.latestAskedAt;
-    })
-    // 상위 4개까지만 사용
-    .slice(0, WEEKLY_QUESTION_LIMIT)
-    // QuickMenu에 필요한 질문 문자열만 반환
-    .map((item) => item.question);
-};
 
 function App() {
   // 채팅 메시지 목록
@@ -224,9 +69,8 @@ function App() {
    * 처음에는 기본 FAQ가 표시되고,
    * 질문 기록이 있으면 최근 7일 집계 결과로 변경된다.
    */
-  const [weeklyQuestions, setWeeklyQuestions] = useState<string[]>(
-    defaultWeeklyQuestions
-  );
+  // 백엔드에서 받아온 자주 묻는 질문 Top 5
+  const [weeklyQuestions, setWeeklyQuestions] = useState<string[]>([]);
 
   // 마지막으로 읽은 assistant 메시지 인덱스 저장
   const lastSpokenIndexRef = useRef<number>(-1);
@@ -240,92 +84,35 @@ function App() {
   // 녹음된 음성 조각 저장
   const audioChunksRef = useRef<Blob[]>([]);
 
-  /**
-   * 사용자가 실제로 전송한 질문을 localStorage에 저장하고,
-   * 최근 7일 자주 묻는 질문 목록을 다시 계산하는 함수
-   */
-  const saveQuestionLog = (question: string) => {
-    const normalizedQuestion = normalizeQuestion(question);
-
-    // 공백뿐인 질문은 저장하지 않음
-    if (!normalizedQuestion) {
-      return;
-    }
-
-    // 기존에 저장된 질문 기록 불러오기
-    const storedLogs = getStoredQuestionLogs();
-
-    // 기존 기록 중 최근 7일 이내의 질문만 유지
-    const recentLogs = filterRecentQuestionLogs(storedLogs);
-
-    // 방금 입력한 질문을 새로운 기록으로 추가
-    const updatedLogs: QuestionLog[] = [
-      ...recentLogs,
-      {
-        question: normalizedQuestion,
-        askedAt: new Date().toISOString(),
-      },
-    ];
-
-    try {
-      // 오래된 기록이 제거된 최신 질문 목록 저장
-      localStorage.setItem(
-        QUESTION_LOG_STORAGE_KEY,
-        JSON.stringify(updatedLogs)
-      );
-
-      // 새 질문까지 포함하여 질문 순위 다시 계산
-      const calculatedQuestions =
-        calculateWeeklyQuestions(updatedLogs);
-
-      // 집계된 질문이 있으면 집계 결과 표시
-      if (calculatedQuestions.length > 0) {
-        setWeeklyQuestions(calculatedQuestions);
-      } else {
-        // 질문 기록이 없으면 기본 FAQ 표시
-        setWeeklyQuestions(defaultWeeklyQuestions);
-      }
-    } catch (error) {
-      console.error("질문 기록 저장 오류:", error);
-    }
-  };
-
-  /**
-   * 페이지가 처음 열릴 때 localStorage에 저장된
-   * 최근 7일 질문 기록을 불러온다.
-   */
+  // 페이지가 처음 열릴 때 백엔드에서 자주 묻는 질문 Top 5 조회
+  // 페이지가 열리면 자동으로 GET http://localhost:8000/frequent-questions가 호출됨.
   useEffect(() => {
-    // 저장된 전체 질문 기록 불러오기
-    const storedLogs = getStoredQuestionLogs();
+    const fetchFrequentQuestions = async () => {
+      try {
+        const response = await fetch(`${BACKEND_URL}/frequent-questions`);
 
-    // 최근 7일 이내의 기록만 남기기
-    const recentLogs = filterRecentQuestionLogs(storedLogs);
+        if (!response.ok) {
+          throw new Error("자주 묻는 질문 조회 실패");
+        }
 
-    try {
-      /*
-       * 7일보다 오래된 기록을 제거한 배열을 다시 저장하여
-       * localStorage에 불필요한 데이터가 계속 쌓이지 않도록 한다.
-       */
-      localStorage.setItem(
-        QUESTION_LOG_STORAGE_KEY,
-        JSON.stringify(recentLogs)
-      );
-    } catch (error) {
-      console.error("질문 기록 정리 오류:", error);
-    }
+        const data = await response.json();
 
-    // 최근 7일 질문의 입력 횟수 계산
-    const calculatedQuestions =
-      calculateWeeklyQuestions(recentLogs);
+        // 백엔드 응답에서 question 값만 추출
+        const questions = data.map(
+          (item: { question: string; count: number }) => item.question
+        );
 
-    if (calculatedQuestions.length > 0) {
-      // 저장된 질문 기록이 있으면 실제 집계 결과 표시
-      setWeeklyQuestions(calculatedQuestions);
-    } else {
-      // 저장된 질문 기록이 없으면 기본 FAQ 표시
-      setWeeklyQuestions(defaultWeeklyQuestions);
-    }
+        setWeeklyQuestions(questions);
+      } catch (error) {
+        console.error("자주 묻는 질문 조회 오류:", error);
+        setWeeklyQuestions([]);
+      }
+    };
+
+    fetchFrequentQuestions();
   }, []);
+
+
 
   // TTS로 읽기 전 Markdown, 링크, 특수기호 제거
   const cleanTextForTTS = (text: string) => {
@@ -566,15 +353,6 @@ function App() {
 
     // 이미 답변 생성 중이면 중복 전송하지 않음
     if (isLoading) return;
-
-    /*
-     * 사용자가 실제로 전송한 질문을 localStorage에 저장한다.
-     *
-     * 일반 입력창에서 보낸 질문과
-     * QuickMenu를 눌러 전송한 질문 모두 이 함수를 거치므로
-     * 모두 질문 기록에 포함된다.
-     */
-    saveQuestionLog(trimmedQuestion);
 
     const userMessage: Message = {
       role: "user",
