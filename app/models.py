@@ -39,3 +39,28 @@ class Notice(Base):
     text_hash = Column(String, nullable=True)
     # 5. 벡터 검색 위한 컬럼 (1536차원)
     embedding = Column(Vector(1536))
+
+
+# user_chat_logs를 SQLAlchemy에서 쓰기위해 UserChatLog 모델을 하나 추가
+class UserChatLog(Base):
+    __tablename__ = "user_chat_logs"
+
+    id = Column(Integer, primary_key=True, index=True)
+
+    # 사용자가 실제로 입력한 원본 질문
+    search_query = Column(Text, nullable=False)
+
+    # RAG 검색에 실제로 사용한 질문
+    refined_query = Column(Text, nullable=True)
+
+    # FAQ 그룹화를 위한 표준화된 질문
+    normalized_query = Column(Text, nullable=True)
+
+    # RAG 검색 과정에서 생성한 질문 임베딩 재사용
+    embedding = Column(Vector(1536), nullable=True)
+
+    # 질문 입력 시간
+    created_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now()
+    )

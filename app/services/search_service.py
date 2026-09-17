@@ -104,7 +104,7 @@ def get_similar_chunks(query: str, top_k: int = 3): # k값을 조금 늘려주�
         print("DEBUG: ❌ 검색 결과가 없습니다!")
 
     db.close()
-    return final_output
+    return final_output, query_embedding
 
 def search_notices(query_embedding, db):
     # 유사도 임계값(Threshold) 설정 
@@ -122,7 +122,7 @@ def search_notices(query_embedding, db):
 # 테스트용 코드
 if __name__ == "__main__":
     test_query = "장학금 신청 기간 알려줘"
-    chunks = get_similar_chunks(test_query)
+    chunks, query_embedding = get_similar_chunks(test_query)
     
     print(f" 질문: {test_query}")
     for i, chunk in enumerate(chunks):

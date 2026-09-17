@@ -1,18 +1,20 @@
 from fastapi import FastAPI, Depends, HTTPException
 from sqlalchemy.orm import Session
+from sqlalchemy import func   # func 필요
 from typing import List
 from fastapi.responses import StreamingResponse
 import json
+import math   # 자주하는 질문 같은거 묶기 위해 코사인 유사도
 from app.database import engine, get_db
 from . import models
 from .api import chat, stt  # 기존 챗봇 라우터
-from .models import Notice
+from .models import Notice, UserChatLog    # userchatlog 추가
 from pydantic import BaseModel
 from app.services.chat_service import ask_saha_ai_stream
-
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 import os
+
 app = FastAPI(title="사하구 AI 상담사 API")
 
 # 루트 경로 계산
@@ -85,6 +87,29 @@ def read_notice(notice_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="공지사항을 찾을 수 없습니다.")
     return notice
 
+# 자주 묻는 질문 Top 5
+@app.get("/frequent-questions", tags=["FAQ"])
+def get_frequent_questions(db: Session = Depends(get_db)):
+
+    results = (
+        db.query(
+            UserChatLog.normalized_query,
+            func.count(UserChatLog.id).label("question_count")
+        )
+        .filter(UserChatLog.normalized_query.isnot(None))
+        .group_by(UserChatLog.normalized_query)
+        .order_by(func.count(UserChatLog.id).desc())
+        .limit(5)
+        .all()
+    )
+
+    return [
+        {
+            "question": row.normalized_query,
+            "count": row.question_count
+        }
+        for row in results
+    ]
 from sqlalchemy import desc
 
 @app.get("/notices/search", tags=["Notices"])
