@@ -122,7 +122,7 @@ def search_notices(query_embedding, db):
 # 테스트용 코드
 if __name__ == "__main__":
     test_query = "장학금 신청 기간 알려줘"
-    chunks = get_similar_chunks(test_query)
+    chunks, query_embedding = get_similar_chunks(test_query)
     
     print(f" 질문: {test_query}")
     for i, chunk in enumerate(chunks):
