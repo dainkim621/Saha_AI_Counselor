@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Text, DateTime, JSON, Date
+from sqlalchemy import Column, Integer, String, Text, DateTime, JSON, Date, Boolean
 from pgvector.sqlalchemy import Vector  # 추가
 from sqlalchemy.sql import func
 from app.database import Base
@@ -39,7 +39,6 @@ class Notice(Base):
     text_hash = Column(String, nullable=True)
     # 5. 벡터 검색 위한 컬럼 (1536차원)
     embedding = Column(Vector(1536))
-
 
 # user_chat_logs를 SQLAlchemy에서 쓰기위해 UserChatLog 모델을 하나 추가
 class UserChatLog(Base):
@@ -182,4 +181,4 @@ class AdminSession(Base):
         DateTime(timezone=True),
         nullable=False
     )
-    
+
