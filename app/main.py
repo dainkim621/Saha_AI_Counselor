@@ -7,8 +7,8 @@ import json
 import math   # 자주하는 질문 같은거 묶기 위해 코사인 유사도
 from app.database import engine, get_db
 from . import models
-from .api import chat, stt  # 기존 챗봇 라우터
 from .models import Notice, UserChatLog    # userchatlog 추가
+from .api import chat, stt, admin_auth, admin_dashboard  # 기존 챗봇 + 관리자 인증 라우터
 from pydantic import BaseModel
 from app.services.chat_service import ask_saha_ai_stream
 from fastapi.middleware.cors import CORSMiddleware
@@ -29,7 +29,14 @@ app.mount("/download/passport_pdfs", StaticFiles(directory=PDF_DIR), name="passp
 # CORS 설정
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # 실제 배포시에는 ["http://localhost:3000"] 처럼 특정 주소만 허용
+    # 허용할 프론트엔드 주소를 명시적으로 지정
+    # HttpOnly 쿠키를 사용하는 인증에서는 "*" 대신
+    # 실제 프론트엔드 주소를 지정하는 것이 필요함
+    # 실제 배포시에는 ["http://localhost:3000"] 처럼 특정 주소만 허용
+    allow_origins=[
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+    ],  
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -71,6 +78,8 @@ class ChatRequest(BaseModel):
 # 3. 기존 챗봇 라우터 등록
 app.include_router(chat.router, prefix="/chat", tags=["Chat"])
 app.include_router(stt.router, tags=["STT"])
+app.include_router(admin_auth.router, prefix="/admin", tags=["Admin"])
+app.include_router(admin_dashboard.router,prefix="/admin/dashboard",tags=["Admin Dashboard"])
 
 # 4. 공지사항 조회 API 엔드포인트
 @app.get("/notices", response_model=List[NoticeResponse], tags=["Notices"])
@@ -122,7 +131,7 @@ def search_notices(
     
     # 1. 키워드 검색 (제목 또는 본문에 포함된 경우)
     if q:
-        query = query.filter(Notice.title.contains(q) | Notice.text.contains(q))
+        query = query.filter(Notice.title.contains(q) | Notice.chunk_text.contains(q))
     
     # 2. 정렬 로직
     if sort_by == "views":

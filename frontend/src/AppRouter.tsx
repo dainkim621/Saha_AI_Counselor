@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import App from "./App";
 import AdminDashboard from "./pages/AdminDashboard";
 import AdminLogin from "./pages/AdminLogin";
+import ProtectedAdminRoute from "./components/admin/ProtectedAdminRoute";
 
 /*
  * 사용자용 챗봇과 관리자 페이지의 URL 경로를 관리
@@ -20,10 +21,14 @@ function AppRouter() {
           element={<AdminLogin />}
         />
 
-        {/* 관리자 대시보드 */}
+        {/* 관리자 대시보드 - 로그인한 관리자만 접근 가능 */}
         <Route
           path="/admin"
-          element={<AdminDashboard />}
+          element={
+            <ProtectedAdminRoute>
+              <AdminDashboard />
+            </ProtectedAdminRoute>
+          }
         />
       </Routes>
     </BrowserRouter>
