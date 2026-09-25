@@ -50,6 +50,276 @@
   font-size: 20px;
 }
 
+/* 상단 주요 통계 카드 영역 */
+.dashboard-summary-grid {
+  grid-column: 1 / 3;
+
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 20px;
+}
+
+/* 상단 주요 통계 개별 카드 */
+.dashboard-summary-card {
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 12px;
+  padding: 20px;
+
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* 통계 이름 */
+.dashboard-summary-label {
+  font-size: 15px;
+  color: #666;
+}
+
+/* 통계 값 */
+.dashboard-summary-value {
+  font-size: 28px;
+  font-weight: 700;
+  color: #222;
+}
+
+/* 숫자가 아닌 통계 값 */
+.dashboard-summary-text {
+  font-size: 22px;
+}
+
+/* 통계 설명 */
+.dashboard-summary-description {
+  font-size: 14px;
+  color: #777;
+}
+
+/* 답변 실패 질문 목록 */
+.failed-question-list {
+  display: flex;
+  flex-direction: column;
+}
+
+/* 답변 실패 질문 한 건 */
+.failed-question-item {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 6px 16px;
+
+  padding: 14px 0;
+  border-bottom: 1px solid #eee;
+}
+
+/* 마지막 질문에는 아래 구분선 제거 */
+.failed-question-item:last-child {
+  border-bottom: none;
+}
+
+/* 사용자 질문 */
+.failed-question-text {
+  font-size: 15px;
+  font-weight: 600;
+  color: #222;
+}
+
+/* 실패 이유 */
+.failed-question-reason {
+  grid-column: 1;
+
+  font-size: 13px;
+  color: #d14343;
+}
+
+/* 질문 접수 시간 */
+.failed-question-time {
+  grid-column: 2;
+  grid-row: 1 / 3;
+
+  align-self: center;
+
+  font-size: 13px;
+  color: #888;
+  white-space: nowrap;
+}
+
+/* 언어별 질문 통계 목록 */
+.language-stats-list {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+/* 언어별 통계 한 항목 */
+.language-stat-item {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* 언어 이름과 질문 수 */
+.language-stat-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+
+  font-size: 14px;
+  color: #444;
+}
+
+/* 비율 막대 전체 영역 */
+.language-stat-bar {
+  width: 100%;
+  height: 10px;
+
+  background: #edf0f5;
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+/* 실제 비율을 나타내는 막대 */
+.language-stat-fill {
+  height: 100%;
+
+  background: #4f7cff;
+  border-radius: 999px;
+}
+
+/* 시간대별 이용량 목록 */
+.hourly-usage-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* 시간대별 이용량 한 줄 */
+.hourly-usage-item {
+  display: grid;
+  grid-template-columns: 55px 1fr 55px;
+  align-items: center;
+  gap: 12px;
+}
+
+/* 시간 */
+.hourly-usage-hour {
+  font-size: 13px;
+  color: #555;
+}
+
+/* 이용량 막대 전체 영역 */
+.hourly-usage-bar {
+  width: 100%;
+  height: 10px;
+
+  background: #edf0f5;
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+/* 실제 이용량 막대 */
+.hourly-usage-fill {
+  height: 100%;
+
+  background: #4f7cff;
+  border-radius: 999px;
+}
+
+/* 질문 수 */
+.hourly-usage-count {
+  font-size: 13px;
+  color: #555;
+  text-align: right;
+  white-space: nowrap;
+}
+
+/* 자주 묻는 질문 TOP5 목록 */
+.popular-question-list {
+  display: flex;
+  flex-direction: column;
+}
+
+/* 자주 묻는 질문 한 항목 */
+.popular-question-item {
+  display: grid;
+  grid-template-columns: 40px 1fr 80px;
+  align-items: center;
+  gap: 12px;
+
+  padding: 14px 0;
+  border-bottom: 1px solid #eee;
+}
+
+/* 마지막 질문에는 아래 구분선 제거 */
+.popular-question-item:last-child {
+  border-bottom: none;
+}
+
+/* 순위 */
+.popular-question-rank {
+  width: 28px;
+  height: 28px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  background: #edf2ff;
+  border-radius: 8px;
+
+  font-size: 14px;
+  font-weight: 700;
+  color: #4f7cff;
+}
+
+/* 질문 내용 */
+.popular-question-text {
+  font-size: 15px;
+  color: #222;
+}
+
+/* 질문 횟수 */
+.popular-question-count {
+  font-size: 14px;
+  color: #555;
+  text-align: right;
+  white-space: nowrap;
+}
+
+/* 문서 보완 필요 분야 목록 */
+.missing-document-list {
+  display: flex;
+  flex-direction: column;
+}
+
+/* 문서 보완 필요 분야 한 항목 */
+.missing-document-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+
+  padding: 14px 0;
+  border-bottom: 1px solid #eee;
+}
+
+/* 마지막 항목에는 아래 구분선 제거 */
+.missing-document-item:last-child {
+  border-bottom: none;
+}
+
+/* 행정 업무 분야 */
+.missing-document-area {
+  font-size: 15px;
+  font-weight: 600;
+  color: #222;
+}
+
+/* 실패 질문 수 */
+.missing-document-count {
+  font-size: 14px;
+  color: #d14343;
+  white-space: nowrap;
+}
+
 /* 모바일 */
 @media (max-width: 900px) {
 
