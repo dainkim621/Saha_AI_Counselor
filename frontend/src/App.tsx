@@ -654,7 +654,11 @@ function App() {
               : "🔇 답변 음성 OFF"}
           </button>
 
-          <button type="button" className="voice-button" onClick={handleReplayTts}>
+          <button
+            type="button"
+            className="voice-button"
+            onClick={handleReplayTts}
+          >
             ↻ 다시 듣기
           </button>
         </div>

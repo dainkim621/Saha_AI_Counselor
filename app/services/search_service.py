@@ -118,3 +118,12 @@ def search_notices(query_embedding, db):
     ).limit(3).all()
     
     return results
+
+# 테스트용 코드
+if __name__ == "__main__":
+    test_query = "장학금 신청 기간 알려줘"
+    chunks, query_embedding = get_similar_chunks(test_query)
+    
+    print(f" 질문: {test_query}")
+    for i, chunk in enumerate(chunks):
+        print(f"[{i+1}] 유사도 점수 기반 추출: {chunk.title} - {chunk.chunk_text[:50]}...")
