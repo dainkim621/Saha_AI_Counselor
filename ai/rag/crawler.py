@@ -86,6 +86,7 @@ SHORTCUT_ALLOW_TEXTS = [
 # 시작 URL
 # ---------------------------------------------------------
 START_URLS = [
+
     # 전자민원: 예시 페이지가 전자민원이라 일단 포함
     {
         "url": "https://www.saha.go.kr/portal/contents.do?mId=0100000000",
@@ -147,10 +148,15 @@ ALLOWED_MID_PREFIXES = {
 # 제외할 메뉴 prefix
 # 정확한 mId는 사이트 메뉴를 보고 다르면 여기만 수정하면 됨
 EXCLUDE_MID_PREFIXES = [
+
+    # 민원편람/서식안내
+    "010308",  # form_crawler.py에서 별도 수집
+    
     # 분야별정보 제외: 체육시설, 구민교육
     # 예시값이므로 실제 mId가 다르면 수정
     "0407",  # 체육시설 후보
     "0408",  # 구민교육 후보
+    "0405", # 환경 / 청소 메뉴 
 
     # 사하복지 제외: 관련정보, 희망복지지원단, 사하구장학회, 후원 및 기부
     # 예시값이므로 실제 mId가 다르면 수정
@@ -171,6 +177,8 @@ ALLOWED_PATH_KEYWORDS = [
     "/portal/bbs/view.do",
     "/portal/civil/list.do",
     "/portal/civil/view.do",
+    "/portal/bbs/inRealName.do", # 본인인증 페이지
+    "/portal/passportbooking/",
 ]
 
 DENY_URL_KEYWORDS = [
@@ -452,10 +460,51 @@ def get_mid(url):
     except Exception:
         return ""
 
+# 부모 URL 계산 함수
+def get_parent_menu_url(url):
+    mid = get_mid(url)
+
+    if not mid or len(mid) != 10 or not mid.isdigit():
+        return ""
+
+    # mId를 두 자리씩 메뉴 단계로 나눔
+    # 예: 0104080100 -> ["01", "04", "08", "01", "00"]
+    levels = [mid[i:i + 2] for i in range(0, 10, 2)]
+
+    # 마지막으로 값이 있는 메뉴 단계를 찾음
+    last_non_zero = -1
+
+    for i, level in enumerate(levels):
+        if level != "00":
+            last_non_zero = i
+
+    # 01 00 00 00 00 같은 최상위 메뉴는 부모 없음
+    if last_non_zero <= 0:
+        return ""
+
+    # 현재 단계부터 뒤를 전부 00으로 만들어 부모 mId 생성
+    parent_levels = levels[:]
+
+    for i in range(last_non_zero, len(parent_levels)):
+        parent_levels[i] = "00"
+
+    parent_mid = "".join(parent_levels)
+
+    return (
+        "https://www.saha.go.kr/portal/contents.do"
+        f"?mId={parent_mid}"
+    )
+
 def classify_page_type(url):
     lower = url.lower()
+
+    # 본인인증 안내 페이지
     if "/portal/bbs/inrealname.do" in lower:
-        return "contents"
+        return "bbs_view"
+    # 여권접수예약 목록
+    if "/portal/passportbooking/list.do" in lower:
+        return "passport_booking_list"
+
     if "/portal/bbs/list.do" in lower:
         return "bbs_list"
     if "/portal/bbs/view.do" in lower:
@@ -535,7 +584,12 @@ def should_save(url, anchor_text=""):
     if not is_recent_year_menu(anchor_text, url):
         return False
 
-    return page_type in ("contents", "bbs_view", "civil_view") and has_allowed_mid(url)
+    return page_type in (
+        "contents",
+        "bbs_view",
+        "civil_view",
+        "passport_booking_list",
+    ) and has_allowed_mid(url)
 
 # =========================================================
 # HTML 전처리 / 제목 / 메타데이터
@@ -1287,13 +1341,7 @@ def extract_shortcut_links(main_node, base_url):
 
 # URL주소만 있는 목록 거르기
 # source_url = 원본페이지, shorcut_url = 바로가기 링크
-def make_shortcut_doc(
-    source_url,
-    link,
-    menu_path,
-    parent_title="",
-    page_type="shortcut_link",
-):
+def make_shortcut_doc(source_url, link,menu_path, parent_title="", page_type="shortcut_link"):
     text = clean_text(f"""
     제목: {link['text']}
     상위문서: {parent_title}
@@ -1321,15 +1369,29 @@ def make_shortcut_doc(
         "source": "saha.go.kr",
     }
 
-
 # 새창/바로가기 링크는 하위 탐색 X, 대신 shortcut_link 문서로 JSONL 저장 O
 def is_shortcut_only_link(a, href, text):
     href = href or ""
     text = clean_inline(text)
 
-    # 내부 contents 메뉴는 바로가기가 아니라 크롤링 탐색 대상
-    if "/portal/contents.do" in href and "mId=" in href:
+    lower_href = href.lower()
+
+    # 본인인증 페이지는 바로가기 문서로만 저장하지 않고
+    # 실제 크롤링 탐색 대상으로 처리한다.
+    if "/portal/bbs/inrealname.do" in lower_href:
         return False
+
+    # 내부 contents 메뉴는 바로가기가 아니라 크롤링 탐색 대상
+    if "/portal/contents.do" in lower_href and "mid=" in lower_href:
+        return False
+
+    if href.startswith(("javascript:", "mailto:", "tel:", "#")):
+        return False
+
+    full_url = urljoin("https://www.saha.go.kr", href)
+    full_url, _ = urldefrag(full_url)
+
+    return is_valid_shortcut_link(text, href, full_url)
 
     if href.startswith(("javascript:", "mailto:", "tel:", "#")):
         return False
@@ -1345,6 +1407,11 @@ def extract_links_from_raw_html(html, current_url, parent_menu_path=None):
 
     soup = BeautifulSoup(html, "html.parser")
     links = []
+
+    # 본인인증 페이지는 현재 공개 안내 본문만 저장하고
+    # 인증 이후 backUrl은 하위 탐색하지 않는다.
+    if "/portal/bbs/inrealname.do" in current_url.lower():
+        return []
 
     for a in soup.find_all("a"):
         href = a.get("href", "").strip()
@@ -1381,7 +1448,13 @@ def extract_links_from_raw_html(html, current_url, parent_menu_path=None):
                 hidden_mid = m.group(1)
                 break
 
-        if hidden_mid:
+        # 실제 href가 없거나 자바스크립트 링크일 때만
+        # 속성에서 추출한 mId로 contents.do 주소를 복원한다.
+        if hidden_mid and (
+            not href
+            or href.startswith("javascript:")
+            or href == "#"
+        ):
             href = f"/portal/contents.do?mId={hidden_mid}"
 
         if not href:
@@ -1422,7 +1495,7 @@ def extract_links_from_raw_html(html, current_url, parent_menu_path=None):
 
         links.append({
             "url": normalized,
-            "parent_url": current_url,
+            "parent_url": get_parent_menu_url(normalized),
             "anchor_text": anchor_text,
             "menu_path": menu_path,
         })
@@ -1865,6 +1938,61 @@ def document_score(url, title, text, sections):
         score -= 5
     return score
 
+# 공통 리다이렉트 기능 페이지 함수 (ex. 여권접수예약 페이지)
+def make_redirect_feature_doc(
+    original_url,
+    final_url,
+    anchor_text,
+    menu_path=None,
+):
+    menu_path = menu_path or []
+
+    title = clean_inline(anchor_text)
+
+    if not title:
+        return None
+
+    text = clean_text(
+        "\n".join([
+            title,
+            f"서비스 바로가기: {final_url}",
+        ])
+    )
+
+    doc_id_source = f"{original_url}|{final_url}|{title}"
+    doc_id = hashlib.md5(
+        doc_id_source.encode("utf-8")
+    ).hexdigest()
+
+    return {
+        "doc_id": doc_id,
+        "url": original_url,
+        "target_url": final_url,
+        "parent_url": "",
+        "title": title,
+        "author": "",
+        "department": "",
+        "phone": "",
+        "date": "",
+        "views": None,
+        "menu_path": menu_path,
+        "page_type": "redirect_feature",
+        "category": "",
+        "text": text,
+        "paragraphs": [
+            f"서비스 바로가기: {final_url}",
+        ],
+        "sections": [],
+        "shortcut_links": [
+            {
+                "anchor_text": title,
+                "shortcut_url": final_url,
+                "raw_href": final_url,
+            }
+        ],
+        "attachments": [],
+    }
+
 # =========================================================
 # 저장 문서 생성
 # =========================================================
@@ -1923,18 +2051,20 @@ def crawl():
 
     session = requests.Session()
     session.headers.update(HEADERS)
-
     visited = set()
     queued = set()
     queue = deque()
+
     START_URL_SET = {item["url"] for item in START_URLS}
     saved_shortcut_urls = set()
     existing_docs = load_existing_docs(OUTPUT_JSONL)
     saved_doc_ids = set(existing_docs.keys())
     saved_count = len(existing_docs)
 
+    # 기존 시작 URL을 큐에 추가
     for seed in START_URLS:
         url = seed["url"]
+
         queue.append({
             "url": url,
             "parent_url": "",
@@ -1952,7 +2082,6 @@ def crawl():
                 menu_path = item.get("menu_path", [])
 
                 if any(keyword in url for keyword in EXCLUDED_URL_KEYWORDS):
-                    print(f"[EXCLUDED] {url}")
                     continue
 
                 if url in visited:
@@ -1973,6 +2102,12 @@ def crawl():
                     continue
 
                 html = response.text
+                final_url = response.url
+                # 리다이렉트된 최종 URL 사용
+                if final_url != url:
+                    print(f"  [REDIRECT] {url}")
+                    print(f"          -> {final_url}")
+
                 # 메뉴의 새창 바로가기 → 전체 soup에서 추출
                 soup_for_shortcut = BeautifulSoup(html, "html.parser")
 
@@ -2022,7 +2157,7 @@ def crawl():
                             "raw_href": href,
                         })
 
-                page_type = classify_page_type(url)
+                page_type = classify_page_type(final_url)
                 # 중복 제거
                 shortcut_dedup = {}
                 for link in shortcut_links:
@@ -2067,13 +2202,17 @@ def crawl():
                 
 
                 # 링크 수집: contents든 list든 직접 클릭 메뉴까지 계속 탐색
-                links = extract_links_from_raw_html(html, url, parent_menu_path=menu_path)
+                links = extract_links_from_raw_html(
+                    html,
+                    final_url,
+                    parent_menu_path=menu_path
+                )
 
                 # 목록형 게시판이면 최근 1년 상세글을 직접 방문해서 저장
                 if page_type == "bbs_list":
                     print("  목록형 게시판 처리")
                     for page in range(1, MAX_BOARD_PAGES_PER_LIST + 1):
-                        list_page_url = get_bbs_page_url(url, page)
+                        list_page_url = get_bbs_page_url(final_url, page)
                         try:
                             r = session.get(list_page_url, timeout=TIMEOUT)
                             r.raise_for_status()
@@ -2115,7 +2254,7 @@ def crawl():
                             }
                             doc = make_doc(
                                 view_url,
-                                parent_url=url,
+                                parent_url=final_url,
                                 anchor_text=row.get("title", ""),
                                 menu_path=menu_path + [row.get("title", "")],
                                 html=vr.text,
@@ -2159,11 +2298,42 @@ def crawl():
 
                         time.sleep(REQUEST_DELAY)
                 # 본문이 80자 미만이어도, 제목이나 메뉴명이 있고 본문이 조금있고 예약/신청/인증 링크 같은 바로가기가 있으면 저장후보로 남김
-                elif should_save(url, anchor_text):
+                elif should_save(final_url, anchor_text):
                     try:
-                        doc = make_doc(url, parent_url, anchor_text, menu_path, html)
-                        skip_save = False
+                        doc = make_doc(
+                            final_url,
+                            parent_url,
+                            anchor_text,
+                            menu_path,
+                            html
+                        )
+                        is_empty_page = (
+                            not doc.get("text")
+                            and not doc.get("sections")
+                            and not doc.get("shortcut_links")
+                        )
 
+                        is_redirected = (
+                            normalize_url("", url)
+                            != normalize_url("", final_url)
+                        )
+
+                        if is_empty_page and is_redirected and anchor_text:
+                            redirect_doc = make_redirect_feature_doc(
+                                original_url=url,
+                                final_url=final_url,
+                                anchor_text=anchor_text,
+                                menu_path=menu_path,
+                            )
+
+                            if redirect_doc:
+                                doc = redirect_doc
+                                print(
+                                    f"  빈 리다이렉트 기능 페이지로 처리: "
+                                    f"{doc['title']}"
+                                )
+                                
+                        skip_save = False
                         score = document_score(url, doc["title"], doc["text"], doc["sections"])
 
                         print(f"  제목: {doc['title']}")
@@ -2224,7 +2394,6 @@ def crawl():
                     link_url = link["url"]
 
                     if any(keyword in link_url for keyword in EXCLUDED_URL_KEYWORDS):
-                        print(f"  제외 URL: {link_url}")
                         continue
 
                     if link_url not in visited and link_url not in queued:

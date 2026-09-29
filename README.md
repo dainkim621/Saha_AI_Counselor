@@ -19,21 +19,23 @@ cd <project_folder>
 
 ### 2. Python Environment Setup
 
-#### Option 1: venv
+#### Option: venv
 
 ```bash
 python -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
 ```
+## STT 기능 실행 전 설치 필요
 
-#### Option 2: Conda
+### Ubuntu / WSL
+sudo apt install ffmpeg
 
-```bash
-conda create -n project python=3.10
-conda activate project
-pip install -r requirements.txt
-```
+### Windows
+winget install ffmpeg
+
+### Mac
+brew install ffmpeg
 
 ### 3. Notes
 

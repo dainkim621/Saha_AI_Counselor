@@ -3,14 +3,55 @@ import re
 from dotenv import load_dotenv
 from openai import OpenAI
 from app.services.search_service import get_similar_chunks
+from app.database import SessionLocal
+from app.models import UserChatLog
 from typing import List, Dict
 import json
 from app.database import SessionLocal, engine, Base
-from app.models import ChatLog
+
 # openAI API
 load_dotenv()
 api_key = os.getenv("OPENAI_API_KEY")
 client = OpenAI(api_key=api_key)
+
+#  사용자 질문을 FAQ 집계용 표준 질문으로 변환한다. 새로운 질문에 대해서만 호출한다.
+def normalize_faq_question(question: str) -> str:
+    try:
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {
+                    "role": "system",
+                    "content": (
+                        "너는 행정 민원 질문을 FAQ 집계용 표준 문장으로 변환하는 역할이다. "
+                        "표현이 달라도 사용자가 원하는 정보가 같으면 같은 표준 문장으로 변환해야 한다. "
+                        "같은 주제라도 원하는 정보가 다르면 반드시 구분해야 한다.\n\n"
+
+                        "예시:\n"
+                        "'소파 버리는데 얼마야?' -> '소파 폐기 수수료'\n"
+                        "'소파 폐기 비용 알려줘' -> '소파 폐기 수수료'\n"
+                        "'여권 발급 수수료 얼마야?' -> '여권 발급 수수료'\n"
+                        "'여권 발급 장소 어디야?' -> '여권 발급 장소'\n"
+                        "'전입신고 어떻게 해?' -> '전입신고 방법'\n\n"
+
+                        "설명하지 말고 표준화된 질문만 한 줄로 출력해."
+                    )
+                },
+                {
+                    "role": "user",
+                    "content": question
+                }
+            ],
+            temperature=0.0
+        )
+
+        return response.choices[0].message.content.strip()
+
+    except Exception as e:
+        print(f"⚠️ FAQ 질문 정규화 실패: {question} / {e}")
+
+        # 정규화에 실패해도 챗봇 자체는 정상 작동하도록 원본 사용
+        return question
 
 async def ask_saha_ai_stream(user_question: str, history: List[Dict[str, str]] = None):
     if history is None:
@@ -58,23 +99,85 @@ async def ask_saha_ai_stream(user_question: str, history: List[Dict[str, str]] =
     # [1] RAG 문서 기반 파일첨부 기능 정규식 링크 수집 (일반 민원 서식용 - 순수하게 다 받아줌)
     #==================================================================
     
-    # 하이브리드로 고도화된 스크립트 호출 (상위 3개 가져오기)
-    relevant_chunks, query_embedding = get_similar_chunks(refined_question, top_k=3)
-    final_confidence_score = relevant_chunks[0].score if relevant_chunks else 0.0
-    #리스트업 기능 위해 사용자 질문 db 저장
+    # 하이브리드 검색 (상위 3개)
+    # relevant_chunks  → 검색된 사하구청 문서
+    # query_embedding  → 검색할 때 이미 생성했던 질문 벡터
+    relevant_chunks, query_embedding = get_similar_chunks(
+        refined_question,
+        top_k=3
+    )
+
+    #==================================================================
+    # [2] FAQ 분석용 사용자 질문 로그 저장
+    #==================================================================
+    log_db = SessionLocal()
+
     try:
-        db_session = SessionLocal() # 혹은 사용 중인 DB 세션
-        new_log = ChatLog(
-            search_query=refined_question,
+        # 1. 완전히 같은 원본 질문이 이전에 들어왔는지 먼저 확인
+        existing_log = (
+            log_db.query(UserChatLog)
+            .filter(
+                UserChatLog.search_query == user_question,
+                UserChatLog.normalized_query.isnot(None)
+            )
+            .order_by(UserChatLog.id.desc())
+            .first()
+        )
+
+        # 2. 같은 원본 질문이 없으면 refined_query도 확인
+        if existing_log is None:
+            existing_log = (
+                log_db.query(UserChatLog)
+                .filter(
+                    UserChatLog.refined_query == refined_question,
+                    UserChatLog.normalized_query.isnot(None)
+                )
+                .order_by(UserChatLog.id.desc())
+                .first()
+            )
+
+        if existing_log:
+            # 이미 정규화한 질문이면 기존 결과 재사용
+            normalized_question = existing_log.normalized_query
+
+            print(
+                f"♻️ FAQ 정규화 결과 재사용: "
+                f"'{refined_question}' → '{normalized_question}'"
+            )
+
+        else:
+            # 처음 들어온 질문만 GPT로 정규화
+            normalized_question = normalize_faq_question(refined_question)
+
+            print(
+                f"🆕 FAQ 최초 정규화: "
+                f"'{refined_question}' → '{normalized_question}'"
+            )
+
+        # 질문 로그 저장
+        chat_log = UserChatLog(
+            search_query=user_question,
+            refined_query=refined_question,
+            normalized_query=normalized_question,
             embedding=query_embedding
         )
-        db_session.add(new_log)
-        db_session.commit()
-        db_session.close()
-        print("🎯 사용자 질문 로그 DB 저장 완료!")
+
+        log_db.add(chat_log)
+        log_db.commit()
+
+        print(
+            f"💾 사용자 질문 로그 저장 완료: "
+            f"'{user_question}' → '{normalized_question}'"
+        )
+
     except Exception as e:
-        print(f"⚠️ 로그 저장 중 오류 발생: {e}")
-        db_session.rollback()
+        log_db.rollback()
+        print(f"⚠️ 사용자 질문 로그 저장 실패: {e}")
+
+    finally:
+        log_db.close()
+
+    final_confidence_score = relevant_chunks[0].score if relevant_chunks else 0.0
         
     # 사용자가 안지루하게 유사도 먼저 보내기~~~~ 유사도를 먼저 보내서 답변이 도움이 되는지 판단하게끔 함
     yield json.dumps({'type': 'score', 'content': float(final_confidence_score)}) + " "

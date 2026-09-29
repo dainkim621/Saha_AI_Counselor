@@ -5,6 +5,7 @@ import Header from "./components/Header";
 import MascotCard from "./components/MascotCard";
 import ChatWindow from "./components/ChatWindow";
 import ChatInput from "./components/ChatInput";
+import QuickMenu from "./components/QuickMenu";
 
 // FastAPI 백엔드 서버 주소
 const BACKEND_URL = "http://localhost:8000";
@@ -28,6 +29,8 @@ const fontModes = [
 
 // 화면에 표시되는 글자 크기 이름
 const fontLabels = ["아주 작게", "작게", "기본", "크게", "아주 크게"];
+
+
 
 function App() {
   // 채팅 메시지 목록
@@ -54,10 +57,20 @@ function App() {
   const [isListening, setIsListening] = useState(false);
 
   // RAG 유사도 점수
-  const [similarityScore, setSimilarityScore] = useState<number | null>(null);
+  const [similarityScore, setSimilarityScore] =
+    useState<number | null>(null);
 
   // 이용 가이드 모달 표시 여부
   const [showGuide, setShowGuide] = useState(false);
+
+  /*
+   * QuickMenu에 표시할 질문 목록
+   *
+   * 처음에는 기본 FAQ가 표시되고,
+   * 질문 기록이 있으면 최근 7일 집계 결과로 변경된다.
+   */
+  // 백엔드에서 받아온 자주 묻는 질문 Top 5
+  const [weeklyQuestions, setWeeklyQuestions] = useState<string[]>([]);
 
   // 마지막으로 읽은 assistant 메시지 인덱스 저장
   const lastSpokenIndexRef = useRef<number>(-1);
@@ -70,6 +83,36 @@ function App() {
 
   // 녹음된 음성 조각 저장
   const audioChunksRef = useRef<Blob[]>([]);
+
+  // 페이지가 처음 열릴 때 백엔드에서 자주 묻는 질문 Top 5 조회
+  // 페이지가 열리면 자동으로 GET http://localhost:8000/frequent-questions가 호출됨.
+  useEffect(() => {
+    const fetchFrequentQuestions = async () => {
+      try {
+        const response = await fetch(`${BACKEND_URL}/frequent-questions`);
+
+        if (!response.ok) {
+          throw new Error("자주 묻는 질문 조회 실패");
+        }
+
+        const data = await response.json();
+
+        // 백엔드 응답에서 question 값만 추출
+        const questions = data.map(
+          (item: { question: string; count: number }) => item.question
+        );
+
+        setWeeklyQuestions(questions);
+      } catch (error) {
+        console.error("자주 묻는 질문 조회 오류:", error);
+        setWeeklyQuestions([]);
+      }
+    };
+
+    fetchFrequentQuestions();
+  }, []);
+
+
 
   // TTS로 읽기 전 Markdown, 링크, 특수기호 제거
   const cleanTextForTTS = (text: string) => {
@@ -103,12 +146,20 @@ function App() {
 
   // 텍스트를 음성으로 읽어주는 함수
   const speakText = (text: string) => {
+    // 브라우저가 음성 합성 기능을 지원하지 않으면 종료
     if (!("speechSynthesis" in window)) return;
+
+    // 읽을 내용이 없으면 종료
     if (!text.trim()) return;
 
+    // 기존에 재생 중인 음성 중지
     window.speechSynthesis.cancel();
 
-    const utterance = new SpeechSynthesisUtterance(cleanTextForTTS(text));
+    // Markdown 기호 등을 제거한 텍스트로 음성 생성
+    const utterance = new SpeechSynthesisUtterance(
+      cleanTextForTTS(text)
+    );
+
     utterance.lang = "ko-KR";
     utterance.rate = 1;
     utterance.pitch = 1;
@@ -119,19 +170,28 @@ function App() {
 
   // TTS가 켜져 있을 때 assistant 답변이 완성되면 자동으로 읽기
   useEffect(() => {
+    // TTS가 꺼지면 재생 중인 음성도 중지
     if (!isTtsOn) {
       window.speechSynthesis?.cancel();
       return;
     }
 
+    // 답변 생성 중에는 아직 읽지 않음
     if (isLoading) return;
+
+    // 메시지가 없으면 종료
     if (messages.length === 0) return;
 
     const lastIndex = messages.length - 1;
     const lastMessage = messages[lastIndex];
 
+    // 마지막 메시지가 assistant 답변이 아니면 종료
     if (lastMessage.role !== "assistant") return;
+
+    // 답변 내용이 비어 있으면 종료
     if (!lastMessage.content.trim()) return;
+
+    // 이미 읽었던 메시지이면 다시 자동 재생하지 않음
     if (lastSpokenIndexRef.current === lastIndex) return;
 
     lastSpokenIndexRef.current = lastIndex;
@@ -140,53 +200,68 @@ function App() {
 
   // 마이크 사용 종료 처리
   const stopMicrophone = () => {
+    // 사용 중인 모든 마이크 트랙 종료
     mediaStreamRef.current?.getTracks().forEach((track) => {
       track.stop();
       console.log("마이크 트랙 종료:", track.readyState);
     });
 
+    // 저장된 마이크 관련 객체 초기화
     mediaStreamRef.current = null;
     mediaRecorderRef.current = null;
   };
 
   // 음성 입력 시작/종료 처리
   const handleStartStt = async () => {
+    // 챗봇 답변 생성 중에는 음성 입력 차단
     if (isLoading) return;
 
+    // 이미 녹음 중이면 녹음 종료
     if (isListening) {
       mediaRecorderRef.current?.stop();
       return;
     }
 
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      // 브라우저에 마이크 사용 권한 요청
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: true,
+      });
+
       mediaStreamRef.current = stream;
 
+      // 이전 녹음 데이터 초기화
       audioChunksRef.current = [];
 
+      // 마이크 스트림을 사용하는 MediaRecorder 생성
       const mediaRecorder = new MediaRecorder(stream);
       mediaRecorderRef.current = mediaRecorder;
 
+      // 녹음된 음성 데이터가 만들어질 때마다 배열에 저장
       mediaRecorder.ondataavailable = (event) => {
         if (event.data.size > 0) {
           audioChunksRef.current.push(event.data);
         }
       };
 
+      // 녹음이 종료되었을 때 실행
       mediaRecorder.onstop = async () => {
         setIsListening(false);
         stopMicrophone();
 
         console.log("마이크 종료됨");
 
+        // 녹음 조각을 하나의 webm 파일로 합치기
         const audioBlob = new Blob(audioChunksRef.current, {
           type: "audio/webm",
         });
 
+        // 백엔드에 전송할 FormData 생성
         const formData = new FormData();
         formData.append("audio", audioBlob, "voice.webm");
 
         try {
+          // STT 백엔드 API에 음성 파일 전송
           const response = await fetch(`${BACKEND_URL}/stt`, {
             method: "POST",
             body: formData,
@@ -199,22 +274,31 @@ function App() {
           const data = await response.json();
           const transcript = data.text?.trim();
 
+          // 인식된 텍스트가 없으면 종료
           if (!transcript) return;
 
+          // 음성 인식 결과를 입력창에 표시
           setInput(transcript);
+
+          // 음성 인식 결과를 사용자에게 다시 읽어줌
           speakText(transcript);
         } catch (error) {
+          console.error("음성 인식 오류:", error);
           speakText("음성 인식 중 오류가 발생했습니다.");
         } finally {
+          // 녹음 관련 임시 데이터 초기화
           mediaRecorderRef.current = null;
           audioChunksRef.current = [];
         }
       };
 
+      // 녹음 상태 표시
       setIsListening(true);
+
+      // 실제 녹음 시작
       mediaRecorder.start();
 
-      // 최대 10초까지만 녹음
+      // 최대 10초까지만 자동 녹음
       setTimeout(() => {
         if (mediaRecorder.state === "recording") {
           mediaRecorder.stop();
@@ -238,6 +322,7 @@ function App() {
     setIsTtsOn((prev) => {
       const next = !prev;
 
+      // TTS를 끄는 경우 현재 재생 중인 음성도 중지
       if (!next && "speechSynthesis" in window) {
         window.speechSynthesis.cancel();
       }
@@ -248,6 +333,7 @@ function App() {
 
   // 마지막 assistant 답변 다시 듣기
   const handleReplayTts = () => {
+    // 최신 메시지부터 거꾸로 확인하여 마지막 assistant 답변 찾기
     const lastAssistantMessage = [...messages]
       .reverse()
       .find((message) => message.role === "assistant");
@@ -259,9 +345,13 @@ function App() {
 
   // 사용자 질문을 백엔드로 전송하고 스트리밍 답변 수신
   const sendMessage = async (question: string) => {
+    // 질문 앞뒤 공백 제거
     const trimmedQuestion = question.trim();
 
+    // 빈 질문은 전송하지 않음
     if (!trimmedQuestion) return;
+
+    // 이미 답변 생성 중이면 중복 전송하지 않음
     if (isLoading) return;
 
     const userMessage: Message = {
@@ -273,7 +363,8 @@ function App() {
     const history = messages
       .filter(
         (message) =>
-          message.content !== "안녕하세요! 사하구 민원 상담을 도와드릴게요."
+          message.content !==
+          "안녕하세요! 사하구 민원 상담을 도와드릴게요."
       )
       .map((message) => ({
         role: message.role,
@@ -291,11 +382,17 @@ function App() {
       },
     ]);
 
+    // 입력창 초기화
     setInput("");
+
+    // 이전 질문의 유사도 점수 초기화
     setSimilarityScore(null);
+
+    // 답변 생성 상태로 변경
     setIsLoading(true);
 
     try {
+      // AI 채팅 백엔드 API 호출
       const response = await fetch(`${BACKEND_URL}/ai-chat`, {
         method: "POST",
         headers: {
@@ -315,37 +412,50 @@ function App() {
         throw new Error("스트리밍 응답을 받을 수 없습니다.");
       }
 
+      // 스트리밍 응답을 읽기 위한 객체
       const reader = response.body.getReader();
       const decoder = new TextDecoder("utf-8");
 
+      // 잘려서 들어오는 SSE 데이터를 임시 저장할 문자열
       let buffer = "";
+
+      // 서버가 답변 전송을 완료했는지 여부
       let isDone = false;
 
       while (!isDone) {
         const { value, done } = await reader.read();
 
+        // 스트림 자체가 종료되면 반복 종료
         if (done) break;
 
+        // 서버에서 받은 바이트 데이터를 문자열로 변환
         buffer += decoder.decode(value, { stream: true });
 
+        // SSE 이벤트는 빈 줄 두 개로 구분됨
         const events = buffer.split("\n\n");
+
+        // 아직 완성되지 않은 마지막 데이터는 buffer에 유지
         buffer = events.pop() || "";
 
         for (const event of events) {
+          // SSE 데이터 형식이 아니면 건너뜀
           if (!event.startsWith("data: ")) continue;
 
           const data = event.replace("data: ", "").trim();
 
+          // 백엔드가 전송 완료 신호를 보낸 경우
           if (data === "[DONE]") {
             isDone = true;
             break;
           }
 
+          // JSON 문자열을 객체로 변환
           const parsed = JSON.parse(data);
 
           // 유사도 점수 수신
           if (parsed.type === "score") {
             const score = Number(parsed.content);
+
             setSimilarityScore(score);
 
             setMessages((prev) => {
@@ -369,13 +479,17 @@ function App() {
 
               updated[lastIndex] = {
                 ...updated[lastIndex],
-                content: updated[lastIndex].content + parsed.content,
+                content:
+                  updated[lastIndex].content + parsed.content,
               };
 
               return updated;
             });
 
-            await new Promise((resolve) => setTimeout(resolve, 20));
+            // 스트리밍 출력이 너무 빠르지 않도록 약간의 지연 적용
+            await new Promise((resolve) =>
+              setTimeout(resolve, 20)
+            );
           }
 
           // 첨부파일 정보 수신
@@ -393,12 +507,16 @@ function App() {
             });
           }
 
+          // 백엔드에서 오류 데이터를 보낸 경우
           if (parsed.type === "error") {
             throw new Error(parsed.content);
           }
         }
       }
     } catch (error) {
+      console.error("채팅 서버 연결 오류:", error);
+
+      // 빈 assistant 메시지를 오류 안내 메시지로 교체
       setMessages((prev) => {
         const updated = [...prev];
         const lastIndex = updated.length - 1;
@@ -411,6 +529,7 @@ function App() {
         return updated;
       });
     } finally {
+      // 성공 또는 실패 여부와 관계없이 로딩 종료
       setIsLoading(false);
     }
   };
@@ -432,10 +551,17 @@ function App() {
 
       {/* 이용 가이드 모달 */}
       {showGuide && (
-        <div className="guide-overlay" onClick={() => setShowGuide(false)}>
-          <div className="guide-modal" onClick={(e) => e.stopPropagation()}>
+        <div
+          className="guide-overlay"
+          onClick={() => setShowGuide(false)}
+        >
+          <div
+            className="guide-modal"
+            onClick={(event) => event.stopPropagation()}
+          >
             <div className="guide-modal-header">
               <h2>📖 이용 가이드</h2>
+
               <button
                 type="button"
                 className="guide-close-button"
@@ -446,11 +572,13 @@ function App() {
             </div>
 
             <p className="guide-intro">
-              고우니 챗봇은 사하구 민원 정보를 쉽게 안내해주는 AI 상담사입니다.
+              고우니 챗봇은 사하구 민원 정보를 쉽게 안내해주는
+              AI 상담사입니다.
             </p>
 
             <section className="guide-section">
               <h3>💬 이렇게 질문해보세요</h3>
+
               <ul>
                 <li>전입신고는 어떻게 하나요?</li>
                 <li>여권 발급 준비물이 뭐야?</li>
@@ -461,6 +589,7 @@ function App() {
 
             <section className="guide-section">
               <h3>🔊 사용할 수 있는 기능</h3>
+
               <ul>
                 <li>음성 입력으로 질문하기</li>
                 <li>챗봇 답변 음성으로 듣기</li>
@@ -472,9 +601,15 @@ function App() {
 
             <section className="guide-section">
               <h3>⚠️ 안내사항</h3>
+
               <ul>
-                <li>챗봇 답변은 민원 안내를 돕기 위한 참고용입니다.</li>
-                <li>정확한 최신 정보는 담당 부서 또는 공식 홈페이지를 확인해주세요.</li>
+                <li>
+                  챗봇 답변은 민원 안내를 돕기 위한 참고용입니다.
+                </li>
+                <li>
+                  정확한 최신 정보는 담당 부서 또는 공식 홈페이지를
+                  확인해주세요.
+                </li>
               </ul>
             </section>
 
@@ -494,7 +629,11 @@ function App() {
         <div className="voice-accessibility-controls">
           <button
             type="button"
-            className={isListening ? "voice-button active" : "voice-button"}
+            className={
+              isListening
+                ? "voice-button active"
+                : "voice-button"
+            }
             onClick={handleStartStt}
             disabled={isLoading}
           >
@@ -503,10 +642,16 @@ function App() {
 
           <button
             type="button"
-            className={isTtsOn ? "voice-button active" : "voice-button"}
+            className={
+              isTtsOn
+                ? "voice-button active"
+                : "voice-button"
+            }
             onClick={handleToggleTts}
           >
-            {isTtsOn ? "🔊 답변 음성 ON" : "🔇 답변 음성 OFF"}
+            {isTtsOn
+              ? "🔊 답변 음성 ON"
+              : "🔇 답변 음성 OFF"}
           </button>
 
           <button type="button" className="voice-button" onClick={handleReplayTts}>
@@ -516,8 +661,13 @@ function App() {
 
         <div className="font-controls">
           <span>글자 크기</span>
+
           <button onClick={decreaseFont}>－</button>
-          <div className="font-label">{fontLabels[fontLevel]}</div>
+
+          <div className="font-label">
+            {fontLabels[fontLevel]}
+          </div>
+
           <button onClick={increaseFont}>＋</button>
         </div>
       </div>
@@ -526,6 +676,18 @@ function App() {
       <main className="main-layout">
         <section className="left-section">
           <MascotCard />
+
+          <QuickMenu
+            /*
+             * App.tsx에서 계산한 최근 7일 질문 목록을
+             * QuickMenu 컴포넌트에 전달한다.
+             */
+            questions={weeklyQuestions}
+            // FAQ 버튼을 누르면 해당 질문을 바로 챗봇에 전송
+            onSelect={sendMessage}
+            // 답변 생성 중에는 FAQ 버튼 비활성화
+            disabled={isLoading}
+          />
         </section>
 
         <section className="chat-section">
