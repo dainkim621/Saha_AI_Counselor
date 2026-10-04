@@ -225,6 +225,27 @@
   cursor: not-allowed;
 }
 
+/* 로그인 / 회원가입 이동 안내 */
+.admin-login-signup {
+  margin: 18px 0 0;
+
+  color: #7b8493;
+  font-size: 13px;
+  text-align: center;
+}
+
+/* 로그인 / 회원가입 이동 링크 */
+.admin-login-signup a {
+  color: #24518a;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+/* 로그인 / 회원가입 이동 링크 마우스 오버 */
+.admin-login-signup a:hover {
+  text-decoration: underline;
+}
+
 /* 카드 하단 안내 */
 .admin-login-notice {
   margin: 22px 0 0;
