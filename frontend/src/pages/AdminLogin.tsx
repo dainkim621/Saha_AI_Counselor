@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import "../styles/AdminLogin.css";
 import adminGouni from "../assets/admin-gouni.png";
 
@@ -164,6 +164,13 @@ function AdminLogin() {
             {isLoading ? "로그인 중..." : "로그인"}
           </button>
         </form>
+
+        <p className="admin-login-signup">
+          관리자 계정이 없으신가요?{" "}
+          <Link to="/admin/signup">
+            회원가입
+          </Link>
+        </p>
 
         <p className="admin-login-notice">
           관리자 전용 페이지입니다.
