@@ -1,5 +1,8 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import "../styles/AdminLogin.css";
+import adminGouni from "../assets/admin-gouni.png";
+
 // 관리자 로그인 페이지
 function AdminLogin() {
   // 관리자가 입력한 아이디와 비밀번호를 저장
@@ -76,50 +79,100 @@ function AdminLogin() {
     }
   };
   return (
-    <main>
-      <h1>관리자 로그인</h1>
+  <main className="admin-login-page">
+    <div className="admin-login-container">
 
-      <form onSubmit={handleLogin}>
-        {/* 관리자 아이디 */}
-        <div>
-          <label htmlFor="adminId">아이디</label>
-          <input
-            id="adminId"
-            type="text"
-            placeholder="관리자 아이디"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-          />
-        </div>
+      {/* 관리자 시스템 브랜드 영역 */}
+      <div className="admin-login-brand">
+        <img
+          src={adminGouni}
+          alt=""
+          className="admin-login-mascot"
+        />
 
-        {/* 관리자 비밀번호 */}
-        <div>
-          <label htmlFor="adminPassword">비밀번호</label>
-          <input
-            id="adminPassword"
-            type="password"
-            placeholder="비밀번호"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-          />
-        </div>
+        <p className="admin-login-service-name">
+          사하구 AI 민원 상담사
+        </p>
 
-        {/* 로그인 실패 메시지 */}
-        {errorMessage && (
-          <p role="alert">
-            {errorMessage}
+        <span className="admin-login-badge">
+          관리자 시스템
+        </span>
+      </div>
+
+      {/* 실제 로그인 영역 */}
+      <section className="admin-login-card">
+        <div className="admin-login-header">
+          <h1>관리자 로그인</h1>
+
+          <p className="admin-login-description">
+            관리자 계정으로 로그인하여 상담 현황을 관리하세요.
           </p>
-        )}
+        </div>
 
-        <button 
-          type="submit"
-          disabled={isLoading}
+        <form
+          className="admin-login-form"
+          onSubmit={handleLogin}
         >
-          {isLoading ? "로그인 중..." : "로그인"}
-        </button>
-      </form>
-    </main>
-  );
+          {/* 관리자 아이디 */}
+          <div className="admin-login-field">
+            <label htmlFor="adminId">
+              관리자 ID
+            </label>
+
+            <input
+              id="adminId"
+              type="text"
+              placeholder="관리자 ID를 입력해주세요"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              autoComplete="username"
+            />
+          </div>
+
+          {/* 관리자 비밀번호 */}
+          <div className="admin-login-field">
+            <label htmlFor="adminPassword">
+              비밀번호
+            </label>
+
+            <input
+              id="adminPassword"
+              type="password"
+              placeholder="비밀번호를 입력해주세요"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              autoComplete="current-password"
+            />
+          </div>
+
+          {/* 로그인 실패 메시지 */}
+          {errorMessage && (
+            <div className="admin-login-error-area">
+              <p
+                className="admin-login-error"
+                role="alert"
+              >
+                {errorMessage}
+              </p>
+            </div>
+          )}
+          <button
+            className="admin-login-button"
+            type="submit"
+            disabled={isLoading}
+          >
+            {isLoading ? "로그인 중..." : "로그인"}
+          </button>
+        </form>
+
+        <p className="admin-login-notice">
+          관리자 전용 페이지입니다.
+        </p>
+      </section>
+
+    </div>
+  </main>
+);
 }
 
 export default AdminLogin;
