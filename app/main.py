@@ -8,7 +8,7 @@ import math   # 자주하는 질문 같은거 묶기 위해 코사인 유사도
 from app.database import engine, get_db
 from . import models
 from .models import Notice, UserChatLog    # userchatlog 추가
-from .api import chat, stt, admin_auth, admin_dashboard  # 기존 챗봇 + 관리자 인증 라우터
+from .api import chat, stt, admin_auth, admin_dashboard,admin_invite  # 기존 챗봇 + 관리자 인증 라우터
 from pydantic import BaseModel
 from app.services.chat_service import ask_saha_ai_stream
 from fastapi.middleware.cors import CORSMiddleware
@@ -80,6 +80,8 @@ app.include_router(chat.router, prefix="/chat", tags=["Chat"])
 app.include_router(stt.router, tags=["STT"])
 app.include_router(admin_auth.router, prefix="/admin", tags=["Admin"])
 app.include_router(admin_dashboard.router,prefix="/admin/dashboard",tags=["Admin Dashboard"])
+app.include_router(admin_invite.router, prefix="/admin", tags=["Admin Invite"])
+
 
 # 4. 공지사항 조회 API 엔드포인트
 @app.get("/notices", response_model=List[NoticeResponse], tags=["Notices"])
