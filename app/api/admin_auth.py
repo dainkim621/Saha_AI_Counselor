@@ -5,10 +5,11 @@ import hashlib
 from fastapi import APIRouter, Depends, HTTPException, Response, Cookie
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import SQLAlchemyError
 from datetime import datetime, timedelta, timezone
 
 from app.database import get_db
-from app.models import Admin, AdminSession
+from app.models import Admin, AdminSession, AdminInvite
 
 router = APIRouter()
 
@@ -21,9 +22,138 @@ MAX_LOGIN_ATTEMPTS = 5
 # 로그인 잠금 시간(분)
 LOGIN_LOCK_MINUTES = 15
 
+
 class AdminLoginRequest(BaseModel):
     username: str
     password: str
+
+
+class AdminSignupRequest(BaseModel):
+    username: str
+    name: str
+    password: str
+    signup_code: str
+
+
+@router.post("/signup")
+def admin_signup(
+    request: AdminSignupRequest,
+    db: Session = Depends(get_db)
+):
+    # 입력값 앞뒤 공백 제거
+    username = request.username.strip()
+    name = request.name.strip()
+    password = request.password
+    signup_code = request.signup_code.strip()
+
+    # 필수 입력값 확인
+    if not username or not name or not password or not signup_code:
+        raise HTTPException(
+            status_code=400,
+            detail="모든 항목을 입력해주세요."
+        )
+
+    # 비밀번호 최소 길이 확인
+    if len(password) < 8:
+        raise HTTPException(
+            status_code=400,
+            detail="비밀번호는 8자 이상이어야 합니다."
+        )
+
+    # 사용자가 입력한 초대 코드를 SHA-256으로 해시
+    invite_code_hash = hashlib.sha256(
+        signup_code.encode("utf-8")
+    ).hexdigest()
+
+    # DB에서 해당 초대 코드 찾기
+    admin_invite = (
+        db.query(AdminInvite)
+        .filter(
+            AdminInvite.invite_code_hash == invite_code_hash
+        )
+        .with_for_update()
+        .first()
+    )
+
+    # 존재하지 않는 초대 코드인 경우 회원가입 차단
+    if not admin_invite:
+        raise HTTPException(
+            status_code=403,
+            detail="관리자 초대 코드가 올바르지 않습니다."
+        )
+
+    # 이미 사용된 초대 코드인지 확인
+    if admin_invite.is_used:
+        raise HTTPException(
+            status_code=403,
+            detail="이미 사용된 관리자 초대 코드입니다."
+        )
+
+    # 현재 시간
+    now = datetime.now(timezone.utc)
+
+    # 초대 코드가 만료되었는지 확인
+    if admin_invite.expires_at <= now:
+        raise HTTPException(
+            status_code=403,
+            detail="만료된 관리자 초대 코드입니다."
+        )
+
+    # 같은 관리자 ID가 이미 존재하는지 확인
+    existing_admin = (
+        db.query(Admin)
+        .filter(Admin.username == username)
+        .first()
+    )
+
+    if existing_admin:
+        raise HTTPException(
+            status_code=409,
+            detail="이미 사용 중인 관리자 ID입니다."
+        )
+
+    # 비밀번호를 bcrypt로 해시
+    password_hash = bcrypt.hashpw(
+        password.encode("utf-8"),
+        bcrypt.gensalt()
+    ).decode("utf-8")
+
+    # 새로운 관리자 계정 생성
+    new_admin = Admin(
+        username=username,
+        name=name,
+        password_hash=password_hash
+    )
+
+    # admins 테이블에 새 관리자 추가
+    db.add(new_admin)
+    
+    # 관리자 계정 생성에 사용된 초대 코드를 사용 완료 처리
+    admin_invite.is_used = True
+    admin_invite.used_at = now
+    
+    try:
+        # 관리자 계정 생성과 초대 코드 사용 처리를
+        # 하나의 DB 작업으로 저장
+        db.commit()
+        
+        # DB에 저장된 관리자 정보 다시 불러오기
+        db.refresh(new_admin)
+        
+    except SQLAlchemyError:
+        # DB 저장 과정에서 오류가 발생하면
+        # 관리자 생성과 초대 코드 사용 처리를 모두 취소
+        db.rollback()
+        
+        raise HTTPException(
+            status_code=500,
+            detail="관리자 회원가입 처리 중 오류가 발생했습니다."
+        )
+
+    return {
+        "message": "관리자 회원가입이 완료되었습니다."
+    }
+
 
 # 예측하기 어려운 안전한 관리자 세션 토큰 생성
 def create_session_token():
@@ -36,6 +166,7 @@ def hash_session_token(token: str):
     return hashlib.sha256(
         token.encode("utf-8")
     ).hexdigest()
+
 
 # 관리자 인증이 필요한 API에서 공통으로 사용할 함수
 def require_admin(
@@ -103,13 +234,14 @@ def require_admin(
     # 인증에 성공한 관리자 객체 반환
     return admin
 
+
 @router.post("/login")
 def admin_login(
     request: AdminLoginRequest,
     response: Response,
-    db: Session = Depends(get_db) # 기존 프로젝트의 get_db()를 이용해 DB 세션 받아오기
+    db: Session = Depends(get_db)  # 기존 프로젝트의 get_db()를 이용해 DB 세션 받아오기
 ):
-    admin = ( # admins 테이블에서 입력한 ID 찾기
+    admin = (  # admins 테이블에서 입력한 ID 찾기
         db.query(Admin)
         .filter(Admin.username == request.username)
         .first()
@@ -121,7 +253,7 @@ def admin_login(
             detail="아이디 또는 비밀번호가 올바르지 않습니다."
         )
 
-    if not admin.is_active: # 비활성화된 관리자 계정의 로그인 막음
+    if not admin.is_active:  # 비활성화된 관리자 계정의 로그인 막음
         raise HTTPException(
             status_code=403,
             detail="비활성화된 관리자 계정입니다."
@@ -169,11 +301,11 @@ def admin_login(
             status_code=401,
             detail="아이디 또는 비밀번호가 올바르지 않습니다."
         )
-    
+
     # 로그인에 성공하면 이전 로그인 실패 횟수를 초기화
     admin.failed_login_attempts = 0
     admin.locked_until = None
-    
+
     # 초기화된 값을 DB에 저장
     db.commit()
 
@@ -182,30 +314,30 @@ def admin_login(
     db.query(AdminSession).filter(
         AdminSession.admin_id == admin.id
     ).delete(synchronize_session=False)
-    
+
     db.commit()
-    
+
     # 로그인에 성공했으므로 새로운 세션 토큰 생성
     session_token = create_session_token()
-    
+
     # 실제 세션 토큰은 DB에 저장하지 않고
     # SHA-256으로 해시한 값만 저장
     session_token_hash = hash_session_token(session_token)
-    
+
     # 현재 시간을 UTC 기준으로 가져옴
     now = datetime.now(timezone.utc)
-    
+
     # 관리자 세션의 만료 시간 설정
     # 우선 8시간 후 자동 만료되도록 설정
     expires_at = now + timedelta(hours=ADMIN_SESSION_HOURS)
-    
+
     # DB에 저장할 관리자 세션 생성
     admin_session = AdminSession(
         admin_id=admin.id,
         session_token_hash=session_token_hash,
         expires_at=expires_at
     )
-    
+
     # 생성한 세션을 DB에 저장
     db.add(admin_session)
     db.commit()
@@ -214,20 +346,20 @@ def admin_login(
     response.set_cookie(
         key="admin_session",
         value=session_token,
-        
+
         # JavaScript에서 쿠키 값을 읽지 못하도록 설정
         httponly=True,
-        
+
         # 다른 사이트에서 발생한 요청에는 쿠키 전송을 제한
         samesite="strict",
-        
+
         # 개발 환경은 HTTP이므로 우선 False
         # 실제 HTTPS 배포 환경에서는 반드시 True로 변경
         secure=False,
-        
+
         # 쿠키를 8시간 후 만료
         max_age=ADMIN_SESSION_HOURS * 60 * 60,
-        
+
         # 전체 관리자 API 요청에서 사용할 수 있도록 설정
         path="/"
     )
@@ -241,6 +373,7 @@ def admin_login(
         }
     }
 
+
 # 현재 로그인한 관리자 정보를 확인하는 API
 @router.get("/me")
 def get_current_admin(
@@ -253,6 +386,7 @@ def get_current_admin(
         "username": current_admin.username,
         "name": current_admin.name
     }
+
 
 # 현재 로그인한 관리자 로그아웃 API
 @router.post("/logout")
