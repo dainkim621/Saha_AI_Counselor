@@ -2,6 +2,18 @@ from sqlalchemy import Column, Integer, String, Text, DateTime, JSON, Date, Bool
 from pgvector.sqlalchemy import Vector  # 추가
 from sqlalchemy.sql import func
 from app.database import Base
+from datetime import datetime
+
+class Feedback(Base):
+    __tablename__ = "feedbacks"
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    message_index = Column(Integer, nullable=False)
+    question = Column(Text, nullable=False)
+    answer = Column(Text, nullable=False)
+    rating = Column(String(20), nullable=False)  # "positive" 또는 "negative"
+    reason = Column(String(50), nullable=True)   # "inaccurate", "irrelevant" 등
+    created_at = Column(DateTime, default=datetime.utcnow)
     
 class Notice(Base):
     __tablename__ = "notices"

@@ -7,13 +7,16 @@ import json
 import math   # 자주하는 질문 같은거 묶기 위해 코사인 유사도
 from app.database import engine, get_db
 from . import models
-from .models import Notice, UserChatLog    # userchatlog 추가
+from .models import Notice, UserChatLog, Feedback    # userchatlog 추가
 from .api import chat, stt, admin_auth, admin_dashboard  # 기존 챗봇 + 관리자 인증 라우터
 from pydantic import BaseModel
 from app.services.chat_service import ask_saha_ai_stream
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 import os
+from typing import Optional
+from datetime import datetime, timedelta
+from sqlalchemy import func
 
 app = FastAPI(title="사하구 AI 상담사 API")
 
@@ -50,6 +53,13 @@ models.Base.metadata.create_all(bind=engine)
 #Pydantic 모델 (API 응답 규격)
 #서버가 사용자에게 결과를 돌려줄 때의 규격 
 # db에서 찾은 공지사항 정보를 줄 때 id, title, author 등의 형식에 맞춰서 줌
+class FeedbackCreate(BaseModel):
+    messageIndex: int
+    question: str
+    answer: str
+    rating: str          # "positive" 또는 "negative"
+    reason: Optional[str] = None  # 사유는 없을 수도 있으므로 Optional
+    
 class NoticeResponse(BaseModel): 
     id: int
     doc_id: str
@@ -177,3 +187,24 @@ async def chat_endpoint(request: ChatRequest):
             yield f"data: {json.dumps({'type': 'error', 'content': str(e)})}\n\n"
     return StreamingResponse(event_generator(), media_type="text/event-stream")
 
+# main.py 에 추가할 피드백 저장 API
+@app.post("/api/feedback", tags=["Feedback"])
+def create_feedback(feedback: FeedbackCreate, db: Session = Depends(get_db)):
+    """프론트엔드에서 보낸 챗봇 답변 만족도 피드백을 저장합니다."""
+    db_feedback = NoticeResponse # (임시 방어용 아님, 아래 models.Feedback 사용)
+    
+    # 1. DB 모델 객체 생성
+    db_feedback = models.Feedback(
+        message_index=feedback.messageIndex,
+        question=feedback.question,
+        answer=feedback.answer,
+        rating=feedback.rating,
+        reason=feedback.reason
+    )
+    
+    # 2. DB 저장
+    db.add(db_feedback)
+    db.commit()
+    db.refresh(db_feedback)
+    
+    return {"status": "success", "message": "피드백이 성공적으로 저장되었습니다.", "id": db_feedback.id}

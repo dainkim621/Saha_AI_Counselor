@@ -221,26 +221,21 @@ function ChatWindow({
    */
   const submitFeedback = async (payload: FeedbackPayload) => {
     console.log("만족도 평가 데이터:", payload);
-
-    /*
-     * 추후 백엔드 API 연결 시 아래 코드를 사용할 수 있음
-     *
-     * try {
-     *   const response = await fetch(`${BACKEND_URL}/api/feedback`, {
-     *     method: "POST",
-     *     headers: {
-     *       "Content-Type": "application/json",
-     *     },
-     *     body: JSON.stringify(payload),
-     *   });
-     *
-     *   if (!response.ok) {
-     *     throw new Error("만족도 평가 저장에 실패했습니다.");
-     *   }
-     * } catch (error) {
-     *   console.error("만족도 평가 저장 오류:", error);
-     * }
-     */
+    try {
+      const response = await fetch(`${BACKEND_URL}/api/feedback`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
+          if (!response.ok) {
+        throw new Error("만족도 평가 저장에 실패했습니다.");
+      }
+    } catch (error) {
+      console.error("만족도 평가 저장 오류:", error);
+    }
+    
   };
 
   /*

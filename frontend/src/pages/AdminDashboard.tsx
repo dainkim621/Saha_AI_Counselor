@@ -1,6 +1,7 @@
 // 관리자 페이지에서 사용할 CSS 불러오기
 import "../styles/AdminDashboard.css";
 import { useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
 
 import SummaryCards from "../components/admin/SummaryCards";
 import FailedQuestions from "../components/admin/FailedQuestions";
@@ -8,9 +9,9 @@ import LanguageStats from "../components/admin/LanguageStats";
 import HourlyUsage from "../components/admin/HourlyUsage";
 import PopularQuestions from "../components/admin/PopularQuestions";
 import MissingDocumentAreas from "../components/admin/MissingDocumentAreas";
-
+const BACKEND_URL = "http://localhost:8000";
 import {
-  dashboardSummaryMock,
+  //dashboardSummaryMock, 이제 안씀
   failedQuestionsMock,
   languageStatsMock,
   hourlyUsageMock,
@@ -22,7 +23,39 @@ import {
 function AdminDashboard() {
   // 로그아웃 후 로그인 페이지로 이동하기 위해 사용
   const navigate = useNavigate();
+  // 🌟 SummaryCards에 띄울 실제 데이터를 담을 상태(State) 선언
+  const [summaryData, setSummaryData] = useState({
+    totalQuestions: 0,
+    failedQuestionCount: 0,
+    topLanguage: "로딩 중...",
+    peakHour: "로딩 중...",
+  });
 
+  // 🌟 백엔드에서 요약 통계 데이터를 가져오는 useEffect
+  useEffect(() => {
+    const fetchSummaryData = async () => {
+      try {
+        const response = await fetch(`${BACKEND_URL}/admin/dashboard/summary`, {
+          credentials: "include", // 쿠키나 인증 정보를 함께 보낼 때 필요
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          setSummaryData({
+            totalQuestions: data.totalQuestions,
+            failedQuestionCount: data.failedQuestionCount,
+            topLanguage: data.topLanguage,
+            peakHour: data.peakHour,
+          });
+        }
+      } catch (error) {
+        console.error("대시보드 통계 데이터를 불러오는 중 오류 발생:", error);
+      }
+    };
+
+    fetchSummaryData();
+  }, []);
+  
   // 관리자 로그아웃 처리
   const handleLogout = async () => {
     try {
@@ -67,10 +100,10 @@ function AdminDashboard() {
       {/* 카드들을 배치하는 영역 */}
       <section className="dashboard-grid">
         <SummaryCards
-        totalQuestions={dashboardSummaryMock.totalQuestions}
-        failedQuestionCount={dashboardSummaryMock.failedQuestionCount}
-        topLanguage={dashboardSummaryMock.topLanguage}
-        peakHour={dashboardSummaryMock.peakHour}
+          totalQuestions={summaryData.totalQuestions ?? 0}
+          failedQuestionCount={summaryData.failedQuestionCount ?? 0}
+          topLanguage={summaryData.topLanguage || "데이터 없음"}
+          peakHour={summaryData.peakHour || "데이터 없음"}
         />
 
         <FailedQuestions questions={failedQuestionsMock} />
