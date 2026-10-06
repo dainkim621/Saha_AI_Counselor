@@ -5,15 +5,10 @@ from openai import OpenAI
 from app.services.search_service import get_similar_chunks
 from app.database import SessionLocal
 from app.models import UserChatLog
-from app.database import SessionLocal
-from app.models import UserChatLog
 from typing import List, Dict
 import json
 from app.database import SessionLocal, engine, Base
-import json
-from app.database import SessionLocal, engine, Base
 
-# openAI API
 # openAI API
 load_dotenv()
 api_key = os.getenv("OPENAI_API_KEY")
@@ -59,51 +54,8 @@ def normalize_faq_question(question: str) -> str:
         return question
 
 async def ask_saha_ai_stream(user_question: str, history: List[Dict[str, str]] = None):
-#  사용자 질문을 FAQ 집계용 표준 질문으로 변환한다. 새로운 질문에 대해서만 호출한다.
-def normalize_faq_question(question: str) -> str:
-    try:
-        response = client.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=[
-                {
-                    "role": "system",
-                    "content": (
-                        "너는 행정 민원 질문을 FAQ 집계용 표준 문장으로 변환하는 역할이다. "
-                        "표현이 달라도 사용자가 원하는 정보가 같으면 같은 표준 문장으로 변환해야 한다. "
-                        "같은 주제라도 원하는 정보가 다르면 반드시 구분해야 한다.\n\n"
-
-                        "예시:\n"
-                        "'소파 버리는데 얼마야?' -> '소파 폐기 수수료'\n"
-                        "'소파 폐기 비용 알려줘' -> '소파 폐기 수수료'\n"
-                        "'여권 발급 수수료 얼마야?' -> '여권 발급 수수료'\n"
-                        "'여권 발급 장소 어디야?' -> '여권 발급 장소'\n"
-                        "'전입신고 어떻게 해?' -> '전입신고 방법'\n\n"
-
-                        "설명하지 말고 표준화된 질문만 한 줄로 출력해."
-                    )
-                },
-                {
-                    "role": "user",
-                    "content": question
-                }
-            ],
-            temperature=0.0
-        )
-
-        return response.choices[0].message.content.strip()
-
-    except Exception as e:
-        print(f"⚠️ FAQ 질문 정규화 실패: {question} / {e}")
-
-        # 정규화에 실패해도 챗봇 자체는 정상 작동하도록 원본 사용
-        return question
-
-async def ask_saha_ai_stream(user_question: str, history: List[Dict[str, str]] = None):
     if history is None:
         history = []
-    #==================================================================
-    # [1] 쿼리 재작성: 과거 이력이 존재할 경우, 현재 질문의 대명사를 명확한 단어로 치환 
-    #==================================================================
     #==================================================================
     # [1] 쿼리 재작성: 과거 이력이 존재할 경우, 현재 질문의 대명사를 명확한 단어로 치환 
     #==================================================================
@@ -118,8 +70,6 @@ async def ask_saha_ai_stream(user_question: str, history: List[Dict[str, str]] =
                         "너는 사용자의 질문을 분석하여 RAG 검색에 최적화된 독립적인 검색용 쿼리로 재작성하는 전문가야. "
                         "이전 대화 기록을 바탕으로, 사용자의 최신 질문에 포함된 '그거', '거기', '이거' 등의 대명사를 명확한 행정 용어로 바꾸어 단 한 줄의 핵심 검색어로 재작성해줘. "
                         "설명은 빼고 오직 단 한 줄의 검색용 문장만 출력해야 해."
-                        "입력받은 질문의 핵심 의도를 100% 보존하되, 사용자가 입력한 핵심 단어(예: 소파, 책상 등) 외에 **임의로 '대형폐기물' 같은 상위 카테고리 단어를 마음대로 덧붙여서 검색 범위를 넓히지 마.** "
-            "검색 효율을 위해 불필요한 서술어('얼마인가', '알려줘' 등)는 최소화하고 명사 위주의 깔끔한 검색어로 만들어줘."
                         "입력받은 질문의 핵심 의도를 100% 보존하되, 사용자가 입력한 핵심 단어(예: 소파, 책상 등) 외에 **임의로 '대형폐기물' 같은 상위 카테고리 단어를 마음대로 덧붙여서 검색 범위를 넓히지 마.** "
             "검색 효율을 위해 불필요한 서술어('얼마인가', '알려줘' 등)는 최소화하고 명사 위주의 깔끔한 검색어로 만들어줘."
                     )
@@ -141,106 +91,10 @@ async def ask_saha_ai_stream(user_question: str, history: List[Dict[str, str]] =
             refined_question = rewrite_response.choices[0].message.content.strip()
             print(f"🔍 쿼리 재작성 완료: '{user_question}' ➔ '{refined_question}'")
             
-            
         except Exception as e:
             print(f"⚠️ 쿼리 재작성 실패(기본 질문 사용): {e}")
             refined_question = user_question
 
-    #==================================================================
-    # [1] RAG 문서 기반 파일첨부 기능 정규식 링크 수집 (일반 민원 서식용 - 순수하게 다 받아줌)
-    #==================================================================
-    
-    # 하이브리드 검색 (상위 3개)
-    # relevant_chunks  → 검색된 사하구청 문서
-    # query_embedding  → 검색할 때 이미 생성했던 질문 벡터
-    relevant_chunks, query_embedding = get_similar_chunks(
-        refined_question,
-        top_k=3
-    )
-
-    #==================================================================
-    # [2] FAQ 분석용 사용자 질문 로그 저장
-    #==================================================================
-    log_db = SessionLocal()
-
-    try:
-        # 1. 완전히 같은 원본 질문이 이전에 들어왔는지 먼저 확인
-        existing_log = (
-            log_db.query(UserChatLog)
-            .filter(
-                UserChatLog.search_query == user_question,
-                UserChatLog.normalized_query.isnot(None)
-            )
-            .order_by(UserChatLog.id.desc())
-            .first()
-        )
-
-        # 2. 같은 원본 질문이 없으면 refined_query도 확인
-        if existing_log is None:
-            existing_log = (
-                log_db.query(UserChatLog)
-                .filter(
-                    UserChatLog.refined_query == refined_question,
-                    UserChatLog.normalized_query.isnot(None)
-                )
-                .order_by(UserChatLog.id.desc())
-                .first()
-            )
-
-        if existing_log:
-            # 이미 정규화한 질문이면 기존 결과 재사용
-            normalized_question = existing_log.normalized_query
-
-            print(
-                f"♻️ FAQ 정규화 결과 재사용: "
-                f"'{refined_question}' → '{normalized_question}'"
-            )
-
-        else:
-            # 처음 들어온 질문만 GPT로 정규화
-            normalized_question = normalize_faq_question(refined_question)
-
-            print(
-                f"🆕 FAQ 최초 정규화: "
-                f"'{refined_question}' → '{normalized_question}'"
-            )
-
-        # 질문 로그 저장
-        chat_log = UserChatLog(
-            search_query=user_question,
-            refined_query=refined_question,
-            normalized_query=normalized_question,
-            embedding=query_embedding
-        )
-
-        log_db.add(chat_log)
-        log_db.commit()
-
-        print(
-            f"💾 사용자 질문 로그 저장 완료: "
-            f"'{user_question}' → '{normalized_question}'"
-        )
-
-    except Exception as e:
-        log_db.rollback()
-        print(f"⚠️ 사용자 질문 로그 저장 실패: {e}")
-
-    finally:
-        log_db.close()
-
-    final_confidence_score = relevant_chunks[0].score if relevant_chunks else 0.0
-        
-    # 사용자가 안지루하게 유사도 먼저 보내기~~~~ 유사도를 먼저 보내서 답변이 도움이 되는지 판단하게끔 함
-    yield json.dumps({'type': 'score', 'content': float(final_confidence_score)}) + " "
-    #테스트 
-    for i, c in enumerate(relevant_chunks):
-        p_type = getattr(c, 'page_type', '')
-        p_type_str = str(p_type) if p_type is not None else ''
-        chunk_title = getattr(c, 'title', '무제')
-        score = getattr(c, 'score', '없음')
-        print(f"   [{i+1}등 문서] 제목: {chunk_title}, page_type: {p_type_str}, 유사도:{score}%")
-        
-        
     #==================================================================
     # [1] RAG 문서 기반 파일첨부 기능 정규식 링크 수집 (일반 민원 서식용 - 순수하게 다 받아줌)
     #==================================================================
@@ -348,45 +202,16 @@ async def ask_saha_ai_stream(user_question: str, history: List[Dict[str, str]] =
         w for w in refined_question.split() 
         if len(w) > 1 and w not in admin_stop_words
     ]
-    admin_stop_words = ["발급", "서류", "필요", "신청", "준비", "방법", "안내", "증명서", "확인", "신고", "처리", "절차", "비용"]
-    
-    # 쿼리에서 조사를 떼고, 행정 공통어를 제외한 '진짜 핵심 명사'만 남깁니다.
-    query_keywords = [
-        w for w in refined_question.split() 
-        if len(w) > 1 and w not in admin_stop_words
-    ]
     for i, c in enumerate(relevant_chunks):
-        if i > 0:
-            print(f" 🎯 1등 문서 검사 완료. 루프를 종료합니다.")
-            break
         if i > 0:
             print(f" 🎯 1등 문서 검사 완료. 루프를 종료합니다.")
             break
         p_type = getattr(c, 'page_type', '')
         p_type_str = str(p_type) if p_type is not None else ''
         chunk_title = getattr(c, 'title', '무제')
-        chunk_title = getattr(c, 'title', '무제')
         
         print(f"   [{i+1}등 문서] 제목: {chunk_title}, page_type: {p_type_str}, 유사도:{final_confidence_score}%")
-        print(f"   [{i+1}등 문서] 제목: {chunk_title}, page_type: {p_type_str}, 유사도:{final_confidence_score}%")
         
-        # page_type이 민원/서식 관련일 경우에만 링크 수집
-        if any(t in p_type_str for t in ["민원", "civil", "서식", "form"]):
-            # 쿼리에서 조사를 떼고, 행정 공통어를 제외한 '진짜 핵심 명사'만
-            keywords = [
-                w for w in refined_question.split() 
-                if len(w) > 1 and w not in admin_stop_words
-            ]
-            
-            is_doc_relevant = any(kw in chunk_title or kw in c.chunk_text for kw in keywords)
-            
-            if not is_doc_relevant:
-                continue
-            
-            # 제목이 질문과 관련 없으면, 그 문서의 링크는 긁지 않음!
-            if not is_doc_relevant:
-                print(f" 🚫 [필터링 제외] 문서 제목이 질문과 무관: {chunk_title}")
-                continue
         # page_type이 민원/서식 관련일 경우에만 링크 수집
         if any(t in p_type_str for t in ["민원", "civil", "서식", "form"]):
             # 쿼리에서 조사를 떼고, 행정 공통어를 제외한 '진짜 핵심 명사'만
@@ -413,17 +238,11 @@ async def ask_saha_ai_stream(user_question: str, history: List[Dict[str, str]] =
             
             for name, url in matches:
                 if "saha.go.kr" in url:
-                if "saha.go.kr" in url:
                     if not any(f['file_url'] == url for f in attached_files):
                         attached_files.append({
                             "file_name": name.strip(),
                             "file_url": url.strip()
                         })
-                        print(f" 파일 수집 성공 (필터링 통과): {name.strip()} -> {url.strip()}")
-
-            if len(attached_files) > 0:
-                print(f" 🎯 1등(또는 상위) 문서에서 파일 발견! 추가 탐색 중단.")
-                break    
                         print(f" 파일 수집 성공 (필터링 통과): {name.strip()} -> {url.strip()}")
 
             if len(attached_files) > 0:
@@ -528,7 +347,6 @@ async def ask_saha_ai_stream(user_question: str, history: List[Dict[str, str]] =
     
     # 사용자의 원본 질문 투입
     messages.append({"role": "user", "content": user_question})
-    
     
     # 답변 생성
     response = client.chat.completions.create(
