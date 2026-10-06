@@ -194,3 +194,50 @@ class AdminSession(Base):
         nullable=False
     )
 
+class AdminInvite(Base):
+    __tablename__ = "admin_invites"
+
+    # 초대 정보 고유 ID
+    id = Column(Integer, primary_key=True, index=True)
+
+    # 실제 초대 코드는 저장하지 않고
+    # SHA-256으로 해시한 값만 저장
+    invite_code_hash = Column(
+        String,
+        unique=True,
+        index=True,
+        nullable=False
+    )
+
+    # 이 초대 코드를 생성한 관리자 ID
+    created_by = Column(
+        Integer,
+        index=True,
+        nullable=False
+    )
+
+    # 초대 코드 생성 시간
+    created_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False
+    )
+
+    # 초대 코드 만료 시간
+    expires_at = Column(
+        DateTime(timezone=True),
+        nullable=False
+    )
+
+    # 이미 사용된 초대 코드인지 여부
+    is_used = Column(
+        Boolean,
+        default=False,
+        nullable=False
+    )
+
+    # 실제 사용된 시간
+    used_at = Column(
+        DateTime(timezone=True),
+        nullable=True
+    )

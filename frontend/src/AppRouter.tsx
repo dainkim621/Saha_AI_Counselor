@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import App from "./App";
 import AdminDashboard from "./pages/AdminDashboard";
 import AdminLogin from "./pages/AdminLogin";
+import AdminSignup from "./pages/AdminSignup";
 import ProtectedAdminRoute from "./components/admin/ProtectedAdminRoute";
 
 /*
@@ -19,6 +20,12 @@ function AppRouter() {
         <Route
           path="/admin/login"
           element={<AdminLogin />}
+        />
+        
+        {/* 관리자 회원가입 */}
+        <Route
+          path="/admin/signup"
+          element={<AdminSignup />}
         />
 
         {/* 관리자 대시보드 - 로그인한 관리자만 접근 가능 */}

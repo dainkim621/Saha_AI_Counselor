@@ -1,0 +1,277 @@
+/* 관리자 로그인 페이지 전체 영역 */
+.admin-login-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+
+  /* 기존 단색 회색보다 은은한 관리자 페이지 배경 */
+  background:
+    radial-gradient(
+      circle at 50% 35%,
+      rgba(49, 95, 150, 0.08) 0,
+      rgba(49, 95, 150, 0.025) 32%,
+      transparent 55%
+    ),
+    #f3f6fa;
+
+  box-sizing: border-box;
+}
+
+/* 로그인 전체 콘텐츠 */
+.admin-login-container {
+  width: 100%;
+  max-width: 520px;
+}
+
+/* 관리자 시스템 브랜드 영역 */
+.admin-login-brand {
+  margin-bottom: 12px;
+  text-align: center;
+}
+
+/* 로그인 카드 */
+.admin-login-card {
+  position: relative;
+
+  width: 100%;
+  padding: 38px 52px 36px;
+
+  background: #ffffff;
+  border: 1px solid #dfe5ec;
+  border-radius: 14px;
+
+  box-shadow:
+    0 16px 40px rgba(31, 41, 55, 0.08),
+    0 2px 8px rgba(31, 41, 55, 0.04);
+
+  box-sizing: border-box;
+}
+
+/* 로그인 페이지 상단 */
+.admin-login-header {
+  margin-bottom: 0;
+}
+
+/* 관리자용 고우니 */
+.admin-login-mascot {
+  display: block;
+  width: 100px;
+  height: 100px;
+  margin: 0 auto 10px;
+
+  object-fit: contain;
+
+  animation: adminMascotFloat 3.5s ease-in-out infinite;
+}
+
+/* 고우니의 아주 약한 움직임 */
+@keyframes adminMascotFloat {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(-4px);
+  }
+}
+
+.admin-login-service-name {
+  margin: 4px 0 10px;
+
+  color: #172033;
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1.4;
+  text-align: center;
+  letter-spacing: -0.3px;
+}
+
+/* 관리자 시스템 표시 */
+.admin-login-badge {
+  display: table;
+  margin: 0 auto;
+
+  padding: 6px 12px;
+
+  background: #eaf1fa;
+  border: 1px solid #d7e3f2;
+  border-radius: 6px;
+
+  color: #24518a;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1;
+
+  letter-spacing: -0.1px;
+}
+
+/* 관리자 로그인 제목 */
+.admin-login-header h1 {
+  margin: 0;
+
+  color: #172033;
+  font-size: 26px;
+  font-weight: 700;
+  text-align: left;
+}
+
+/* 로그인 설명 */
+.admin-login-description {
+  margin: 10px 0 0;
+
+  color: #7b8493;
+  font-size: 14px;
+  line-height: 1.6;
+  text-align: left;
+}
+
+/* 로그인 폼 */
+.admin-login-form {
+  display: flex;
+  flex-direction: column;
+  margin-top: 26px;
+}
+
+/* 입력 영역 */
+.admin-login-field {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 20px;
+}
+
+/* 입력창 제목 */
+.admin-login-field label {
+  margin-bottom: 8px;
+  color: #374151;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+/* ID / 비밀번호 입력창 */
+.admin-login-field input {
+  width: 100%;
+  height: 46px;
+  padding: 0 14px;
+  border: 1px solid #cfd6df;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #1f2937;
+  font-size: 15px;
+  box-sizing: border-box;
+  outline: none;
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+/* 입력창 안내 문구 */
+.admin-login-field input::placeholder {
+  color: #9ca3af;
+}
+
+/* 입력창 선택 상태 */
+.admin-login-field input:focus {
+  border-color: #315f96;
+  box-shadow: 0 0 0 3px rgba(49, 95, 150, 0.12);
+}
+
+/* 로그인 오류 메시지 영역 */
+.admin-login-error-area {
+  margin-top: 2px;
+  margin-bottom: 16px;
+}
+
+/* 로그인 오류 메시지 */
+.admin-login-error {
+  margin: 0;
+  color: #c0392b;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.5;
+}
+
+/* 로그인 버튼 */
+.admin-login-button {
+  width: 100%;
+  height: 48px;
+  border: none;
+  border-radius: 6px;
+  background: #24518a;
+  color: #ffffff;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  transition:
+    background-color 0.2s ease,
+    transform 0.1s ease;
+}
+
+/* 로그인 버튼 마우스 오버 */
+.admin-login-button:hover:not(:disabled) {
+  background: #1c4374;
+}
+
+/* 로그인 버튼 클릭 */
+.admin-login-button:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+/* 로그인 요청 중 버튼 */
+.admin-login-button:disabled {
+  background: #8fa6c2;
+  cursor: not-allowed;
+}
+
+/* 로그인 / 회원가입 이동 안내 */
+.admin-login-signup {
+  margin: 18px 0 0;
+
+  color: #7b8493;
+  font-size: 13px;
+  text-align: center;
+}
+
+/* 로그인 / 회원가입 이동 링크 */
+.admin-login-signup a {
+  color: #24518a;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+/* 로그인 / 회원가입 이동 링크 마우스 오버 */
+.admin-login-signup a:hover {
+  text-decoration: underline;
+}
+
+/* 카드 하단 안내 */
+.admin-login-notice {
+  margin: 22px 0 0;
+  color: #8a94a3;
+  font-size: 12px;
+  text-align: center;
+}
+
+/* 작은 화면 대응 */
+@media (max-width: 480px) {
+  .admin-login-page {
+    padding: 16px;
+  }
+
+  .admin-login-card {
+    padding: 34px 24px 28px;
+  }
+
+  .admin-login-header h1 {
+    font-size: 24px;
+  }
+}
+
+/* 움직임 감소 설정을 사용하는 경우 애니메이션 제거 */
+@media (prefers-reduced-motion: reduce) {
+  .admin-login-mascot {
+    animation: none;
+  }
+}
