@@ -1,3 +1,228 @@
+/* 관리자 페이지 전체 레이아웃 */
+.admin-layout {
+  display: flex;
+  min-height: 100vh;
+  width: 100%;
+}
+
+/* 왼쪽 관리자 사이드바 */
+.admin-sidebar {
+  width: 250px;
+  flex: 0 0 250px;
+  min-height: 100vh;
+
+  display: flex;
+  flex-direction: column;
+
+  background: #173a78;
+  color: #ffffff;
+  box-sizing: border-box;
+
+  overflow: hidden;
+  transition: width 0.3s ease, flex-basis 0.3s ease;
+}
+
+/* 사이드바 펼친 상태 */
+.admin-sidebar.expanded {
+  width: 250px;
+  flex-basis: 250px;
+}
+
+/* 사이드바 접힌 상태 */
+.admin-sidebar.collapsed {
+  width: 65px;
+  flex-basis: 65px;
+}
+
+/* 관리자 시스템 브랜드 */
+.admin-sidebar-brand {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+
+  min-height: 100px;
+  padding: 20px 12px 20px 20px;
+
+  border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+  box-sizing: border-box;
+}
+
+/* 브랜드 텍스트 영역 */
+.admin-sidebar-brand-text {
+  min-width: 0;
+}
+
+/* 접힌 상태 브랜드 영역 */
+.admin-sidebar.collapsed .admin-sidebar-brand {
+  justify-content: center;
+  padding: 20px 8px;
+}
+
+/* 사이드바 접기 및 펼치기 버튼 */
+.admin-sidebar-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+
+  width: 34px;
+  height: 34px;
+
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+
+  color: #ffffff;
+  font-size: 20px;
+
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+/* 토글 버튼 hover */
+.admin-sidebar-toggle:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+/* 토글 버튼 키보드 포커스 */
+.admin-sidebar-toggle:focus-visible {
+  outline: 2px solid #ffffff;
+  outline-offset: 2px;
+}
+
+/* 브랜드 이름 */
+.admin-sidebar-logo {
+  font-size: 17px;
+  font-weight: 700;
+  line-height: 1.5;
+  letter-spacing: -0.4px;
+}
+
+/* ADMIN SYSTEM */
+.admin-sidebar-brand-text > span {
+  display: block;
+  margin-top: 7px;
+  font-size: 11px;
+  letter-spacing: 1.5px;
+  color: #b9cdee;
+}
+
+/* 사이드바 메뉴 영역 */
+.admin-sidebar-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 24px 12px;
+}
+
+/* 사이드바 공통 메뉴 */
+.admin-sidebar-menu {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+
+  min-height: 46px;
+  padding: 0 14px;
+
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #d6e2f5;
+  box-sizing: border-box;
+}
+
+/* 사이드바 메뉴 아이콘 */
+.admin-sidebar-menu-icon {
+  font-size: 19px;
+  width: 22px;
+  text-align: center;
+}
+
+/* 현재 선택된 메뉴 */
+.admin-sidebar-menu.active {
+  background: #345b9d;
+  color: #ffffff;
+  font-weight: 600;
+}
+
+/* 아직 구현되지 않은 메뉴 */
+.admin-sidebar-menu.disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+/* 추후 구현 예정 표시 */
+.admin-sidebar-coming-soon {
+  margin-left: auto;
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+/* 접힌 상태 메뉴 가운데 정렬 */
+.admin-sidebar.collapsed .admin-sidebar-menu {
+  justify-content: center;
+  padding: 0;
+}
+
+/* 접힌 상태 로그아웃 가운데 정렬 */
+.admin-sidebar.collapsed .admin-sidebar-logout {
+  justify-content: center;
+  padding: 13px 0;
+}
+
+/* 접힌 상태 아이콘 크기 유지 */
+.admin-sidebar.collapsed .admin-sidebar-menu-icon {
+  flex-shrink: 0;
+}
+
+/* 사이드바 로그아웃 영역 */
+.admin-sidebar-footer {
+  margin-top: 0;
+  padding: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+/* 사이드바 로그아웃 버튼 */
+.admin-sidebar-logout {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+
+  width: 100%;
+  padding: 13px 14px;
+
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 500;
+  text-align: left;
+
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+/* 로그아웃 버튼 hover */
+.admin-sidebar-logout:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+/* 로그아웃 버튼 키보드 포커스 */
+.admin-sidebar-logout:focus-visible {
+  outline: 2px solid #ffffff;
+  outline-offset: 2px;
+}
+
+/* 오른쪽 관리자 메인 영역 */
+.admin-main-content {
+  flex: 1;
+  min-width: 0;
+  background: #f5f7fb;
+}
+
 /* 관리자 대시보드 전체 */
 .admin-dashboard {
   min-height: 100vh;
@@ -6,20 +231,102 @@
   box-sizing: border-box;
 }
 
-/* 상단 제목 */
+/* 관리자 대시보드 상단 헤더 */
 .admin-dashboard-header {
   margin-bottom: 32px;
+  padding-bottom: 24px;
+  border-bottom: 1px solid #e1e6ee;
 }
 
-.admin-dashboard-header h1 {
-  margin: 0;
-  font-size: 32px;
+/* 관리자 시스템 브랜드 영역 */
+.admin-dashboard-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+
+  margin-bottom: 24px;
+
+  font-size: 14px;
   font-weight: 700;
+  color: #315f96;
 }
 
-.admin-dashboard-header p {
-  margin-top: 8px;
-  color: #666;
+/* 관리자 시스템 표시 */
+.admin-dashboard-brand span {
+  padding: 5px 10px;
+
+  background: #e8eff8;
+  border-radius: 6px;
+
+  font-size: 12px;
+  font-weight: 600;
+  color: #315f96;
+}
+
+/* 제목과 로그아웃 버튼 가로 배치 */
+.admin-dashboard-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 24px;
+}
+
+/* 페이지 제목 및 설명 */
+.admin-dashboard-title {
+  min-width: 0;
+}
+
+/* 대시보드 제목 */
+.admin-dashboard-title h1 {
+  margin: 0;
+
+  font-size: 30px;
+  font-weight: 700;
+  color: #1e293b;
+  letter-spacing: -0.7px;
+}
+
+/* 대시보드 설명 */
+.admin-dashboard-title p {
+  margin: 10px 0 0;
+
+  font-size: 15px;
+  line-height: 1.6;
+  color: #64748b;
+}
+
+/* 로그아웃 버튼 */
+.admin-dashboard-logout {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  flex-shrink: 0;
+  padding: 11px 20px;
+
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+
+  font-size: 14px;
+  font-weight: 600;
+  color: #475569;
+
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s, color 0.2s;
+}
+
+/* 로그아웃 버튼 마우스 hover */
+.admin-dashboard-logout:hover {
+  background: #edf3fa;
+  border-color: #315f96;
+  color: #315f96;
+}
+
+/* 키보드 접근 시 포커스 표시 */
+.admin-dashboard-logout:focus-visible {
+  outline: 2px solid #315f96;
+  outline-offset: 3px;
 }
 
 /* 카드 영역 */
@@ -331,4 +638,83 @@
     grid-column: auto;
   }
 
+}
+
+/* 작은 화면에서 헤더 배치 조정 */
+@media (max-width: 600px) {
+  .admin-dashboard {
+    padding: 20px 16px;
+  }
+
+  .admin-dashboard-header-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 20px;
+  }
+
+  .admin-dashboard-title h1 {
+    font-size: 24px;
+  }
+
+  .admin-dashboard-title p {
+    font-size: 14px;
+  }
+
+  .admin-dashboard-logout {
+    align-self: flex-start;
+  }
+}
+
+/* 사이드바에 브랜드를 표시하므로 메인 헤더에서는 숨김 */
+.admin-dashboard-brand {
+  display: none;
+}
+
+/* 사이드바 적용 후 태블릿 화면 대응 */
+@media (max-width: 900px) {
+  .dashboard-summary-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .dashboard-summary-grid,
+  .dashboard-card-wide {
+    grid-column: 1 / -1;
+  }
+}
+
+/* 작은 모바일 화면에서 사이드바를 상단 메뉴로 배치 */
+@media (max-width: 600px) {
+  .admin-layout {
+    flex-direction: column;
+  }
+
+  .admin-sidebar,
+  .admin-sidebar.expanded,
+  .admin-sidebar.collapsed {
+    width: 100%;
+    flex-basis: auto;
+    min-width: 0;
+    min-height: auto;
+  }
+
+  .admin-sidebar-brand {
+    padding: 16px;
+  }
+
+  .admin-sidebar-nav {
+    padding: 10px 12px;
+  }
+
+  .admin-sidebar-footer {
+    margin-top: 0;
+    padding: 8px 12px 12px;
+  }
+
+  .dashboard-summary-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .dashboard-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
