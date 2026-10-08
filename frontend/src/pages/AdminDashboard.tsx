@@ -15,10 +15,15 @@ import {
   //dashboardSummaryMock, 이제 안씀
   failedQuestionsMock,
   languageStatsMock,
-  hourlyUsageMock,
-  popularQuestionsMock,
+  //hourlyUsageMock, Mock 데이터 연결 제거
+  //popularQuestionsMock, 데이터 연결 제거
   missingDocumentAreasMock,
 } from "../mocks/adminDashboardMock";
+
+import type {
+  HourlyUsageStat,
+  PopularQuestion,
+} from "../types/adminDashboard";
 
 // 관리자 질문 분석 대시보드 화면
 function AdminDashboard() {
@@ -40,6 +45,19 @@ function AdminDashboard() {
     topLanguage: "로딩 중...",
     peakHour: "로딩 중...",
   });
+  // 시간대별 이용량 데이터
+  const [hourlyUsageData, setHourlyUsageData] = useState<
+    HourlyUsageStat[]
+  >([]);
+
+  // 가장 이용량이 많은 시간
+  const [actualPeakHour, setActualPeakHour] = useState("데이터 없음");
+
+  // 자주 묻는 질문 TOP5 실제 데이터
+  const [popularQuestionsData, setPopularQuestionsData] = useState<
+    PopularQuestion[]
+  >([]);
+  
 
   // 🌟 백엔드에서 요약 통계 데이터를 가져오는 useEffect
   useEffect(() => {
@@ -62,8 +80,70 @@ function AdminDashboard() {
         console.error("대시보드 통계 데이터를 불러오는 중 오류 발생:", error);
       }
     };
-
+    
     fetchSummaryData();
+  }, []);
+
+  // 실제 DB 기반 시간대별 이용량 조회
+  useEffect(() => {
+    const fetchHourlyUsage = async () => {
+      try {
+        const response = await fetch(
+          `${BACKEND_URL}/admin/dashboard/hourly-usage`,
+          {
+            credentials: "include",
+          }
+        );
+
+        if (!response.ok) {
+          throw new Error("시간대별 이용량 조회 실패");
+        }
+
+        const data = await response.json();
+
+        setHourlyUsageData(data.hourlyUsage);
+        setActualPeakHour(data.peakHour);
+
+      } catch (error) {
+        console.error("시간대별 이용량 조회 오류:", error);
+      }
+    };
+
+    fetchHourlyUsage();
+  }, []);
+
+  // 실제 DB 기반 자주 묻는 질문 TOP5 조회
+  useEffect(() => {
+    const fetchPopularQuestions = async () => {
+      try {
+        const response = await fetch(
+          `${BACKEND_URL}/frequent-questions`
+        );
+
+        if (!response.ok) {
+          throw new Error("자주 묻는 질문 조회 실패");
+        }
+
+        const data: { question: string; count: number }[] =
+          await response.json();
+
+        // API 응답에는 id가 없으므로 순번을 부여
+        const formattedData: PopularQuestion[] = data.map(
+          (item, index) => ({
+            id: index + 1,
+            question: item.question,
+            count: item.count,
+          })
+        );
+
+        setPopularQuestionsData(formattedData);
+
+      } catch (error) {
+        console.error("자주 묻는 질문 조회 오류:", error);
+      }
+    };
+
+    fetchPopularQuestions();
   }, []);
   
   // 관리자 로그아웃 처리
@@ -220,13 +300,13 @@ function AdminDashboard() {
               totalQuestions={summaryData.totalQuestions ?? 0}
               failedQuestionCount={summaryData.failedQuestionCount ?? 0}
               topLanguage={summaryData.topLanguage || "데이터 없음"}
-              peakHour={summaryData.peakHour || "데이터 없음"}
+              peakHour={actualPeakHour}
             />
 
             <FailedQuestions questions={failedQuestionsMock} />
             <LanguageStats stats={languageStatsMock} />
-            <HourlyUsage stats={hourlyUsageMock} />
-            <PopularQuestions questions={popularQuestionsMock} />
+            <HourlyUsage stats={hourlyUsageData} />
+            <PopularQuestions questions={popularQuestionsData} />
 
             <MissingDocumentAreas areas={missingDocumentAreasMock} />
           </section>
