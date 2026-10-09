@@ -72,19 +72,15 @@ class UserChatLog(Base):
 
     # 사용자의 질문 언어
     # 예: ko, en, ja, zh
-    language = Column(
-        String,
-        nullable=True
-    )
+    language = Column(String, nullable=True)
 
     # 챗봇이 정상적인 답변을 생성했는지 여부
-    # True: 정상 답변
-    # False: 답변 실패
-    answer_success = Column(
-        Boolean,
-        nullable=True
-    )
+    answer_success = Column(Boolean, nullable=True)
+    
+    # 답변 실패 이유
+    failure_reason = Column(String, nullable=True)
 
+    
     # 질문 입력 시간
     created_at = Column(
         DateTime(timezone=True),

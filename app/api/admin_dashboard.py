@@ -31,6 +31,7 @@ def get_dashboard_summary(
     failed_count = (
         db.query(func.count(UserChatLog.answer_success))
         .filter(UserChatLog.created_at >= one_week_ago)
+        .filter(UserChatLog.answer_success == False)
         .scalar()
     ) or 0
 
