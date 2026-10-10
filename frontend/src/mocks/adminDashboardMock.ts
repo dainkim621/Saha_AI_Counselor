@@ -22,18 +22,21 @@ export const failedQuestionsMock: FailedQuestion[] = [
     question: "여권 재발급은 어디서 신청하나요?",
     reason: "관련 문서 부족",
     createdAt: "2026-09-21 14:32",
+    category: ""
   },
   {
     id: 2,
     question: "목욕비 지원 대상은 누구인가요?",
     reason: "검색 결과 부족",
     createdAt: "2026-09-21 11:08",
+    category: ""
   },
   {
     id: 3,
     question: "전입신고할 때 필요한 서류가 뭔가요?",
     reason: "관련 문서 부족",
     createdAt: "2026-09-20 16:45",
+    category: ""
   },
 ];
 

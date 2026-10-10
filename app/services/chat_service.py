@@ -348,12 +348,19 @@ async def ask_saha_ai_stream(user_question: str, history: List[Dict[str, str]] =
                         "당신은 AI 상담사의 답변 품질을 검수하는 평가관입니다.\n"
                         "아래 [평가 기준]에 따라 AI 답변의 성공 여부를 반드시 JSON 형식으로 판정하세요.\n\n"
                         "[평가 기준]\n"
-                        "1. AI가 사용자 질문에 대한 '실질적인 정보나 해결책'을 제공했다면 success는 true입니다.\n"
-                        "2. AI가 '참고 정보에 없다', '알 수 없다', '담당 부서로 문의해라' 등 정보 부족으로 인해 실질적인 답변을 제공하지 못한 경우, 올바른 거절이라도 무조건 success는 false로 판정하세요.\n\n"
+                        "1. AI가 실질적인 정보를 제공했다면 success는 true입니다.\n"
+                        "2. 정보 부족이나 기타 사유로 답변을 거절했다면 success는 false입니다.\n\n"
+                        "[실패 유형 카테고리 (category)]\n"
+                        "- NO_INFO : 참고 정보(Context)에 관련된 내용이 없어서 답변을 거절한 경우\n"
+                        "- OUT_OF_DOMAIN : 행정 민원과 무관한 사담이나 질문인 경우\n"
+                        "- INAPPROPRIATE : 욕설 등 부적절한 질문인 경우\n"
+                        "- OTHER : 기타 이유로 실패한 경우\n"
+                        "- NONE : 성공한 경우\n\n"
                         "반드시 아래 JSON 형식으로만 응답하세요:\n"
                         "{\n"
                         '  "success": true 또는 false,\n'
-                        '  "reason": "false인 경우 구체적인 사유(예: 제공된 정보에 대구 월세 정보가 없음), true인 경우 빈 문자열(\"\")"\n'
+                        '  "category": "위 [실패 유형 카테고리] 중 가장 알맞은 코드 1개",\n'
+                        '  "reason": "false인 경우 구체적인 사유 서술, true인 경우 빈 문자열(\"\")"\n'
                         "}"
                     )
                 },
@@ -367,6 +374,7 @@ async def ask_saha_ai_stream(user_question: str, history: List[Dict[str, str]] =
         
         eval_result = json.loads(eval_response.choices[0].message.content)
         is_success = eval_result.get("success", True)
+        failure_category = eval_result.get("category", "NONE")
         failure_reason = eval_result.get("reason", "")
         print(f"📊 [AI 검수 결과] 성공 여부: {is_success} / 사유: {failure_reason}")
         
@@ -377,6 +385,7 @@ async def ask_saha_ai_stream(user_question: str, history: List[Dict[str, str]] =
             normalized_query=normalized_question,
             embedding=query_embedding, 
             answer_success=is_success, 
+            failure_category=failure_category if not is_success else None,
             failure_reason=failure_reason,
         )
 

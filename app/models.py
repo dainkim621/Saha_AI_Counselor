@@ -80,6 +80,8 @@ class UserChatLog(Base):
     # 답변 실패 이유
     failure_reason = Column(String, nullable=True)
 
+    #답변 실패 이유 유형 
+    failure_category = Column(String, nullable=True)  # 예: "INACCURATE", "IRRELEVANT", "AMBIGUOUS", "NONE"
     
     # 질문 입력 시간
     created_at = Column(
