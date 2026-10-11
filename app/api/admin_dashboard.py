@@ -7,6 +7,9 @@ from app.api.admin_auth import require_admin
 from datetime import datetime, timedelta
 from sqlalchemy import func
 
+from datetime import timezone  # 시간
+from zoneinfo import ZoneInfo
+
 # 관리자 대시보드 전용 라우터
 router = APIRouter()
 
@@ -43,4 +46,66 @@ def get_dashboard_summary(
         "topLanguage": "한국어",
         "peakHour": "14:00 - 15:00",
         "admin": current_admin.username
+    }
+
+# 시간대별 이용량 조회 API
+@router.get("/hourly-usage")
+def get_hourly_usage(
+    current_admin: Admin = Depends(require_admin),
+    db: Session = Depends(get_db)
+):
+    # 최근 7일간의 질문을 한국시간 기준으로 집계
+    now_kst = datetime.now(ZoneInfo("Asia/Seoul"))
+    one_week_ago = now_kst - timedelta(days=7)
+
+    # created_at을 한국시간으로 변환한 뒤 시간 추출
+    hour_expression = func.extract(
+        "hour",
+        func.timezone("Asia/Seoul", UserChatLog.created_at)
+    )
+
+    results = (
+        db.query(
+            hour_expression.label("hour"),
+            func.count(UserChatLog.id).label("count")
+        )
+        .filter(UserChatLog.created_at >= one_week_ago)
+        .group_by(hour_expression)
+        .order_by(hour_expression)
+        .all()
+    )
+
+    # 질문이 없는 시간도 0건으로 표시
+    count_by_hour = {
+        int(row.hour): row.count
+        for row in results
+    }
+
+    hourly_stats = [
+        {
+            "hour": f"{hour:02d}:00",
+            "count": count_by_hour.get(hour, 0)
+        }
+        for hour in range(24)
+    ]
+
+    # 가장 질문이 많은 시간대
+    peak_hour = max(
+        hourly_stats,
+        key=lambda item: item["count"]
+    )
+
+    if peak_hour["count"] == 0:
+        peak_hour_text = "데이터 없음"
+    else:
+        start_hour = int(peak_hour["hour"][:2])
+        end_hour = (start_hour + 1) % 24
+
+        peak_hour_text = (
+            f"{start_hour:02d}:00 - {end_hour:02d}:00"
+        )
+
+    return {
+        "peakHour": peak_hour_text,
+        "hourlyUsage": hourly_stats
     }
