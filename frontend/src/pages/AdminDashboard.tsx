@@ -1,5 +1,4 @@
-
- // 관리자 페이지에서 사용할 CSS 불러오기
+// 관리자 페이지에서 사용할 CSS 불러오기
 import "../styles/AdminDashboard.css";
 import { useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
