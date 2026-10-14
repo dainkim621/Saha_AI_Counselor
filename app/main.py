@@ -17,6 +17,11 @@ import os
 from typing import Optional
 from datetime import datetime, timedelta
 from sqlalchemy import func
+from fastapi.responses import FileResponse
+from dotenv import load_dotenv
+
+load_dotenv()
+SERVER_URL = os.getenv("SERVER_URL", "http://localhost:8000")
 
 app = FastAPI(title="사하구 AI 상담사 API")
 
@@ -28,6 +33,8 @@ PDF_DIR = os.path.join(PROJECT_ROOT, "data", "raw", "passport_pdfs")
 
 # 🌟 외부에서 /download/passport_pdfs/파일명.pdf 로 바로 다운로드할 수 있게
 app.mount("/download/passport_pdfs", StaticFiles(directory=PDF_DIR), name="passport_pdfs")
+# 서버
+app.mount("/assets", StaticFiles(directory="frontend/dist/assets"), name="assets")
 
 # CORS 설정
 app.add_middleware(
@@ -39,6 +46,8 @@ app.add_middleware(
     allow_origins=[
         "http://localhost:5173",
         "http://127.0.0.1:5173",
+        SERVER_URL,  # 현재 ngrok 주소 추가
+        "*"  # 테스팅 단계에서 간편하게 처리하려면 "*" 로 모든 출처 허용 가능
     ],  
     allow_credentials=True,
     allow_methods=["*"],
@@ -160,7 +169,7 @@ def search_notices(
 
 @app.get("/", tags=["Root"])
 def root():
-    return {"status": "Saha AI Server is running!", "version": "1.0.0"}
+    return FileResponse("frontend/dist/index.html")
 
 #챗봇 api 엔드포인트 
 @app.post("/ai-chat", tags=["Chat"])
