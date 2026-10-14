@@ -662,6 +662,16 @@ function App() {
           >
             ↻ 다시 듣기
           </button>
+          {/* 개인정보 보호 안내 */}
+          <div className="privacy-warning" role="note">
+            <span className="privacy-warning-icon" aria-hidden="true">
+              🔒
+            </span>
+            <span className="privacy-warning-text">
+              개인정보 보호를 위해 주민등록번호, 연락처, 주소 등은
+              입력하지 마세요.
+            </span>
+          </div>
         </div>
 
         <div className="font-controls">
