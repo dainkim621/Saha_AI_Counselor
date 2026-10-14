@@ -61,6 +61,9 @@ class UserChatLog(Base):
     # 사용자가 실제로 입력한 원본 질문
     search_query = Column(Text, nullable=False)
 
+    # AI가 생성한 전체 답변 저장
+    answer = Column(Text, nullable=True)
+
     # RAG 검색에 실제로 사용한 질문
     refined_query = Column(Text, nullable=True)
 
