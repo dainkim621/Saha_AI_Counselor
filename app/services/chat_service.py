@@ -378,13 +378,14 @@ async def ask_saha_ai_stream(user_question: str, history: List[Dict[str, str]] =
         failure_reason = eval_result.get("reason", "")
         print(f"📊 [AI 검수 결과] 성공 여부: {is_success} / 사유: {failure_reason}")
         
-        # 질문 로그 저장
+        # 질문 및 AI 답변 로그 저장
         chat_log = UserChatLog(
             search_query=user_question,
+            answer=gpt_answer_accumulator,  # AI가 생성한 전체 답변 저장
             refined_query=refined_question,
             normalized_query=normalized_question,
-            embedding=query_embedding, 
-            answer_success=is_success, 
+            embedding=query_embedding,
+            answer_success=is_success,
             failure_category=failure_category if not is_success else None,
             failure_reason=failure_reason,
         )
