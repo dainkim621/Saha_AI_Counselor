@@ -461,6 +461,41 @@
   cursor: not-allowed;
 }
 
+
+/* 개인정보 보호 안내 배지 */
+.privacy-warning {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+
+  margin-left: 14px;
+  padding: 8px 15px;
+
+  background-color: #f8fafc;
+  border: 1px solid #dce3ec;
+  border-radius: 999px;
+
+  color: #475569;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.5;
+
+  white-space: normal;
+  word-break: keep-all;
+}
+
+/* 개인정보 보호 아이콘 */
+.privacy-warning-icon {
+  flex-shrink: 0;
+  font-size: 17px;
+}
+
+/* 개인정보 안내 문구 */
+.privacy-warning-text {
+  display: inline;
+}
+
+
 .download-buttons-container {
   margin-top: 12px;
 }
@@ -1274,6 +1309,13 @@
 .app.font-normal .font-controls span { font-size: 14px; }
 .app.font-large .font-controls span { font-size: 18px; }
 .app.font-xlarge .font-controls span { font-size: 22px; }
+
+/* 개인정보 보호 안내 글자 크기 */
+.app.font-xsmall .privacy-warning { font-size: 12px; }
+.app.font-small .privacy-warning { font-size: 13px; }
+.app.font-normal .privacy-warning { font-size: 14px; }
+.app.font-large .privacy-warning { font-size: 17px; }
+.app.font-xlarge .privacy-warning { font-size: 20px; }
 
 .app.font-large .font-label {
   font-size: 18px;
