@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from "react";
 import "./App.css";
 
 import Header from "./components/Header";
-import MascotCard from "./components/MascotCard";
 import ChatWindow from "./components/ChatWindow";
 import ChatInput from "./components/ChatInput";
 import QuickMenu from "./components/QuickMenu";
@@ -545,6 +544,32 @@ function App() {
     setFontLevel((prev) => Math.min(prev + 1, 4));
   };
 
+  // 새 채팅 시작: 이전 상담 내역 초기화
+  const handleNewChat = () => {
+    // AI 답변 생성 중이거나 음성 녹음 중이면 초기화 방지
+    if (isLoading || isListening) return;
+    
+    // 기존에 재생 중인 음성 중지
+    window.speechSynthesis?.cancel();
+    
+    // 기존 질문과 답변을 지우고 초기 인사말만 표시
+    setMessages([
+      {
+        role: "assistant",
+        content: "안녕하세요! 사하구 민원 상담을 도와드릴게요.",
+      },
+    ]);
+    
+    // 채팅 입력창 초기화
+    setInput("");
+    
+    // 이전 질문의 유사도 점수 초기화
+    setSimilarityScore(null);
+    
+    // 초기 인사말이 자동으로 다시 재생되지 않도록 설정
+    lastSpokenIndexRef.current = 0;
+  };
+
   return (
     <div className={`app ${fontModes[fontLevel]}`}>
       {/* 상단 헤더 */}
@@ -690,8 +715,26 @@ function App() {
       {/* 메인 화면 영역 */}
       <main className="main-layout">
         <section className="left-section">
-          <MascotCard />
 
+          {/* 새로운 상담을 시작하는 버튼 */}
+          <button
+            type="button"
+            className="new-chat-button"
+            onClick={handleNewChat}
+            disabled={isLoading || isListening}
+          > 
+            {/* 새 채팅 아이콘 */}
+            <span className="new-chat-icon" aria-hidden="true">
+              ＋
+            </span>
+
+            {/* 버튼 이름 */}
+            <span className="new-chat-text">
+              새 채팅
+            </span> 
+          </button>
+
+          {/* 자주 묻는 질문 */}
           <QuickMenu
             /*
              * App.tsx에서 계산한 최근 7일 질문 목록을
