@@ -8,6 +8,10 @@ from app.models import UserChatLog
 from typing import List, Dict
 import json
 from app.database import SessionLocal, engine, Base
+# from app.secure.privacy_guard import (
+#     privacy_guard,
+#     PrivacyBlocked
+# )
 
 # openAI API
 load_dotenv()
@@ -56,10 +60,54 @@ def normalize_faq_question(question: str) -> str:
 async def ask_saha_ai_stream(user_question: str, history: List[Dict[str, str]] = None):
     if history is None:
         history = []
+
+    # # 개인정보 검사가 끝나기 전에는
+    # # 어떠한 외부 GPT API도 호출하지 않음
+    # try:
+    #     user_question = await privacy_guard(
+    #         user_question
+    #     )
+
+    #     safe_history = []
+
+    #     for chat in history:
+    #         if chat["role"] not in ("user", "assistant"):
+    #             raise PrivacyBlocked("잘못된 대화 이력")
+
+    #         safe_content = await privacy_guard(
+    #             chat["content"]
+    #         )
+
+    #         safe_history.append({
+    #             "role": chat["role"],
+    #             "content": safe_content
+    #         })
+
+    #     history = safe_history
+
+    # except PrivacyBlocked:
+    #     yield json.dumps({
+    #         "type": "text",
+    #         "content": (
+    #             "개인정보가 포함되어 있거나 "
+    #             "안전하게 검사할 수 없습니다. "
+    #             "개인정보를 제외하고 다시 질문해 주세요."
+    #         )
+    #     }, ensure_ascii=False) + " "
+
+    #     yield json.dumps({
+    #         "type": "done"
+    #     }) + " "
+    #     return
+
+    # # 아래부터 기존 쿼리 재작성 코드 실행
+
+    
     #==================================================================
     # [1] 쿼리 재작성: 과거 이력이 존재할 경우, 현재 질문의 대명사를 명확한 단어로 치환 
     #==================================================================
     refined_question = user_question
+    
     if history:
         try:
             # 대화 이력을 참고하여 '그거'가 무엇인지 파악하는 압축 질문 생성용 prompt
@@ -89,6 +137,7 @@ async def ask_saha_ai_stream(user_question: str, history: List[Dict[str, str]] =
                 temperature=0.0
             )
             refined_question = rewrite_response.choices[0].message.content.strip()
+            refined_question = await privacy_guard(refined_question)
             print(f"🔍 쿼리 재작성 완료: '{user_question}' ➔ '{refined_question}'")
             
         except Exception as e:

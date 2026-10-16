@@ -6,10 +6,16 @@ from sqlalchemy.orm import Session
 from app.database import SessionLocal, engine, Base  
 from app.models import Notice        
 from datetime import datetime
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 load_dotenv() 
 api_key = os.getenv("OPENAI_API_KEY")
 client = OpenAI(api_key=api_key)
+
+text_splitter = RecursiveCharacterTextSplitter(
+    chunk_size=1000,
+    chunk_overlap=100
+)
 
 def get_embedding(text):
     """OpenAI 1536차원 임베딩 생성"""
@@ -19,9 +25,6 @@ def get_embedding(text):
     )
     return response.data[0].embedding
 
-# app/import_data.py (기존 파일에 추가)
-
-# app/import_data.py (기존 수빈님 코드 아래에 이어서 추가)
 
 def delete_chunks_by_doc_id(db: Session, doc_id: str):
     """
