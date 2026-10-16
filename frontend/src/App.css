@@ -367,72 +367,96 @@
   color: #374151;
 }
 
+/* 글자 크기 조절 - / + 버튼 */
 .font-controls button {
-  width: 32px;
-  height: 32px;
-
   display: flex;
-  justify-content: center;
   align-items: center;
+  justify-content: center;
 
-  border: 1px solid #d1d5db;
-  border-radius: 999px;
+  /* 음성 버튼과 통일된 크기 */
+  width: 34px;
+  height: 34px;
+  padding: 0;
 
+  /* 차분한 무채색 */
   background-color: #ffffff;
-  color: #2563eb;
+  color: #444444;
+
+  border: 1px solid #d8d8d5;
+  border-radius: 6px;
+
+  font-family: inherit;
+  font-size: 18px;
+  font-weight: 500;
 
   cursor: pointer;
-
-  font-size: 19px;
-  font-weight: 700;
-
-  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.08);
-
-  padding: 0;
+  box-shadow: none;
 }
 
+/* 글자 크기 버튼에 마우스를 올렸을 때 */
+.font-controls button:hover {
+  background-color: #f3f3f1;
+  border-color: #bdbdb9;
+}
+
+/* 현재 선택된 글자 크기 표시 */
 .font-label {
   min-width: 70px;
-
   padding: 6px 10px;
 
-  border-radius: 999px;
+  /* 불필요한 캡슐형 디자인 제거 */
+  background-color: #f0f0ee;
+  color: #444444;
 
-  background-color: #f1f5f9;
-  color: #1f2937;
+  border-radius: 6px;
 
   font-size: 13px;
-  font-weight: 700;
-
+  font-weight: 500;
   text-align: center;
 }
 
+/* 음성 입력·출력 및 다시 듣기 버튼 */
 .voice-button {
-  height: 34px;
-  padding: 0 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 
-  border: 1px solid #d1d5db;
-  border-radius: 999px;
+  /* 버튼 크기와 내부 여백 */
+  min-height: 36px;
+  padding: 7px 14px;
 
+  /* 단정한 무채색 디자인 */
   background-color: #ffffff;
-  color: #4b5563;
+  color: #444444;
+
+  border: 1px solid #d8d8d5;
+  border-radius: 7px;
+
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
 
   cursor: pointer;
+  box-shadow: none;
 
-  font-size: 14px;
-  font-weight: 700;
-
-  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.08);
+  transition:
+    background-color 0.2s ease,
+    border-color 0.2s ease;
 }
 
-.voice-button:hover {
-  background-color: #f8fafc;
+/* 음성 버튼에 마우스를 올렸을 때 */
+.voice-button:hover:not(:disabled) {
+  background-color: #f3f3f1;
+  border-color: #bdbdb9;
 }
 
+/* 음성 입력 또는 답변 음성이 활성화된 상태 */
 .voice-button.active {
-  background-color: #eff6ff;
-  color: #2563eb;
-  border-color: #93c5fd;
+  background-color: #e9e9e6;
+  color: #292929;
+
+  border-color: #888888;
+  font-weight: 600;
 }
 
 .voice-button:disabled {
