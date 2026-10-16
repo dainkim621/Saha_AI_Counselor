@@ -8,7 +8,7 @@ import ChatInput from "./components/ChatInput";
 import QuickMenu from "./components/QuickMenu";
 
 // FastAPI 백엔드 서버 주소
-const BACKEND_URL = 'https://snack-sanded-passover.ngrok-free.dev'; // 상대 경로로 변경하여 프록시 설정 사용
+const BACKEND_URL = 'http://localhost:8000'; // 상대 경로로 변경하여 프록시 설정 사용
 
 // 채팅 메시지 데이터 구조
 export type Message = {
