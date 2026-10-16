@@ -570,6 +570,65 @@
   gap: 14px;
 }
 
+/* =========================
+   새 채팅 버튼
+========================= */
+
+/* 새로운 상담을 시작하는 버튼 */
+.new-chat-button {
+  /* 새 채팅 아이콘과 글자를 왼쪽에 나란히 배치 */
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 10px;
+  /* 사이드바 메뉴에 맞게 버튼 높이 조정 */
+  width: 100%;
+  min-height: 52px;
+  padding: 12px 16px;
+  /* 차분한 차콜 색상 */
+  background-color: #353535;
+  color: #ffffff;
+
+  /* 단정한 사각형 디자인 */
+  border: 1px solid #353535;
+  border-radius: 8px;
+
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 600;
+
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+/* 새 채팅 버튼 오른쪽 + 아이콘 */
+.new-chat-icon {
+  position: static;
+
+  font-size: 18px;
+  font-weight: 400;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+/* 마우스를 올렸을 때 */
+.new-chat-button:hover:not(:disabled) {
+  background-color: #505050;
+}
+
+/* 키보드로 버튼에 접근했을 때 */
+.new-chat-button:focus-visible {
+  outline: 2px solid #555555;
+  outline-offset: 3px;
+}
+
+/* 답변 생성 또는 녹음 중 버튼 비활성화 */
+.new-chat-button:disabled {
+  background-color: #a3a3a3;
+  border-color: #a3a3a3;
+  cursor: not-allowed;
+}
+
 .chat-section {
   flex: 1;
   max-width: none;
@@ -683,118 +742,167 @@
 }
 
 /* =========================
-    Quick Menu
+   Quick Menu - 접이식 FAQ
 ========================= */
 
-/* 자주 묻는 질문 전체 카드 */
+/* 자주 묻는 질문 전체 영역 */
 .quick-menu {
+  width: 100%;
+  box-sizing: border-box;
+
+  /* 차분한 흰색 카드 */
   background-color: #ffffff;
+  border: 1px solid #e4e3df;
+  border-radius: 8px;
 
-  border-radius: 20px;
-  border: 1px solid #e5e7eb;
-
-  padding: 18px;
-
-  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.04);
+  /* 불필요한 그림자 제거 */
+  box-shadow: none;
+  overflow: hidden;
 }
 
-/* 제목과 최근 7일 기준을 감싸는 영역 */
-.quick-menu-header {
+/* FAQ 접기·펼치기 버튼 */
+.quick-menu-toggle {
   display: flex;
-  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
 
-  gap: 6px;
+  /* 아이콘과 글자 사이 간격 */
+  gap: 10px;
 
-  margin-bottom: 12px;
+  width: 100%;
+  min-height: 52px;
+  padding: 12px 16px;
+  box-sizing: border-box;
+
+  /* 단정한 무채색 디자인 */
+  background-color: #ffffff;
+  border: none;
+  color: #303030;
+
+  font-family: inherit;
+  cursor: pointer;
+  text-align: left;
 }
 
-/* 이번 주 자주 묻는 질문 제목 */
-.quick-menu-header h3 {
-  margin: 0;
+/* FAQ 제목 왼쪽의 질문 아이콘 */
+.quick-menu-leading-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
 
-  font-size: 16px;
-  font-weight: 800;
-  line-height: 1.4;
+  /* 새 채팅 + 아이콘과 크기 통일 */
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
 
-  color: #111827;
+  color: #555555;
 }
 
-/* 최근 7일 기준 문구 */
-.quick-menu-header span {
-  font-size: 13px;
-  font-weight: 500;
+/* FAQ 메뉴 제목 */
+.quick-menu-title {
+  /* 남는 공간을 제목 영역이 차지하도록 설정 */
+  flex: 1;
+  min-width: 0;
 
-  color: #64748b;
+  font-size: 15px;
+  font-weight: 600;
+  text-align: left;
 }
 
-/* 질문 버튼 목록 */
+/* FAQ 접기·펼치기 화살표 */
+.quick-menu-arrow {
+  display: inline-block;
+  flex-shrink: 0;
+
+  /* 화살표 크기 */
+  width: 8px;
+  height: 8px;
+
+  /* 회색 선으로 화살표 구현 */
+  border-right: 2px solid #777777;
+  border-bottom: 2px solid #777777;
+
+  /* 기본 상태: 아래쪽 화살표 */
+  transform: rotate(45deg);
+
+  margin-right: 4px;
+  transition: transform 0.2s ease;
+}
+
+/* FAQ가 펼쳐졌을 때: 위쪽 화살표 */
+.quick-menu-toggle[aria-expanded="true"] .quick-menu-arrow {
+  transform: rotate(225deg);
+}
+
+/* FAQ 제목에 마우스를 올렸을 때 */
+.quick-menu-toggle:hover {
+  background-color: #f7f7f5;
+}
+
+/* 키보드로 FAQ 버튼을 선택했을 때 */
+.quick-menu-toggle:focus-visible {
+  outline: 2px solid #555555;
+  outline-offset: -2px;
+}
+
+/* 펼쳐진 FAQ 질문 목록 */
 .quick-button-list {
   display: flex;
   flex-direction: column;
+  gap: 6px;
 
-  gap: 9px;
+  padding: 10px;
+
+  /* 제목과 질문 목록 구분선 */
+  border-top: 1px solid #e8e7e4;
 }
 
-/* 각 질문 버튼 */
+/* 개별 FAQ 질문 버튼 */
 .quick-button-list button {
-  display: flex;
-  align-items: flex-start;
-
   width: 100%;
+  padding: 10px 12px;
 
-  padding: 12px 13px;
+  background-color: #f7f7f5;
+  border: 1px solid transparent;
+  border-radius: 6px;
 
-  border: 1px solid #d1d5db;
-  border-radius: 12px;
-
-  background-color: #f9fafb;
-  color: #1f2937;
-
-  cursor: pointer;
-  text-align: left;
-
+  color: #444444;
+  font-family: inherit;
   font-size: 14px;
-  font-weight: 500;
+  font-weight: 400;
   line-height: 1.5;
 
-  transition:
-    background-color 0.2s,
-    border-color 0.2s,
-    transform 0.2s;
+  text-align: left;
+  cursor: pointer;
+
+  transition: background-color 0.2s ease;
 }
 
 /* 질문 버튼에 마우스를 올렸을 때 */
 .quick-button-list button:hover:not(:disabled) {
-  background-color: #eff6ff;
-  border-color: #93c5fd;
-
-  transform: translateY(-1px);
+  background-color: #eae9e6;
 }
 
-/* 답변 생성 중 비활성화 상태 */
+/* 답변 생성 중에는 FAQ 질문 버튼 비활성화 */
 .quick-button-list button:disabled {
-  opacity: 0.6;
+  opacity: 0.5;
   cursor: not-allowed;
 }
 
-/* 질문 내용 */
+/* 질문이 길어질 경우 자연스럽게 줄바꿈 */
 .quick-question-text {
-  flex: 1;
-  min-width: 0;
-
   word-break: keep-all;
   overflow-wrap: break-word;
 }
 
-/* 질문이 하나도 없을 때 표시되는 안내 문구 */
+/* 집계된 FAQ 질문이 없을 때 */
 .quick-menu-empty {
   margin: 0;
-  padding: 12px 0;
+  padding: 12px 6px;
 
   font-size: 13px;
   line-height: 1.5;
-
-  color: #64748b;
+  color: #777777;
 }
 
 /* =========================
