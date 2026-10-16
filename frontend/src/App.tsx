@@ -8,7 +8,7 @@ import ChatInput from "./components/ChatInput";
 import QuickMenu from "./components/QuickMenu";
 
 // FastAPI 백엔드 서버 주소
-const BACKEND_URL = "http://localhost:8000";
+const BACKEND_URL = 'https://snack-sanded-passover.ngrok-free.dev'; // 상대 경로로 변경하여 프록시 설정 사용
 
 // 채팅 메시지 데이터 구조
 export type Message = {
@@ -397,6 +397,7 @@ function App() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          'ngrok-skip-browser-warning': 'true'
         },
         body: JSON.stringify({
           question: trimmedQuestion,
@@ -661,6 +662,16 @@ function App() {
           >
             ↻ 다시 듣기
           </button>
+          {/* 개인정보 보호 안내 */}
+          <div className="privacy-warning" role="note">
+            <span className="privacy-warning-icon" aria-hidden="true">
+              🔒
+            </span>
+            <span className="privacy-warning-text">
+              개인정보 보호를 위해 주민등록번호, 연락처, 주소 등은
+              입력하지 마세요.
+            </span>
+          </div>
         </div>
 
         <div className="font-controls">

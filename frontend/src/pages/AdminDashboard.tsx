@@ -1,12 +1,10 @@
-
- // 관리자 페이지에서 사용할 CSS 불러오기
+// 관리자 페이지에서 사용할 CSS 불러오기
 import "../styles/AdminDashboard.css";
 import { useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
 
 import SummaryCards from "../components/admin/SummaryCards";
 import FailedQuestions from "../components/admin/FailedQuestions";
-import LanguageStats from "../components/admin/LanguageStats";
 import HourlyUsage from "../components/admin/HourlyUsage";
 import PopularQuestions from "../components/admin/PopularQuestions";
 import MissingDocumentAreas from "../components/admin/MissingDocumentAreas";
@@ -14,7 +12,6 @@ const BACKEND_URL = "http://localhost:8000";
 import {
   //dashboardSummaryMock, 이제 안씀
   failedQuestionsMock,
-  languageStatsMock,
   //hourlyUsageMock, Mock 데이터 연결 제거
   //popularQuestionsMock, 데이터 연결 제거
   missingDocumentAreasMock,
@@ -304,7 +301,6 @@ function AdminDashboard() {
             />
 
             <FailedQuestions questions={failedQuestionsMock} />
-            <LanguageStats stats={languageStatsMock} />
             <HourlyUsage stats={hourlyUsageData} />
             <PopularQuestions questions={popularQuestionsData} />
 

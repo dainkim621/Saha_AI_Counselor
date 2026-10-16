@@ -1,4 +1,3 @@
-
 import type { HourlyUsageStat } from "../../types/adminDashboard";
 
 type HourlyUsageProps = {

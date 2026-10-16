@@ -106,77 +106,7 @@ async def ask_saha_ai_stream(user_question: str, history: List[Dict[str, str]] =
         refined_question,
         top_k=3
     )
-
-    #==================================================================
-    # [2] FAQ 분석용 사용자 질문 로그 저장
-    #==================================================================
-    log_db = SessionLocal()
-
-    try:
-        # 1. 완전히 같은 원본 질문이 이전에 들어왔는지 먼저 확인
-        existing_log = (
-            log_db.query(UserChatLog)
-            .filter(
-                UserChatLog.search_query == user_question,
-                UserChatLog.normalized_query.isnot(None)
-            )
-            .order_by(UserChatLog.id.desc())
-            .first()
-        )
-
-        # 2. 같은 원본 질문이 없으면 refined_query도 확인
-        if existing_log is None:
-            existing_log = (
-                log_db.query(UserChatLog)
-                .filter(
-                    UserChatLog.refined_query == refined_question,
-                    UserChatLog.normalized_query.isnot(None)
-                )
-                .order_by(UserChatLog.id.desc())
-                .first()
-            )
-
-        if existing_log:
-            # 이미 정규화한 질문이면 기존 결과 재사용
-            normalized_question = existing_log.normalized_query
-
-            print(
-                f"♻️ FAQ 정규화 결과 재사용: "
-                f"'{refined_question}' → '{normalized_question}'"
-            )
-
-        else:
-            # 처음 들어온 질문만 GPT로 정규화
-            normalized_question = normalize_faq_question(refined_question)
-
-            print(
-                f"🆕 FAQ 최초 정규화: "
-                f"'{refined_question}' → '{normalized_question}'"
-            )
-
-        # 질문 로그 저장
-        chat_log = UserChatLog(
-            search_query=user_question,
-            refined_query=refined_question,
-            normalized_query=normalized_question,
-            embedding=query_embedding
-        )
-
-        log_db.add(chat_log)
-        log_db.commit()
-
-        print(
-            f"💾 사용자 질문 로그 저장 완료: "
-            f"'{user_question}' → '{normalized_question}'"
-        )
-
-    except Exception as e:
-        log_db.rollback()
-        print(f"⚠️ 사용자 질문 로그 저장 실패: {e}")
-
-    finally:
-        log_db.close()
-
+    
     final_confidence_score = relevant_chunks[0].score if relevant_chunks else 0.0
         
     # 사용자가 안지루하게 유사도 먼저 보내기~~~~ 유사도를 먼저 보내서 답변이 도움이 되는지 판단하게끔 함
@@ -197,7 +127,7 @@ async def ask_saha_ai_stream(user_question: str, history: List[Dict[str, str]] =
 
     admin_stop_words = ["발급", "서류", "필요", "신청", "준비", "방법", "안내", "증명서", "확인", "신고", "처리", "절차", "비용"]
     
-    # 쿼리에서 조사를 떼고, 행정 공통어를 제외한 '진짜 핵심 명사'만 남깁니다.
+    # 쿼리에서 조사를 떼고, 행정 공통어를 제외한 '진짜 핵심 명사'만 남김
     query_keywords = [
         w for w in refined_question.split() 
         if len(w) > 1 and w not in admin_stop_words
@@ -328,13 +258,6 @@ async def ask_saha_ai_stream(user_question: str, history: List[Dict[str, str]] =
             "2. 정보가 부족하거나 관련이 없어 답변을 거부한 경우, `success`를 `false`로 설정하고 `reason`에 그 이유를 간단히 적어.\n"
             "3. 정상적으로 답변한 경우 `success`를 `true`로, `reason`은 빈 문자열로 해.\n\n"
             
-            "답변 본문(마크다운)은 평소처럼 출력하고, 판정 결과만 아래 JSON 형식으로 응답의 가장 마지막에 포함해줘:\n"
-            "```json\n"
-            "{\n"
-            '  "success": true,\n'
-            '  "reason": ""\n'
-            "}\n"
-            "```"
             
             f"--- [중요] 이번 질문에 대한 최신 참고 정보 ---\n"
             f"{context_text}\n"
@@ -367,7 +290,120 @@ async def ask_saha_ai_stream(user_question: str, history: List[Dict[str, str]] =
             yield json.dumps({'type': 'text', 'content': content}) + " " # 프론트로 즉시 발송
             
     #----------gpt 답변 생성 및 스트리밍 끝난 시점--------------
-   
+    #==================================================================
+    # [2] FAQ 분석용 사용자 질문 로그 저장
+    #==================================================================
+    log_db = SessionLocal()
+
+    try:
+        # 1. 완전히 같은 원본 질문이 이전에 들어왔는지 먼저 확인
+        existing_log = (
+            log_db.query(UserChatLog)
+            .filter(
+                UserChatLog.search_query == user_question,
+                UserChatLog.normalized_query.isnot(None)
+            )
+            .order_by(UserChatLog.id.desc())
+            .first()
+        )
+
+        # 2. 같은 원본 질문이 없으면 refined_query도 확인
+        if existing_log is None:
+            existing_log = (
+                log_db.query(UserChatLog)
+                .filter(
+                    UserChatLog.refined_query == refined_question,
+                    UserChatLog.normalized_query.isnot(None)
+                )
+                .order_by(UserChatLog.id.desc())
+                .first()
+            )
+
+        if existing_log:
+            # 이미 정규화한 질문이면 기존 결과 재사용
+            normalized_question = existing_log.normalized_query
+
+            print(
+                f"♻️ FAQ 정규화 결과 재사용: "
+                f"'{refined_question}' → '{normalized_question}'"
+            )
+
+        else:
+            # 처음 들어온 질문만 GPT로 정규화
+            normalized_question = normalize_faq_question(refined_question)
+
+            print(
+                f"🆕 FAQ 최초 정규화: "
+                f"'{refined_question}' → '{normalized_question}'"
+            )
+            
+        #답변실패여부(answer_success), 실패이유(failure_reason) 판정
+        eval_response = client.chat.completions.create(
+            model="gpt-4o-mini",  
+            response_format={"type": "json_object"}, 
+            messages=[
+                {
+                    "role": "system",
+                    "content": (
+                        "당신은 AI 상담사의 답변 품질을 검수하는 평가관입니다.\n"
+                        "아래 [평가 기준]에 따라 AI 답변의 성공 여부를 반드시 JSON 형식으로 판정하세요.\n\n"
+                        "[평가 기준]\n"
+                        "1. AI가 실질적인 정보를 제공했다면 success는 true입니다.\n"
+                        "2. 정보 부족이나 기타 사유로 답변을 거절했다면 success는 false입니다.\n\n"
+                        "[실패 유형 카테고리 (category)]\n"
+                        "- NO_INFO : 참고 정보(Context)에 관련된 내용이 없어서 답변을 거절한 경우\n"
+                        "- OUT_OF_DOMAIN : 행정 민원과 무관한 사담이나 질문인 경우\n"
+                        "- INAPPROPRIATE : 욕설 등 부적절한 질문인 경우\n"
+                        "- OTHER : 기타 이유로 실패한 경우\n"
+                        "- NONE : 성공한 경우\n\n"
+                        "반드시 아래 JSON 형식으로만 응답하세요:\n"
+                        "{\n"
+                        '  "success": true 또는 false,\n'
+                        '  "category": "위 [실패 유형 카테고리] 중 가장 알맞은 코드 1개",\n'
+                        '  "reason": "false인 경우 구체적인 사유 서술, true인 경우 빈 문자열(\"\")"\n'
+                        "}"
+                    )
+                },
+                {
+                    "role": "user",
+                    "content": f"질문: {user_question}\n\nAI 답변: {gpt_answer_accumulator}"
+                }
+            ],
+            temperature=0.0
+        )
+        
+        eval_result = json.loads(eval_response.choices[0].message.content)
+        is_success = eval_result.get("success", True)
+        failure_category = eval_result.get("category", "NONE")
+        failure_reason = eval_result.get("reason", "")
+        print(f"📊 [AI 검수 결과] 성공 여부: {is_success} / 사유: {failure_reason}")
+        
+        # 질문 및 AI 답변 로그 저장
+        chat_log = UserChatLog(
+            search_query=user_question,
+            answer=gpt_answer_accumulator,  # AI가 생성한 전체 답변 저장
+            refined_query=refined_question,
+            normalized_query=normalized_question,
+            embedding=query_embedding,
+            answer_success=is_success,
+            failure_category=failure_category if not is_success else None,
+            failure_reason=failure_reason,
+        )
+
+        log_db.add(chat_log)
+        log_db.commit()
+
+        print(
+            f"💾 사용자 질문 로그 저장 완료: "
+            f"'{user_question}' → '{normalized_question}'"
+        )
+
+    except Exception as e:
+        log_db.rollback()
+        print(f"⚠️ 사용자 질문 로그 저장 실패: {e}")
+
+    finally:
+        log_db.close()
     
     #==================================================================
     # [2] 여권 pdf 파일 강제 첨부 로직 (rag로 수집되지 않는 여권 pdf 파일은 로컬에서 강제 첨부)

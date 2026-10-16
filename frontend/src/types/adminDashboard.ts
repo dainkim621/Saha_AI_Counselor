@@ -1,3 +1,4 @@
+
 // 관리자 대시보드 상단 요약 통계 데이터 타입
 export type DashboardSummary = {
   // 최근 7일 동안 접수된 전체 질문 수
@@ -20,6 +21,9 @@ export type FailedQuestion = {
 
   // 사용자가 실제로 입력한 질문
   question: string;
+
+  //실패 카테고리
+  category: string;
 
   // 답변에 실패한 이유
   reason: string;
@@ -72,3 +76,5 @@ export type MissingDocumentArea = {
   // 해당 분야에서 답변에 실패한 질문 수
   failedCount: number;
 };
+
+

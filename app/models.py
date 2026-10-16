@@ -61,6 +61,9 @@ class UserChatLog(Base):
     # 사용자가 실제로 입력한 원본 질문
     search_query = Column(Text, nullable=False)
 
+    # AI가 생성한 전체 답변 저장
+    answer = Column(Text, nullable=True)
+
     # RAG 검색에 실제로 사용한 질문
     refined_query = Column(Text, nullable=True)
 
@@ -72,19 +75,17 @@ class UserChatLog(Base):
 
     # 사용자의 질문 언어
     # 예: ko, en, ja, zh
-    language = Column(
-        String,
-        nullable=True
-    )
+    language = Column(String, nullable=True)
 
     # 챗봇이 정상적인 답변을 생성했는지 여부
-    # True: 정상 답변
-    # False: 답변 실패
-    answer_success = Column(
-        Boolean,
-        nullable=True
-    )
+    answer_success = Column(Boolean, nullable=True)
+    
+    # 답변 실패 이유
+    failure_reason = Column(String, nullable=True)
 
+    #답변 실패 이유 유형 
+    failure_category = Column(String, nullable=True)  # 예: "INACCURATE", "IRRELEVANT", "AMBIGUOUS", "NONE"
+    
     # 질문 입력 시간
     created_at = Column(
         DateTime(timezone=True),

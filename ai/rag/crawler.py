@@ -25,7 +25,7 @@ OUTPUT_DELTA_JSONL = os.path.join(DELTA_DIR, "saha_docs_delta.jsonl")
 # 변경 이력 누적 기록
 OUTPUT_CHANGE_HISTORY_JSONL = os.path.join(HISTORY_DIR, "change_history.jsonl")
 
-MAX_PAGES = 100
+MAX_PAGES = 10000
 MAX_BOARD_PAGES_PER_LIST = 10
 REQUEST_DELAY = 0.7
 TIMEOUT = 15
