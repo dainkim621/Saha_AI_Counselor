@@ -8,6 +8,9 @@ from app.api.admin_auth import require_admin
 from datetime import datetime, timedelta
 from sqlalchemy import func
 
+from datetime import timezone  # 시간
+from zoneinfo import ZoneInfo
+
 # 관리자 대시보드 전용 라우터
 router = APIRouter()
 
@@ -79,7 +82,6 @@ def get_failed_questions(
         for log in failed_logs
     ]
     
-
 
 # 시간대별 이용량 조회 API
 @router.get("/hourly-usage")
