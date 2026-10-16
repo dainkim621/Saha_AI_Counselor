@@ -18,10 +18,8 @@ from typing import Optional
 from datetime import datetime, timedelta
 from sqlalchemy import func
 from fastapi.responses import FileResponse
-from dotenv import load_dotenv
 
-load_dotenv()
-SERVER_URL = os.getenv("SERVER_URL", "http://localhost:8000")
+SERVER_URL = 'https://snack-sanded-passover.ngrok-free.dev';
 
 app = FastAPI(title="사하구 AI 상담사 API")
 
