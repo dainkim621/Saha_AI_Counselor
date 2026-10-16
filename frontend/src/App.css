@@ -9,7 +9,8 @@
   /* 웹페이지 바깥쪽 스크롤 방지 */
   overflow: hidden;
 
-  background-color: #f5f7f5;
+  /* AI 답변의 흰색 카드가 자연스럽게 돋보이도록 연회색 배경 적용 */
+  background-color: #ECECEC;
   color: #222222;
   font-family: "Pretendard", "Noto Sans KR", sans-serif;
 }
@@ -30,9 +31,9 @@
   box-sizing: border-box;
 
   /* 공공기관에 어울리는 차분한 무채색 */
-  background: #f7f7f5;
+  background: #FAFAFA;
 
-  border: 1px solid #e4e3df;
+  border: 1px solid #D6D6D6;
   border-radius: 10px;
 
   /* 기존 파란색 그림자 제거 */
@@ -390,7 +391,7 @@
   background-color: #ffffff;
   color: #444444;
 
-  border: 1px solid #d8d8d5;
+  border: 1px solid #D0D0D0;
   border-radius: 6px;
 
   font-family: inherit;
@@ -403,8 +404,8 @@
 
 /* 글자 크기 버튼에 마우스를 올렸을 때 */
 .font-controls button:hover {
-  background-color: #f3f3f1;
-  border-color: #bdbdb9;
+  background-color: #E8E8E8;
+  border-color: #A8A8A8;
 }
 
 /* 현재 선택된 글자 크기 표시 */
@@ -413,7 +414,7 @@
   padding: 6px 10px;
 
   /* 불필요한 캡슐형 디자인 제거 */
-  background-color: #f0f0ee;
+  background-color: #E4E4E4;
   color: #444444;
 
   border-radius: 6px;
@@ -482,11 +483,11 @@
   margin-left: 14px;
   padding: 8px 15px;
 
-  background-color: #f8fafc;
-  border: 1px solid #dce3ec;
+  background-color: #F2F2F2;
+  border: 1px solid #D0D0D0;
   border-radius: 999px;
 
-  color: #475569;
+  color: #555555;
   font-size: 14px;
   font-weight: 600;
   line-height: 1.5;
@@ -519,11 +520,15 @@
   width: fit-content;
   min-width: 280px;
 
+  /* 첨부파일 카드 사이 간격 확보 */
+  margin-bottom: 8px;
   padding: 12px 16px;
-
-  background: #ffffff;
-
-  border: 1px solid #e5e7eb;
+  
+  /* 흰색 AI 답변과 구분되는 연한 회색 배경 */
+  background: #E7E7E7;
+  
+  /* 파일별 경계를 명확하게 구분 */
+  border: 1px solid #D0D0D0;
   border-radius: 14px;
 
   text-decoration: none;
@@ -534,7 +539,7 @@
 
 .download-card:hover {
   transform: translateY(-2px);
-  border-color: #93c5fd;
+  border-color: #A0A0A0;
   box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
 }
 
@@ -548,7 +553,7 @@
 
   border-radius: 10px;
 
-  background: #eff6ff;
+  background: #F7F7F7;
 
   font-size: 20px;
 }
@@ -560,18 +565,18 @@
 .download-card-title {
   font-size: 14px;
   font-weight: 700;
-  color: #1e293b;
+  color: #292929;
 }
 
 .download-card-subtitle {
   margin-top: 2px;
   font-size: 12px;
-  color: #64748b;
+  color: #666666;
 }
 
 .download-card-arrow {
   font-size: 18px;
-  color: #94a3b8;
+  color: #777777;
 }
 
 /* =========================
@@ -624,11 +629,11 @@
   min-height: 52px;
   padding: 12px 16px;
   /* 차분한 차콜 색상 */
-  background-color: #353535;
+  background-color: #3C3C3C;
   color: #ffffff;
 
   /* 단정한 사각형 디자인 */
-  border: 1px solid #353535;
+  border: 1px solid #3C3C3C;
   border-radius: 8px;
 
   font-family: inherit;
@@ -651,7 +656,7 @@
 
 /* 마우스를 올렸을 때 */
 .new-chat-button:hover:not(:disabled) {
-  background-color: #505050;
+  background-color: #555555;
 }
 
 /* 키보드로 버튼에 접근했을 때 */
@@ -795,7 +800,7 @@
 
   /* 차분한 흰색 카드 */
   background-color: #ffffff;
-  border: 1px solid #e4e3df;
+  border: 1px solid #D6D6D6;
   border-radius: 8px;
 
   /* 불필요한 그림자 제거 */
@@ -905,7 +910,7 @@
   width: 100%;
   padding: 10px 12px;
 
-  background-color: #f7f7f5;
+  background-color: #F2F2F2;
   border: 1px solid transparent;
   border-radius: 6px;
 
@@ -923,7 +928,7 @@
 
 /* 질문 버튼에 마우스를 올렸을 때 */
 .quick-button-list button:hover:not(:disabled) {
-  background-color: #eae9e6;
+  background-color: #DADADA;
 }
 
 /* 답변 생성 중에는 FAQ 질문 버튼 비활성화 */
@@ -987,10 +992,27 @@
   border-radius: 10px;
 }
 
+/* =========================
+   채팅 메시지 정렬 및 너비
+========================= */
+
+/* 사용자 질문과 AI 답변의 공통 영역 */
 .message-row {
   display: flex;
   align-items: flex-start;
-  margin-bottom: 14px;
+
+  /* 긴 답변도 읽기 편한 최대 너비 */
+  width: 100%;
+  max-width: 800px;
+
+  /* 대화 영역 안에서 가운데 정렬 */
+  margin-left: auto;
+  margin-right: auto;
+
+  /* 메시지 사이 간격 */
+  margin-bottom: 20px;
+
+  box-sizing: border-box;
 }
 
 .user-row {
@@ -1013,13 +1035,13 @@
   border-radius: 50%;
 
   background: #ffffff;
-  border: 2px solid #e0edff;
+  border: 2px solid #D6D6D6;
 
   margin-right: 10px;
 
   align-self: flex-start;
 
-  box-shadow: 0 6px 16px rgba(37, 99, 235, 0.12);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.06);
 }
 
 .chat-avatar-active {
@@ -1027,7 +1049,8 @@
 }
 
 .message-bubble {
-  max-width: 70%;
+  max-width: 100%;
+  min-width: 0;
 
   padding: 13px 16px;
 
@@ -1038,12 +1061,27 @@
 
   white-space: pre-wrap;
   word-break: keep-all;
+}/* 주민 질문 말풍선 - AI 답변보다 차분하게 표시 */
+.user-bubble {
+  /* 중립적인 회색 배경 */
+  background-color: #D0D0D0;
+
+  /* 질문 글씨 색상 */
+  color: #454545;
+
+  /* 기존 말풍선 모양 유지 */
+  border-bottom-right-radius: 6px;
 }
 
+/* 주민 질문 말풍선 - AI 답변보다 차분하게 표시 */
 .user-bubble {
-  background-color: #2563eb;
-  color: white;
+  /* 중립적인 회색 배경 */
+  background-color: #D0D0D0;
 
+  /* 질문 글씨 색상 */
+  color: #454545;
+
+  /* 기존 말풍선 모양 유지 */
   border-bottom-right-radius: 6px;
 }
 
@@ -1058,22 +1096,36 @@
     Input
 ========================= */
 
+/* 채팅 입력창 전체 영역 */
 .chat-input-box {
   display: flex;
+  align-items: center;
   gap: 10px;
 
-  padding: 14px 18px;
+  /* 입력창 최대 너비 제한 */
+  width: 100%;
+  max-width: 800px;
 
-  border-top: 1px solid #e5e7eb;
-  background: white;
+  /* 채팅 영역 가운데 정렬 */
+  margin: 0 auto;
+
+  /* 입력창 내부 여백 */
+  padding: 12px 16px;
+  box-sizing: border-box;
+
+  /* 단정한 배경 */
+  background-color: transparent;
+  border: none;
 }
 
 .chat-input-box input {
   flex: 1;
+  /* 입력창이 좁은 화면에서도 부모 영역을 넘지 않도록 설정 */
+  min-width: 0;
 
   padding: 12px 16px;
 
-  border: 1px solid #d1d5db;
+  border: 1px solid #C8C8C8;
   border-radius: 14px;
 
   font-size: 16px;
@@ -1085,7 +1137,7 @@
   border: none;
   border-radius: 14px;
 
-  background-color: #2563eb;
+  background-color: #3C3C3C;
   color: white;
 
   cursor: pointer;
@@ -1095,7 +1147,7 @@
 }
 
 .chat-input-box button:hover {
-  background-color: #1d4ed8;
+  background-color: #555555;
 }
 
 /* =========================
@@ -1552,7 +1604,7 @@
   margin-bottom: 6px;
   font-size: 1.05em;
   font-weight: 800;
-  color: #1e293b;
+  color: #292929;
 }
 
 .markdown-content h3:first-child {
@@ -1571,9 +1623,37 @@
   white-space: pre-wrap;
 }
 
+/* AI 답변 카드 - 단정한 웜그레이 디자인 */
 .assistant-bubble {
+  /* 짧은 답변은 내용에 맞게, 긴 답변은 최대 너비까지 확장 */
+  flex: 0 1 auto;
+  width: fit-content;
+  max-width: 100%;
+  min-width: 0;
+
+  /* 차분한 웜그레이 배경 */
+  background-color: #ffffff;
+  color: #292929;
+
+  /* 공공기관 안내문에 어울리는 모서리 */
+  border: 1px solid #D0D0D0;
+  border-radius: 12px;
+  border-bottom-left-radius: 6px;
+
+  /* 답변 내부 여백 */
+  padding: 18px 20px;
+  box-sizing: border-box;
+
+  /* 긴 민원 답변 가독성 */
+  line-height: 1.7;
+
+  /* 마크다운 답변의 불필요한 공백 및 줄바꿈 방지 */
   white-space: normal;
+
+  /* 불필요한 그림자 제거 */
+  box-shadow: none;
 }
+
 
 /* =========================
     Similarity Score Card
@@ -1588,22 +1668,18 @@
   margin-bottom: 10px;
 }
 
+/* 참고 정보 매칭도 카드 */
 .similarity-card {
   margin-bottom: 14px;
   padding: 14px 16px;
-
   border-radius: 16px;
 
-  background: linear-gradient(
-    135deg,
-    #eff6ff 0%,
-    #ffffff 100%
-  );
+  /* 흰색 답변 카드와 구분되는 연한 웜그레이 */
+  background: #EAEAEA;
+  border: 2px solid #D0D0D0;
 
-  border: 2px solid #93c5fd;
-
-  box-shadow:
-    0 8px 18px rgba(37, 99, 235, 0.12);
+  /* 파란색 그림자 제거 */
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.04);
 }
 
 .similarity-card-header {
@@ -1614,46 +1690,45 @@
   gap: 12px;
 }
 
+/* 참고 정보 매칭도 제목 */
 .similarity-label {
   font-size: 14px;
   font-weight: 800;
-  color: #2563eb;
+  color: #444444;
 }
 
+/* 매칭도 퍼센트 */
 .similarity-score {
   font-size: 28px;
   font-weight: 900;
-  color: #1d4ed8;
+  color: #353535;
 }
 
+/* 진행 막대 배경 */
 .similarity-bar {
   width: 100%;
   height: 12px;
-
   margin-top: 8px;
-
   border-radius: 999px;
 
-  background: #dbeafe;
+  background: #D6D6D6;
   overflow: hidden;
 }
 
+/* 진행 막대 채워진 부분 */
 .similarity-bar-fill {
   height: 100%;
-
   border-radius: 999px;
 
-  background: #4f83ff;
-
+  background: #666666;
   transition: width 0.3s ease;
 }
 
+/* 매칭도 하단 설명 */
 .similarity-desc {
   margin-top: 10px;
-
   font-size: 12px;
-  color: #64748b;
-
+  color: #777777;
   line-height: 1.5;
 }
 
@@ -1729,14 +1804,11 @@
   padding: 28px;
 
   border-radius: 26px;
-  background:
-    radial-gradient(circle at top left, rgba(219, 234, 254, 0.9), transparent 220px),
-    #ffffff;
+  background:#ffffff;
+  color: #292929;
 
-  color: #1f2937;
-
-  border: 1px solid #dbeafe;
-  box-shadow: 0 28px 70px rgba(15, 23, 42, 0.28);
+  border: 1px solid #D0D0D0;
+  box-shadow: 0 28px 70px rgba(0, 0, 0, 0.20);
 }
 
 .guide-modal-header {
@@ -1755,7 +1827,7 @@
   font-size: 1.7em;
   font-weight: 900;
 
-  color: #111827;
+  color: #292929;
 }
 
 .guide-close-button {
@@ -1765,8 +1837,9 @@
   border: none;
   border-radius: 999px;
 
-  background: #f1f5f9;
-  color: #475569;
+  background: #E8E8E8;
+  color: #444444;
+
 
   cursor: pointer;
 
@@ -1775,7 +1848,7 @@
 }
 
 .guide-close-button:hover {
-  background: #e2e8f0;
+  background: #D6D6D6;
 }
 
 .guide-intro {
@@ -1785,17 +1858,17 @@
   font-weight: 600;
   line-height: 1.7;
 
-  color: #475569;
+  color: #555555;
 }
 
 .guide-section {
   margin-top: 18px;
   padding: 18px 20px;
 
-  border: 1px solid #dbeafe;
+  border: 1px solid #D6D6D6;
   border-radius: 20px;
 
-  background: linear-gradient(135deg, #f8fbff 0%, #ffffff 100%);
+  background: #F2F2F2;
 }
 
 .guide-section h3 {
@@ -1804,7 +1877,7 @@
   font-size: 16px;
   font-weight: 900;
 
-  color: #1d4ed8;
+  color: #353535;
 }
 
 .guide-section ul {
@@ -1830,7 +1903,7 @@
   position: absolute;
   left: 0;
 
-  color: #2563eb;
+  color: #555555;
   font-weight: 900;
 }
 
@@ -1843,7 +1916,7 @@
   border: none;
   border-radius: 14px;
 
-  background: #2563eb;
+  background: #3C3C3C;
   color: #ffffff;
 
   cursor: pointer;
@@ -1853,7 +1926,7 @@
 }
 
 .guide-confirm-button:hover {
-  background: #1d4ed8;
+  background: #555555;
 }
 
 /* ========================================
@@ -1871,7 +1944,7 @@
   padding-left: 12px;
   padding-right: 16px;
 
-  border-top: 1px solid #dbe3ec;
+  border-top: 1px solid #D6D6D6;
   border-left: none;
   border-right: none;
   border-bottom: none;
@@ -1885,7 +1958,7 @@
   margin: 0 0 12px;
   font-size: 14px;
   font-weight: 700;
-  color: #4b5563;
+  color: #555555;
 }
 
 /* 만족·불만족 버튼을 나란히 배치하는 영역 */
@@ -1899,10 +1972,10 @@
 .feedback-button {
   min-height: 36px;
   padding: 7px 12px;
-  border: 1px solid #d1d5db;
+  border: 1px solid #D0D0D0;
   border-radius: 9px;
   background-color: #ffffff;
-  color: #374151;
+  color: #444444;
   font-family: inherit;
   font-size: 13px;
   font-weight: 600;
@@ -1922,22 +1995,22 @@
 
 /* 키보드로 버튼을 선택했을 때 */
 .feedback-button:focus-visible {
-  outline: 3px solid rgba(37, 99, 235, 0.25);
+  outline: 3px solid #777777;
   outline-offset: 2px;
 }
 
 /* "도움이 됐어요" 버튼에 마우스를 올렸을 때 */
 .positive-feedback-button:hover {
-  background-color: #ecfdf5;
-  border-color: #10b981;
-  color: #047857;
+  background-color: #F2F2F2;
+  border-color: #A8A8A8;
+  color: #444444;
 }
 
 /* "도움이 안 됐어요" 버튼에 마우스를 올렸을 때 */
 .negative-feedback-button:hover {
-  background-color: #fff7ed;
-  border-color: #f97316;
-  color: #c2410c;
+  background-color: #F2F2F2;
+  border-color: #A8A8A8;
+  color: #444444;
 }
 
 /* ========================================
@@ -1948,9 +2021,9 @@
 .feedback-reason-area {
   margin-top: 12px;
   padding: 14px;
-  border: 1px solid #fed7aa;
+  border: 1px solid #D0D0D0;
   border-radius: 12px;
-  background-color: #fffaf5;
+  background-color: #F2F2F2;
 }
 
 /* "어떤 점이 아쉬웠나요?" 문구 */
@@ -1958,7 +2031,7 @@
   margin: 0 0 10px;
   font-size: 14px;
   font-weight: 700;
-  color: #7c2d12;
+  color: #444444;
 }
 
 /* 불만족 사유 버튼 목록 */
@@ -1973,10 +2046,10 @@
   width: 100%;
   min-height: 42px;
   padding: 9px 12px;
-  border: 1px solid #fdba74;
+  border: 1px solid #D0D0D0;
   border-radius: 9px;
   background-color: #ffffff;
-  color: #4b5563;
+  color: #444444;
   font-family: inherit;
   font-size: 14px;
   text-align: left;
@@ -1988,13 +2061,13 @@
 
 /* 불만족 사유 버튼 위에 마우스를 올렸을 때 */
 .feedback-reason-button:hover {
-  background-color: #ffedd5;
-  border-color: #f97316;
+  background-color: #E8E8E8;
+  border-color: #A8A8A8;
 }
 
 /* 키보드로 불만족 사유 버튼을 선택했을 때 */
 .feedback-reason-button:focus-visible {
-  outline: 3px solid rgba(249, 115, 22, 0.25);
+  outline: 3px solid #777777;
   outline-offset: 2px;
 }
 
@@ -2007,8 +2080,8 @@
   margin: 0;
   padding: 10px 12px;
   border-radius: 9px;
-  background-color: #f0fdf4;
-  color: #166534;
+  background-color: #E8E8E8;
+  color: #444444;
   font-size: 14px;
   font-weight: 600;
   line-height: 1.5;
