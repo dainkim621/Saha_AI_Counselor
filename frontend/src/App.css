@@ -25,7 +25,7 @@
   width: calc(100% - 20px);
   min-height: 108px;
 
-  margin: 0 auto 8px;
+  margin: 0 auto 0px;
   padding: 8px 24px;
 
   box-sizing: border-box;
@@ -605,7 +605,7 @@
 
 /* 왼쪽 사이드바 */
 .left-section {
-  width: 240px;
+  width: 270px;
   flex-shrink: 0;
 
   display: flex;
@@ -1011,7 +1011,7 @@
 
   /* 긴 답변도 읽기 편한 최대 너비 */
   width: 100%;
-  max-width: 900px;
+  max-width: 1050px;
 
   /* 대화 영역 안에서 가운데 정렬 */
   margin-left: auto;
@@ -1093,7 +1093,7 @@
 
   /* 입력창 최대 너비 제한 */
   width: 100%;
-  max-width: 900px;
+  max-width: 1050px;
 
   /* 채팅 영역 가운데 정렬 */
   margin: 0 auto;
@@ -2280,7 +2280,7 @@
     grid-column: 2;
     left: auto;
     top: auto;
-    transform: translateX(-100px);
+    transform: none;
 
     display: flex;
     align-items: center;
@@ -2315,5 +2315,67 @@
 
   .font-controls {
     margin-left: 0;
+  }
+}
+
+/* 채팅창 시작 위치 위에 이용 가이드 배치 */
+@media (min-width: 1400px) {
+  .guide-toolbar-button {
+    position: absolute;
+
+    /* 사이드바 270px + 오른쪽 여백 14px */
+    left: 284px;
+
+    top: 50%;
+    transform: translateY(-50%);
+
+    z-index: 3;
+  }
+}
+
+/* 상단 도구 영역 높이 및 세로 정렬 통일 */
+@media (min-width: 1200px) {
+  .accessibility-bar {
+    min-height: 60px;
+    align-items: center;
+  }
+
+  .guide-toolbar-button,
+  .privacy-warning,
+  .font-controls button,
+  .font-label {
+    height: 40px;
+    min-height: 40px;
+    box-sizing: border-box;
+
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .guide-toolbar-button,
+  .privacy-warning {
+    padding-top: 0;
+    padding-bottom: 0;
+  }
+
+  .font-controls {
+    align-items: center;
+  }
+
+  .font-controls button {
+    width: 40px;
+    padding: 0;
+  }
+
+  .font-label {
+    padding: 0 12px;
+  }
+}
+
+/* 넓은 화면에서 글자 크기 조절 영역의 좌우 균형 맞추기 */
+@media (min-width: 1700px) {
+  .font-controls {
+    margin-right: 180px;
   }
 }
