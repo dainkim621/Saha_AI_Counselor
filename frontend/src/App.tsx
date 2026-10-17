@@ -96,12 +96,26 @@ function App() {
 
         const data = await response.json();
 
-        // 백엔드 응답에서 question 값만 추출
-        const questions = data.map(
-          (item: { question: string; count: number }) => item.question
-        );
+        // 백엔드 응답에서 질문을 추출하고 불필요한 따옴표 제거
+        const questions: string[] = data.map(
+          (item: { question: string; count: number }) =>
+            item.question
+              .trim()
+              .replace(/^['"“”‘’]+|['"“”‘’]+$/g, "")
+              .trim()
+          );
 
-        setWeeklyQuestions(questions);
+          // 띄어쓰기만 다른 동일 질문은 한 번만 표시
+          const uniqueQuestions = questions.filter(
+            (question: string, index: number) =>
+              questions.findIndex(
+                (other: string) =>
+                  other.replace(/\s+/g, "").toLowerCase() ===
+                  question.replace(/\s+/g, "").toLowerCase()
+              ) === index
+          );
+
+          setWeeklyQuestions(uniqueQuestions);
       } catch (error) {
         console.error("자주 묻는 질문 조회 오류:", error);
         setWeeklyQuestions([]);
@@ -653,7 +667,7 @@ function App() {
       {/* 음성 입력, 음성 출력, 글자 크기 조절 영역 */}
       <div className="accessibility-bar">
         <div className="voice-accessibility-controls">
-          <button
+         {/* <button
             type="button"
             className={
               isListening
@@ -686,7 +700,7 @@ function App() {
             onClick={handleReplayTts}
           >
             ↻ 다시 듣기
-          </button>
+          </button>*/}
           {/* 개인정보 보호 안내 */}
           <div className="privacy-warning" role="note">
             <span className="privacy-warning-icon" aria-hidden="true">
