@@ -113,9 +113,9 @@ START_URLS = [
         "scope": "정보공개/행정정보공개",
     },
 
-    # 사하소개: 청사안내만
+    # 사하소개: 청사안내 및 하위 메뉴 전체 탐색
     {
-        "url": "https://www.saha.go.kr/portal/contents.do?mId=0605000000",
+        "url": "https://www.saha.go.kr/portal/contents.do?mId=0604000000",
         "menu_path": ["사하소개", "청사안내"],
         "scope": "사하소개/청사안내",
     },
@@ -132,6 +132,12 @@ START_URLS = [
         "url": "https://www.saha.go.kr/portal/contents.do?mId=0500000000",
         "menu_path": ["사하복지"],
         "scope": "사하복지",
+    },
+    # 사하구 보건소: 보건소 안내 페이지 및 하위 메뉴 탐색
+    {
+        "url": "https://www.saha.go.kr/health/contents.do?mId=0400000000",
+        "menu_path": ["보건소"],
+        "scope": "보건소",
     },
 ]
 
@@ -177,8 +183,10 @@ ALLOWED_PATH_KEYWORDS = [
     "/portal/bbs/view.do",
     "/portal/civil/list.do",
     "/portal/civil/view.do",
-    "/portal/bbs/inRealName.do", # 본인인증 페이지
+    "/portal/bbs/inRealName.do",
     "/portal/passportbooking/",
+    "/portal/staff/list.do",  # 직원업무안내 추가
+    "/health/contents.do",  # 보건소 일반 안내 페이지
 ]
 
 DENY_URL_KEYWORDS = [
@@ -504,7 +512,9 @@ def classify_page_type(url):
     # 여권접수예약 목록
     if "/portal/passportbooking/list.do" in lower:
         return "passport_booking_list"
-
+    # 직원업무안내: POST 페이지네이션 대상
+    if "/portal/staff/list.do" in lower:
+        return "staff_list"
     if "/portal/bbs/list.do" in lower:
         return "bbs_list"
     if "/portal/bbs/view.do" in lower:
@@ -513,15 +523,23 @@ def classify_page_type(url):
         return "civil_list"
     if "/portal/civil/view.do" in lower:
         return "civil_view"
-    if "/portal/contents.do" in lower:
+    if "/portal/contents.do" in lower or "/health/contents.do" in lower:
         return "contents"
     return "other"
 
-
+# 보건소 메뉴 분류 
 def get_top_menu_name(url):
+    parsed = urlparse(url)
+
+    # 보건소 홈페이지
+    if parsed.path.startswith("/health/"):
+        return "보건소"
+
+    # 기존 사하구청 홈페이지
     mid = get_mid(url)
     if len(mid) >= 2:
         return ALLOWED_MID_PREFIXES.get(mid[:2], "기타")
+
     return "기타"
 
 # =========================================================
@@ -529,20 +547,40 @@ def get_top_menu_name(url):
 # =========================================================
 def is_portal_url(url):
     parsed = urlparse(url)
-    return parsed.netloc in ALLOWED_DOMAINS and parsed.path.startswith("/portal/")
 
+    return (
+        parsed.netloc in ALLOWED_DOMAINS
+        and (
+            parsed.path.startswith("/portal/")
+            or parsed.path.startswith("/health/")
+        )
+    )
 
 def has_allowed_mid(url):
+    parsed = urlparse(url)
     mid = get_mid(url)
+
+    # 보건소 홈페이지는 포털과 별도로 판단
+    if parsed.path.startswith("/health/"):
+        return (
+            parsed.path == "/health/contents.do"
+            and bool(mid)
+        )
+
+    # 기존 사하구청 홈페이지 처리
     if mid in FORCE_ALLOW_MIDS:
         return True
+
     if not mid or len(mid) < 2:
         return False
+
     if mid[:2] not in ALLOWED_MID_PREFIXES:
         return False
+
     for prefix in EXCLUDE_MID_PREFIXES:
         if mid.startswith(prefix):
             return False
+
     return True
 
 def extract_year_from_text(text):
@@ -569,12 +607,19 @@ def is_recent_year_menu(anchor_text, url):
 
 def is_allowed_url(url):
     lower = url.lower()
-    if any(x in lower for x in DENY_URL_KEYWORDS):
+
+    if any(x.lower() in lower for x in DENY_URL_KEYWORDS):
         return False
+
     if not is_portal_url(url):
         return False
-    if not any(x in lower for x in ALLOWED_PATH_KEYWORDS):
+
+    if not any(
+        keyword.lower() in lower
+        for keyword in ALLOWED_PATH_KEYWORDS
+    ):
         return False
+
     return has_allowed_mid(url)
 
 
@@ -589,6 +634,7 @@ def should_save(url, anchor_text=""):
         "bbs_view",
         "civil_view",
         "passport_booking_list",
+        "staff_list",  # 직원업무안내 추가
     ) and has_allowed_mid(url)
 
 # =========================================================
@@ -1292,6 +1338,14 @@ def extract_shortcut_links(main_node, base_url):
             .replace("새창", "")
             .strip()
         )
+        # 유효하지 않은 링크는 제외
+        if href.startswith(("javascript:", "mailto:", "tel:", "#")):
+            continue
+
+        # fallback에서 사용하기 전에 URL 생성
+        full_url = urljoin(base_url, href)
+        full_url, _ = urldefrag(full_url)
+
         # fallback
         if not text or re.fullmatch(r"https?://[^ ]+", text):
             parsed = urlparse(full_url)
@@ -1308,12 +1362,6 @@ def extract_shortcut_links(main_node, base_url):
                 if k in domain:
                     text = v
                     break
-
-        if href.startswith(("javascript:", "mailto:", "tel:", "#")):
-            continue
-
-        full_url = urljoin(base_url, href)
-        full_url, _ = urldefrag(full_url)
 
         # 파일 다운로드 링크는 shortcut_links가 아니라 attachments에서만 관리
         if (
@@ -1455,14 +1503,20 @@ def extract_links_from_raw_html(html, current_url, parent_menu_path=None):
             or href.startswith("javascript:")
             or href == "#"
         ):
-            href = f"/portal/contents.do?mId={hidden_mid}"
+            if "/health/" in current_url.lower():
+                href = f"/health/contents.do?mId={hidden_mid}"
+            else:
+                href = f"/portal/contents.do?mId={hidden_mid}"
 
         if not href:
             continue
 
         # 내부 contents.do 메뉴는 shortcut 검사 제외
         is_internal_contents_menu = (
-            "/portal/contents.do" in href
+            (
+                "/portal/contents.do" in href
+                or "/health/contents.do" in href
+            )
             and "mId=" in href
         )
 
@@ -2040,6 +2094,176 @@ def make_doc(url, parent_url, anchor_text, menu_path, html, extra_meta=None):
 
     return doc
 
+
+def make_staff_doc(staff, url, menu_path):
+    """
+    직원 한 명의 업무안내 정보를 RAG 문서로 변환한다.
+    """
+    department = staff.get("department", "").strip()
+    position = staff.get("position", "").strip()
+    phone = staff.get("phone", "").strip()
+    duties = staff.get("duties", "").strip()
+
+    # 직원별 문서 ID 생성
+    # 부서, 직위, 전화번호, 업무내용을 조합하여 구분
+    staff_key = f"{department}|{position}|{phone}|{duties}"
+
+    doc_id = url_to_id(f"{url}|staff|{staff_key}")
+
+    title = f"{department} {position} 직원업무안내".strip()
+
+    text = (
+        f"부서: {department}\n"
+        f"직위: {position}\n"
+        f"전화번호: {phone}\n"
+        f"업무내용: {duties}"
+    )
+
+    return {
+        "doc_id": doc_id,
+        "url": url,
+        "parent_url": "",
+        "anchor_text": "직원업무안내",
+        "menu_path": menu_path,
+        "top_menu": get_top_menu_name(url),
+        "page_type": "staff",
+        "title": title,
+        "department": department,
+        "position": position,
+        "phone": phone,
+        "duties": duties,
+        "author": department,
+        "date": "",
+        "views": None,
+        "sections": [],
+        "shortcut_links": [],
+        "attachments": [],
+        "attachment_count": 0,
+        "text": text,
+        "paragraphs": [text],
+        "source": "saha.go.kr",
+    }
+
+
+# 직원업무안내 추가
+def extract_staff_rows(html):
+    """
+    직원업무안내 HTML에서 직원별 정보를 추출한다.
+    """
+    soup = BeautifulSoup(html, "html.parser")
+    staff_rows = []
+
+    for table in soup.find_all("table"):
+        headers = [
+            clean_inline(th.get_text(" ", strip=True))
+            for th in table.select("thead th")
+        ]
+
+        required = ["부서", "직위", "전화번호", "업무내용"]
+
+        if not all(h in headers for h in required):
+            continue
+
+        for tr in table.select("tbody tr"):
+            cells = tr.find_all("td")
+
+            if len(cells) != len(headers):
+                continue
+
+            values = [
+                clean_inline(td.get_text(" ", strip=True))
+                for td in cells
+            ]
+
+            row = dict(zip(headers, values))
+
+            if not row.get("부서") and not row.get("업무내용"):
+                continue
+
+            staff_rows.append({
+                "department": row.get("부서", ""),
+                "position": row.get("직위", ""),
+                "phone": row.get("전화번호", ""),
+                "duties": row.get("업무내용", ""),
+            })
+
+    return staff_rows
+
+
+def collect_all_staff(session, url, first_html):
+    """
+    직원업무안내 전체 페이지를 POST 요청으로 순회한다.
+    """
+    all_staff = []
+    seen = set()
+
+    page = 1
+    max_pages = 500
+
+    while page <= max_pages:
+        if page == 1:
+            html = first_html
+        else:
+            try:
+                response = session.post(
+                    url,
+                    data={
+                        "page": str(page),
+                        "deptCode": "",
+                        "searchType": "",
+                        "searchTxt": "",
+                    },
+                    timeout=TIMEOUT,
+                )
+                response.raise_for_status()
+                html = response.text
+            except Exception as e:
+                print(f"  직원안내 {page}페이지 요청 실패: {e}")
+                break
+
+        rows = extract_staff_rows(html)
+
+        if not rows:
+            print(f"  직원안내 {page}페이지: 직원 정보 없음")
+            break
+
+        new_count = 0
+
+        for row in rows:
+            key = (
+                row["department"],
+                row["position"],
+                row["phone"],
+                row["duties"],
+            )
+
+            if key in seen:
+                continue
+
+            seen.add(key)
+            all_staff.append(row)
+            new_count += 1
+
+        print(
+            f"  직원안내 {page}페이지: "
+            f"{len(rows)}건 추출, 신규 {new_count}건"
+        )
+
+        # 동일한 페이지가 반복되면 중단
+        if new_count == 0:
+            print("  직원안내 페이지 반복 감지, 수집 중단")
+            break
+
+        page += 1
+        time.sleep(REQUEST_DELAY)
+
+    if page > max_pages:
+        print(f"  직원안내 최대 페이지 제한({max_pages}) 도달")
+
+    print(f"  직원안내 총 수집 건수: {len(all_staff)}")
+
+    return all_staff
+
 # =========================================================
 # 크롤링 메인
 # =========================================================
@@ -2207,9 +2431,78 @@ def crawl():
                     final_url,
                     parent_menu_path=menu_path
                 )
+                # 직원업무안내: 직원별 문서 생성 및 증분 저장
+                if page_type == "staff_list":
+                    print("  직원업무안내 전체 페이지 수집")
+
+                    staff_list = collect_all_staff(
+                        session,
+                        final_url,
+                        html
+                    )
+
+                    for staff in staff_list:
+                        doc = make_staff_doc(
+                            staff,
+                            final_url,
+                            menu_path
+                        )
+
+                        # 직원별 고유 상태 키
+                        state_key = f"staff:{doc['doc_id']}"
+
+                        new_hash = make_content_hash(doc["text"])
+                        old_doc = existing_docs.get(doc["doc_id"])
+
+                        old_hash = crawl_state.get(
+                            state_key, {}
+                        ).get("content_hash")
+
+                        # 기존 문서가 있으면 문서의 해시도 비교
+                        if old_hash is None and old_doc:
+                            old_hash = make_content_hash(
+                                old_doc.get("text", "")
+                            )
+
+                        if old_hash == new_hash and old_doc:
+                            continue
+
+                        doc = attach_change_metadata(
+                            doc,
+                            old_doc,
+                            new_hash
+                        )
+
+                        crawl_state[state_key] = {
+                            "content_hash": new_hash,
+                            "last_crawled": datetime.now().strftime("%Y-%m-%d")
+                        }
+
+                        delta_out.write(
+                            json.dumps(doc, ensure_ascii=False) + "\n"
+                        )
+                        delta_out.flush()
+
+                        append_change_history(doc)
+
+                        existing_docs[doc["doc_id"]] = doc
+                        saved_doc_ids.add(doc["doc_id"])
+
+                        if old_doc is None:
+                            saved_count += 1
+
+                        print(
+                            f"  [{doc['change_type']}] "
+                            f"{doc['title']} / {doc['phone']}"
+                        )
+
+                    print(
+                        f"  직원업무안내 처리 완료: "
+                        f"{len(staff_list)}건"
+                    )
 
                 # 목록형 게시판이면 최근 1년 상세글을 직접 방문해서 저장
-                if page_type == "bbs_list":
+                elif page_type == "bbs_list":
                     print("  목록형 게시판 처리")
                     for page in range(1, MAX_BOARD_PAGES_PER_LIST + 1):
                         list_page_url = get_bbs_page_url(final_url, page)
