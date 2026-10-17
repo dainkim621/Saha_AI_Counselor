@@ -34,7 +34,7 @@ function QuickMenu({
 }: QuickMenuProps) {
 
   // FAQ 펼침 여부 (false: 접힘, true: 펼침)
-  const [isOpen, setIsOpen] = useState(false);
+  const [isOpen, setIsOpen] = useState(true);
 
   return (
     // 자주 묻는 질문 전체 영역
