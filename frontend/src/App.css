@@ -23,20 +23,18 @@
   overflow: hidden;
 
   width: calc(100% - 20px);
-  min-height: 120px;
+  min-height: 108px;
 
   margin: 0 auto 8px;
-  padding: 20px 32px;
+  padding: 8px 24px;
 
   box-sizing: border-box;
 
-  /* 공공기관에 어울리는 차분한 무채색 */
   background: #FAFAFA;
 
   border: 1px solid #D6D6D6;
   border-radius: 10px;
 
-  /* 기존 파란색 그림자 제거 */
   box-shadow: none;
 }
 
@@ -57,7 +55,7 @@
   align-items: center;
   justify-content: center;
 
-  min-height: 100px;
+  min-height: 88px;
 }
 
 .header-text {
@@ -140,7 +138,7 @@
   transform: translateY(-50%);
 
   width: 140px;
-  height: 100px;
+  height: 88px;
   flex-shrink: 0;
 
   display: flex;
@@ -153,12 +151,11 @@
 }
 
 .header-gouni {
-  width: 95px;
+  width: auto;
+  max-width: 84px;
+  max-height: 82px;
   height: auto;
-
   object-fit: contain;
-
-  /* 캐릭터 움직임 제거 */
   animation: none;
 }
 
@@ -1149,7 +1146,8 @@
 
 @media (max-width: 1024px) {
   .header {
-    padding: 18px 24px;
+    padding: 10px 20px;
+    min-height: 108px;
   }
 
   /* 제목과 고우니를 가로로 배치 */
@@ -1725,28 +1723,8 @@
     Guide Modal
 ========================= */
 
-/* 헤더의 이용 가이드 버튼 */
+/* 헤더 이용 가이드 버튼 */
 .header-guide-button {
-  /* 버튼 크기 및 내부 여백 */
-  padding: 8px 14px;
-
-  /* 단정한 사각형 버튼 */
-  border: 1px solid #D2D2D2;
-  border-radius: 12px;
-
-  /* 무채색 디자인 */
-  background-color: #F2F2F2;
-  color: #333333;
-
-  font-family: inherit;
-  font-size: 16px;
-  font-weight: 700;
-
-  /* 마우스 커서 및 색상 전환 */
-  cursor: pointer;
-  transition: background-color 0.2s ease;
-
-  /* 헤더 왼쪽의 이용 가이드 버튼 */
   position: absolute;
   left: 0;
   top: 50%;
@@ -1755,14 +1733,24 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 10px;
+  gap: 12px;
 
-  width: 176px;
-  height: 78px;
-  padding: 12px 16px;
+  width: 180px;
+  height: 56px;
+  padding: 10px 16px;
 
+  background-color: #F2F2F2;
+  color: #333333;
+
+  border: 1px solid #D2D2D2;
+  border-radius: 10px;
+
+  font-family: inherit;
   font-size: 15px;
   font-weight: 600;
+
+  cursor: pointer;
+  transition: background-color 0.2s ease;
 }
 
 /* 이용 가이드 안내 아이콘 */
@@ -2155,4 +2143,177 @@
 /* 글자 크기 조절은 오른쪽 유지 */
 .font-controls {
   margin-left: auto;
+}
+
+/* =========================
+   헤더 및 이용 가이드 위치 수정
+========================= */
+
+/* 기존 헤더 이용 가이드 버튼 숨기기 */
+.header-guide-button {
+  display: none;
+}
+
+/* 헤더 배치 */
+@media (min-width: 1025px) {
+  .header {
+    height: 124px;
+    min-height: 124px;
+    padding: 6px 24px;
+  }
+
+  .header-content {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    align-items: center;
+
+    height: 100%;
+    min-height: 0;
+  }
+
+  /* 제목은 화면 중앙에 유지 */
+  .header-text {
+    grid-column: 2;
+    text-align: center;
+  }
+
+  /* 고우니를 제목 오른쪽으로 이동 */
+  .header-visual {
+    grid-column: 3;
+
+    position: static;
+    transform: none;
+
+    justify-self: start;
+    margin-left: 18px;
+
+    width: auto;
+    height: 112px;
+
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+  }
+
+  .header-visual::before {
+    content: none;
+  }
+
+  .header-gouni {
+    width: var(--header-gouni-size);
+    height: var(--header-gouni-size);
+
+    max-width: none;
+    max-height: none;
+
+    object-fit: contain;
+    animation: none;
+  }
+
+  /* 기존 말풍선 숨김 */
+  .header-speech-bubble {
+    display: none;
+  }
+}
+
+/* 글자 크기 5단계에 따라 고우니 크기 변경 */
+.app.font-xsmall { --header-gouni-size: 70px; }
+.app.font-small  { --header-gouni-size: 80px; }
+.app.font-normal { --header-gouni-size: 90px; }
+.app.font-large  { --header-gouni-size: 100px; }
+.app.font-xlarge { --header-gouni-size: 110px; }
+
+/* =========================
+   개인정보 안내 옆 이용 가이드
+========================= */
+
+.guide-toolbar-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+
+  flex-shrink: 0;
+  min-height: 38px;
+  padding: 8px 14px;
+
+  background-color: #FFFFFF;
+  border: 1px solid #D0D0D0;
+  border-radius: 8px;
+
+  color: #444444;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.guide-toolbar-button:hover {
+  background-color: #E8E8E8;
+}
+
+.guide-toolbar-button:focus-visible {
+  outline: 2px solid #555555;
+  outline-offset: 2px;
+}
+
+/* 글자 크기 조절 적용 */
+.app.font-xsmall .guide-toolbar-button { font-size: 12px; }
+.app.font-small .guide-toolbar-button  { font-size: 13px; }
+.app.font-normal .guide-toolbar-button { font-size: 14px; }
+.app.font-large .guide-toolbar-button  { font-size: 17px; }
+.app.font-xlarge .guide-toolbar-button { font-size: 20px; }
+
+/* 데스크톱 도구 바 정렬 */
+@media (min-width: 1200px) {
+  .accessibility-bar {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    align-items: center;
+    gap: 12px;
+  }
+
+  .voice-accessibility-controls {
+    position: static;
+    grid-column: 2;
+    left: auto;
+    top: auto;
+    transform: translateX(-100px);
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+  }
+
+  .font-controls {
+    grid-column: 3;
+    justify-self: end;
+    margin-left: 0;
+  }
+}
+
+/* 좁은 화면에서 버튼 겹침 방지 */
+@media (max-width: 1199px) {
+  .accessibility-bar {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 10px;
+    padding: 10px 14px;
+  }
+
+  .voice-accessibility-controls {
+    position: static;
+    left: auto;
+    top: auto;
+    transform: none;
+    flex-wrap: wrap;
+  }
+
+  .font-controls {
+    margin-left: 0;
+  }
 }
