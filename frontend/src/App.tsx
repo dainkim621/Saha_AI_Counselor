@@ -6,9 +6,8 @@ import ChatWindow from "./components/ChatWindow";
 import ChatInput from "./components/ChatInput";
 import QuickMenu from "./components/QuickMenu";
 
-// FastAPI 백엔드 서버 주소
-const BACKEND_URL = 'https://snack-sanded-passover.ngrok-free.dev'; // 상대 경로로 변경하여 프록시 설정 사용
-//const BACKEND_URL = 'http://localhost:8000';  // 다인 임시로 로컬 쓴거
+// FastAPI 백엔드 서버 주소 // 상대 경로로 변경하여 프록시 설정 사용
+const BACKEND_URL = 'http://localhost:8000';  // 다인 임시로 로컬 쓴거
 
 // 채팅 메시지 데이터 구조
 export type Message = {
@@ -356,6 +355,11 @@ function App() {
 
     speakText(lastAssistantMessage.content);
   };
+
+  // 음성 기능을 추후 다시 사용할 수 있도록 참조 유지
+  void handleStartStt;
+  void handleToggleTts;
+  void handleReplayTts;
 
   // 사용자 질문을 백엔드로 전송하고 스트리밍 답변 수신
   const sendMessage = async (question: string) => {
