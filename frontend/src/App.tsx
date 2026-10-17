@@ -6,7 +6,8 @@ import ChatWindow from "./components/ChatWindow";
 import ChatInput from "./components/ChatInput";
 import QuickMenu from "./components/QuickMenu";
 
-// FastAPI 백엔드 서버 주소 // 상대 경로로 변경하여 프록시 설정 사용
+// FastAPI 백엔드 서버 주소
+//const BACKEND_URL = 'https://snack-sanded-passover.ngrok-free.dev'; // 상대 경로로 변경하여 프록시 설정 사용
 const BACKEND_URL = 'http://localhost:8000';  // 다인 임시로 로컬 쓴거
 
 // 채팅 메시지 데이터 구조
@@ -706,6 +707,34 @@ function App() {
           >
             ↻ 다시 듣기
           </button>*/}
+
+          {/* 이용 가이드 버튼 */}
+          <button
+            type="button"
+            className="guide-toolbar-button"
+            onClick={() => setShowGuide(true)}
+          >
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.8"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M12 7v14" />
+              <path d="M3 18V5a2 2 0 0 1 2-2h3a4 4 0 0 1 4 4" />
+              <path d="M12 7a4 4 0 0 1 4-4h3a2 2 0 0 1 2 2v13" />
+              <path d="M3 18a1 1 0 0 0 1 1h4a4 4 0 0 1 4 2 4 4 0 0 1 4-2h4a1 1 0 0 0 1-1" />
+            </svg>
+
+            <span>이용 가이드</span>
+          </button>
+
+
           {/* 개인정보 보호 안내 */}
           <div className="privacy-warning" role="note">
             <span className="privacy-warning-icon" aria-hidden="true">
