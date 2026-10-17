@@ -55,15 +55,15 @@
 
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: center;
 
-  gap: 20px;
+  min-height: 100px;
 }
 
 .header-text {
-  flex: 1;
-  min-width: 460px;
-  text-align: left;
+  flex: 0 1 auto;
+  min-width: 0;
+  text-align: center;
 }
 
 .header-kicker {
@@ -79,26 +79,26 @@
   margin: 0;
 
   /* 제목 크기 및 굵기 */
-  font-size: 30px;
-  font-weight: 700;
+  font-size: 34px;
+  font-weight: 800;
   line-height: 1.3;
 
   /* 한글 제목의 글자 간격 */
-  letter-spacing: -0.8px;
+  letter-spacing: -1px;
 
   /* 차분한 차콜 색상 */
-  color: #292929;
+  color: #222222;
 }
 
 /* 헤더 제목 아래 서비스 안내 문구 */
 .header-description {
   /* 제목과 설명 사이 여백 */
-  margin: 6px 0 14px;
+  margin: 8px 0 0px;
 
   /* 본문에 사용하는 중간 회색 */
   color: #666666;
 
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 400;
   line-height: 1.6;
 
@@ -134,17 +134,18 @@
 }
 
 .header-visual {
-  flex-shrink: 0;
+  position: absolute;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
 
-  width: 120px;
+  width: 140px;
   height: 100px;
+  flex-shrink: 0;
 
   display: flex;
   align-items: center;
   justify-content: center;
-
-  position: relative;
-  transform: none;
 }
 
 .header-visual::before {
@@ -342,24 +343,30 @@
 ========================= */
 
 .accessibility-bar {
-  display: grid;
-  grid-template-columns: 240px 1fr auto;
-  align-items: center;
-
-  column-gap: 14px;
-
-  padding: 0 10px 2px;
-
-  width: calc(100% - 20px);
-  max-width: 1680px;
-  margin: 0 auto;
-}
-
-.voice-accessibility-controls {
-  grid-column: 2;
+  position: relative;
   display: flex;
   align-items: center;
+
+  width: 100%;
+  max-width: none;
+  min-height: 56px;
+  padding: 0 16px;
+  margin: 0;
+  box-sizing: border-box;
+}
+
+/* 개인정보 안내를 채팅 입력창과 같은 중앙에 정렬 */
+.voice-accessibility-controls {
+  position: absolute;
+  left: calc(50% + 120px);
+  top: 50%;
+  transform: translate(-50%, -50%);
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
   gap: 8px;
+  margin: 0;
 }
 
 .font-controls {
@@ -480,7 +487,7 @@
   align-items: center;
   gap: 9px;
 
-  margin-left: 14px;
+  margin-left: 0px;
   padding: 8px 15px;
 
   background-color: #F2F2F2;
@@ -611,6 +618,10 @@
   /* 사이드바 안쪽에만 여백 적용 */
   padding: 10px 14px;
   box-sizing: border-box;
+
+  /* 사이드바와 채팅 영역 구분 */
+  background-color: #F6F6F6;
+  border-right: 1px solid #D6D6D6;
 }
 
 /* =========================
@@ -689,7 +700,7 @@
   height: auto;
 
   /* 채팅창을 둘러싼 카드 디자인 제거 */
-  background: transparent;
+  background: #FAFAFA;
   border: none;
   border-radius: 0;
   box-shadow: none;
@@ -962,10 +973,10 @@
   min-height: 0;
 
   /* 답변 가독성을 위한 여백 */
-  padding: 24px 32px;
+  padding: 24px 48px;
 
   /* 외곽 카드 없이 자연스러운 배경 */
-  background: transparent;
+  background: #FAFAFA;
 
   /* 대화가 길어질 때만 스크롤바 표시 */
   overflow-y: auto;
@@ -1003,14 +1014,14 @@
 
   /* 긴 답변도 읽기 편한 최대 너비 */
   width: 100%;
-  max-width: 800px;
+  max-width: 900px;
 
   /* 대화 영역 안에서 가운데 정렬 */
   margin-left: auto;
   margin-right: auto;
 
   /* 메시지 사이 간격 */
-  margin-bottom: 20px;
+  margin-bottom: 24px;
 
   box-sizing: border-box;
 }
@@ -1058,8 +1069,6 @@
 
   font-size: 16px;
   line-height: 1.6;
-
-  white-space: pre-wrap;
   word-break: keep-all;
 }/* 주민 질문 말풍선 - AI 답변보다 차분하게 표시 */
 .user-bubble {
@@ -1071,25 +1080,8 @@
 
   /* 기존 말풍선 모양 유지 */
   border-bottom-right-radius: 6px;
-}
+  white-space: pre-wrap;
 
-/* 주민 질문 말풍선 - AI 답변보다 차분하게 표시 */
-.user-bubble {
-  /* 중립적인 회색 배경 */
-  background-color: #D0D0D0;
-
-  /* 질문 글씨 색상 */
-  color: #454545;
-
-  /* 기존 말풍선 모양 유지 */
-  border-bottom-right-radius: 6px;
-}
-
-.assistant-bubble {
-  background-color: #f1f5f9;
-  color: #222;
-
-  border-bottom-left-radius: 6px;
 }
 
 /* =========================
@@ -1104,7 +1096,7 @@
 
   /* 입력창 최대 너비 제한 */
   width: 100%;
-  max-width: 800px;
+  max-width: 900px;
 
   /* 채팅 영역 가운데 정렬 */
   margin: 0 auto;
@@ -1114,8 +1106,9 @@
   box-sizing: border-box;
 
   /* 단정한 배경 */
-  background-color: transparent;
+  background-color: #FAFAFA;
   border: none;
+  border-top: 1px solid #D6D6D6;
 }
 
 .chat-input-box input {
@@ -1619,10 +1612,6 @@
   margin-bottom: 0;
 }
 
-.user-bubble {
-  white-space: pre-wrap;
-}
-
 /* AI 답변 카드 - 단정한 웜그레이 디자인 */
 .assistant-bubble {
   /* 짧은 답변은 내용에 맞게, 긴 답변은 최대 너비까지 확장 */
@@ -1742,20 +1731,58 @@
   padding: 8px 14px;
 
   /* 단정한 사각형 버튼 */
-  border: 1px solid #d5d4d0;
-  border-radius: 6px;
+  border: 1px solid #D2D2D2;
+  border-radius: 12px;
 
   /* 무채색 디자인 */
-  background-color: #ffffff;
-  color: #444444;
+  background-color: #F2F2F2;
+  color: #333333;
 
   font-family: inherit;
-  font-size: 13px;
-  font-weight: 500;
+  font-size: 16px;
+  font-weight: 700;
 
   /* 마우스 커서 및 색상 전환 */
   cursor: pointer;
   transition: background-color 0.2s ease;
+
+  /* 헤더 왼쪽의 이용 가이드 버튼 */
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+
+  width: 176px;
+  height: 78px;
+  padding: 12px 16px;
+
+  font-size: 15px;
+  font-weight: 600;
+}
+
+/* 이용 가이드 안내 아이콘 */
+.header-guide-button::before {
+  content: "?";
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+
+  border: 1.5px solid #777777;
+  border-radius: 50%;
+
+  color: #555555;
+  font-size: 15px;
+  font-weight: 700;
 }
 
 /* 이용 가이드 버튼에 마우스를 올렸을 때 */
@@ -2118,4 +2145,14 @@
   .app.font-normal .header-text h1 { font-size: 24px; }
   .app.font-large .header-text h1 { font-size: 27px; }
   .app.font-xlarge .header-text h1 { font-size: 30px; }
+}
+
+/* 개인정보 보호 안내를 상단 바 중앙에 배치 */
+.accessibility-bar {
+  position: relative;
+}
+
+/* 글자 크기 조절은 오른쪽 유지 */
+.font-controls {
+  margin-left: auto;
 }
