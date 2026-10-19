@@ -8,10 +8,8 @@ from app.models import UserChatLog
 from typing import List, Dict
 import json
 from app.database import SessionLocal, engine, Base
-# from app.secure.privacy_guard import (
-#     privacy_guard,
-#     PrivacyBlocked
-# )
+from app.secure.privacy_guard import privacy_guard
+from app.secure.regex_filter import PrivacyBlocked
 
 # openAI API
 load_dotenv()
@@ -61,46 +59,46 @@ async def ask_saha_ai_stream(user_question: str, history: List[Dict[str, str]] =
     if history is None:
         history = []
 
-    # # 개인정보 검사가 끝나기 전에는
-    # # 어떠한 외부 GPT API도 호출하지 않음
-    # try:
-    #     user_question = await privacy_guard(
-    #         user_question
-    #     )
+    # 개인정보 검사가 끝나기 전에는
+    # 어떠한 외부 GPT API도 호출하지 않음
+    try:
+        user_question = await privacy_guard(
+            user_question
+        )
 
-    #     safe_history = []
+        safe_history = []
 
-    #     for chat in history:
-    #         if chat["role"] not in ("user", "assistant"):
-    #             raise PrivacyBlocked("잘못된 대화 이력")
+        for chat in history:
+            if chat["role"] not in ("user", "assistant"):
+                raise PrivacyBlocked("잘못된 대화 이력")
 
-    #         safe_content = await privacy_guard(
-    #             chat["content"]
-    #         )
+            safe_content = await privacy_guard(
+                chat["content"]
+            )
 
-    #         safe_history.append({
-    #             "role": chat["role"],
-    #             "content": safe_content
-    #         })
+            safe_history.append({
+                "role": chat["role"],
+                "content": safe_content
+            })
 
-    #     history = safe_history
+        history = safe_history
 
-    # except PrivacyBlocked:
-    #     yield json.dumps({
-    #         "type": "text",
-    #         "content": (
-    #             "개인정보가 포함되어 있거나 "
-    #             "안전하게 검사할 수 없습니다. "
-    #             "개인정보를 제외하고 다시 질문해 주세요."
-    #         )
-    #     }, ensure_ascii=False) + " "
+    except PrivacyBlocked:
+        yield json.dumps({
+            "type": "text",
+            "content": (
+                "개인정보가 포함되어 있거나 "
+                "안전하게 검사할 수 없습니다. "
+                "개인정보를 제외하고 다시 질문해 주세요."
+            )
+        }, ensure_ascii=False) + " "
 
-    #     yield json.dumps({
-    #         "type": "done"
-    #     }) + " "
-    #     return
+        yield json.dumps({
+            "type": "done"
+        }) + " "
+        return
 
-    # # 아래부터 기존 쿼리 재작성 코드 실행
+    # 아래부터 기존 쿼리 재작성 코드 실행
 
     
     #==================================================================
@@ -138,11 +136,22 @@ async def ask_saha_ai_stream(user_question: str, history: List[Dict[str, str]] =
             )
             refined_question = rewrite_response.choices[0].message.content.strip()
             refined_question = await privacy_guard(refined_question)
-            print(f"🔍 쿼리 재작성 완료: '{user_question}' ➔ '{refined_question}'")
-            
-        except Exception as e:
-            print(f"⚠️ 쿼리 재작성 실패(기본 질문 사용): {e}")
+            #보안 때문에 서버 로그에 저장 안되도록 함. 
+            #print(f"🔍 쿼리 재작성 완료: '{user_question}' ➔ '{refined_question}'")
+            print("💾 사용자 질문 로그 저장 완료")
+        
+        except PrivacyBlocked:
+            yield json.dumps({
+                "type": "text",
+                "content": "검색 질문을 안전하게 검사할 수 없습니다."
+            }, ensure_ascii=False) + " "
+
+            yield json.dumps({"type": "done"}) + " "
+            return
+
+        except Exception:
             refined_question = user_question
+
 
     #==================================================================
     # [1] RAG 문서 기반 파일첨부 기능 정규식 링크 수집 (일반 민원 서식용 - 순수하게 다 받아줌)
@@ -151,7 +160,7 @@ async def ask_saha_ai_stream(user_question: str, history: List[Dict[str, str]] =
     # 하이브리드 검색 (상위 3개)
     # relevant_chunks  → 검색된 사하구청 문서
     # query_embedding  → 검색할 때 이미 생성했던 질문 벡터
-    relevant_chunks, query_embedding = get_similar_chunks(
+    relevant_chunks, query_embedding = await get_similar_chunks(
         refined_question,
         top_k=3
     )
@@ -234,6 +243,24 @@ async def ask_saha_ai_stream(user_question: str, history: List[Dict[str, str]] =
         f"출처: {c.title} (URL: {c.url})\n내용: {c.chunk_text}" 
         for c in relevant_chunks
     ])
+    # RAG 참고 문서 개인정보 검사
+    try:
+        if context_text.strip():
+            context_text = await privacy_guard(
+                context_text,
+                max_length=12000
+            )
+        else:
+            context_text = "검색된 참고 문서가 없습니다."
+
+    except PrivacyBlocked:
+        yield json.dumps({
+            "type": "text",
+            "content": "참고 문서를 안전하게 검사할 수 없습니다."
+        }, ensure_ascii=False) + " "
+
+        yield json.dumps({"type": "done"}) + " "
+        return
     
     # GPT 프롬프트
     messages = [
@@ -333,10 +360,30 @@ async def ask_saha_ai_stream(user_question: str, history: List[Dict[str, str]] =
     
     for chunk in response:
         content = chunk.choices[0].delta.content
+
         if content:
-            # print(f"DEBUG: 스트리밍 조각 생성됨: {content}") # 스트리밍 되는지 확인용
-            gpt_answer_accumulator += content # 바가지에 물(텍스트) 모으기
-            yield json.dumps({'type': 'text', 'content': content}) + " " # 프론트로 즉시 발송
+            gpt_answer_accumulator += content
+
+    # 사용자에게 보내기 전에 개인정보 검사
+    try:
+        gpt_answer_accumulator = await privacy_guard(
+            gpt_answer_accumulator
+        )
+
+    except PrivacyBlocked:
+        yield json.dumps({
+            "type": "text",
+            "content": "답변을 안전하게 검사할 수 없습니다. 다시 질문해 주세요."
+        }, ensure_ascii=False) + " "
+
+        yield json.dumps({"type": "done"}) + " "
+        return
+
+    # 검사 완료된 답변만 전송
+    yield json.dumps({
+        "type": "text",
+        "content": gpt_answer_accumulator
+    }, ensure_ascii=False) + " "
             
     #----------gpt 답변 생성 및 스트리밍 끝난 시점--------------
     #==================================================================
@@ -377,15 +424,25 @@ async def ask_saha_ai_stream(user_question: str, history: List[Dict[str, str]] =
                 f"'{refined_question}' → '{normalized_question}'"
             )
 
+        # 중복코드
         else:
             # 처음 들어온 질문만 GPT로 정규화
             normalized_question = normalize_faq_question(refined_question)
-
+            
             print(
                 f"🆕 FAQ 최초 정규화: "
                 f"'{refined_question}' → '{normalized_question}'"
             )
-            
+        
+        # 기존 DB에서 가져온 결과와 새로 생성한 결과 모두 검사
+        normalized_question = await privacy_guard(normalized_question)
+
+        # 외부 GPT 품질 평가 요청 전에 답변 개인정보 재검사
+        gpt_answer_accumulator = await privacy_guard(
+            gpt_answer_accumulator,
+            max_length=12000
+        )
+
         #답변실패여부(answer_success), 실패이유(failure_reason) 판정
         eval_response = client.chat.completions.create(
             model="gpt-4o-mini",  
@@ -427,6 +484,15 @@ async def ask_saha_ai_stream(user_question: str, history: List[Dict[str, str]] =
         failure_reason = eval_result.get("reason", "")
         print(f"📊 [AI 검수 결과] 성공 여부: {is_success} / 사유: {failure_reason}")
         
+        # DB에 저장할 텍스트 최종 검사
+        user_question = await privacy_guard(user_question)
+        refined_question = await privacy_guard(refined_question)
+        normalized_question = await privacy_guard(normalized_question)
+        gpt_answer_accumulator = await privacy_guard(gpt_answer_accumulator)
+
+        if failure_reason:
+            failure_reason = await privacy_guard(failure_reason)
+    
         # 질문 및 AI 답변 로그 저장
         chat_log = UserChatLog(
             search_query=user_question,
@@ -447,9 +513,15 @@ async def ask_saha_ai_stream(user_question: str, history: List[Dict[str, str]] =
             f"'{user_question}' → '{normalized_question}'"
         )
 
+    except PrivacyBlocked:
+        log_db.rollback()
+        # 개인정보 검사 실패 시 DB 저장 중단
+        # 검사 대상 텍스트는 로그에 남기지 않음
+        print("개인정보 검사 실패로 로그 저장 중단")
+
     except Exception as e:
         log_db.rollback()
-        print(f"⚠️ 사용자 질문 로그 저장 실패: {e}")
+        print(f"사용자 질문 로그 저장 실패: {type(e).__name__}: {e}")
 
     finally:
         log_db.close()

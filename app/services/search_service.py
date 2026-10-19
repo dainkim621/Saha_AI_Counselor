@@ -6,6 +6,7 @@ from app.models import Notice
 import os
 from dotenv import load_dotenv
 import math
+from app.secure.privacy_guard import privacy_guard
 
 # openAI API 키
 load_dotenv()
@@ -42,7 +43,11 @@ def reciprocal_rank_fusion(vector_results, keyword_results, k=60):
     sorted_docs = sorted(rrf_score.values(), key=lambda x: x["score"], reverse=True)
     return [item["doc"] for item in sorted_docs]
 
-def get_similar_chunks(query: str, top_k: int = 3): # k값을 조금 늘려주면 더 정확해짐. but 토큰이 늘어나서 비용이 증가할 수 있음.
+async def get_similar_chunks(query: str, top_k: int = 3): # k값을 조금 늘려주면 더 정확해짐. but 토큰이 늘어나서 비용이 증가할 수 있음.
+    db: Session = SessionLocal()
+    # 외부 임베딩 API 호출 전에 개인정보 재검사
+    query = await privacy_guard(query)
+
     db: Session = SessionLocal()
     
     # 1. 쿼리 벡터화

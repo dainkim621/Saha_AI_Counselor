@@ -1,4 +1,5 @@
-import app.secure.regex_filter as regex_filter
+
+from app.secure.regex_filter import regex_filter, PrivacyBlocked
 
 questions = [
     "하단동 대형폐기물 배출 방법 알려줘",

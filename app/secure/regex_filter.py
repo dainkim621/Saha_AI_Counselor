@@ -1,4 +1,4 @@
-
+#app/secure/regex_filter.py
 import re
 
 
@@ -26,12 +26,12 @@ PATTERNS = {
 }
 
 
-def regex_filter(text: str) -> str:
+def regex_filter(text: str, max_length: int = 3000) -> str:
     if not isinstance(text, str):
         raise PrivacyBlocked("잘못된 입력 형식")
 
-    if not text.strip() or len(text) > 3000:
-        raise PrivacyBlocked("잘못된 질문 길이")
+    if not text.strip() or len(text) > max_length:
+        raise PrivacyBlocked("잘못된 입력 길이")
 
     # 주민등록번호 발견 시 전체 질문 차단
     if PATTERNS["RRN"].search(text):

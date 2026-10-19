@@ -4,7 +4,7 @@ services:
     image: pgvector/pgvector:pg16
     container_name: saha-db
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432" # 호스트의 로컬 주서에만 PostgreSQL을 노출
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: saha1234  # 팀 공용 비번
