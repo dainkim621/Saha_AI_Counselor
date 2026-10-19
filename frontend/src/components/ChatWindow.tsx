@@ -153,13 +153,14 @@ function ChatWindow({
   isLoading,
   similarityScore,
 }: ChatWindowProps) {
-  /*
-   * 채팅창의 가장 아래쪽 요소를 가리키는 ref
-   *
-   * 새로운 메시지가 추가되면 이 위치로 자동 스크롤함
-   */
-  const bottomRef = useRef<HTMLDivElement | null>(null);
-
+  // 실제 채팅 메시지가 표시되는 영역
+  const chatContainerRef = useRef<HTMLDivElement | null>(null);
+  
+  // 사용자가 최신 대화를 보고 있는지 여부
+  const shouldAutoScrollRef = useRef(true);
+  
+  // 새 질문이 입력되었는지 확인하기 위한 값
+  const previousUserCountRef = useRef(0);
   /*
    * 각 챗봇 답변의 만족도 평가 상태
    *
@@ -178,15 +179,44 @@ function ChatWindow({
     Record<number, FeedbackState>
   >({});
 
-  /*
-   * 메시지, 로딩 상태 또는 유사도 점수가 변경될 때마다
-   * 채팅창을 가장 아래쪽으로 이동
-   */
+  // 사용자가 직접 스크롤할 때 현재 위치 확인
+  const handleChatScroll = () => {
+    const container = chatContainerRef.current;
+    if (!container) return;
+
+    // 채팅 영역 맨 아래까지 남은 거리
+    const distanceToBottom =
+      container.scrollHeight -
+      container.scrollTop -
+      container.clientHeight;
+
+    // 하단 근처에 있을 때만 자동 스크롤 허용
+    shouldAutoScrollRef.current = distanceToBottom < 100;
+  };
+
+  // 새로운 질문 또는 AI 답변이 추가되었을 때 스크롤 처리
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({
-      behavior: "smooth",
-    });
-  }, [messages, isLoading, similarityScore, feedbackStates]);
+    const container = chatContainerRef.current;
+    if (!container) return;
+
+    // 현재 사용자가 입력한 질문 개수
+    const userCount = messages.filter(
+      (message) => message.role === "user"
+    ).length;
+
+    // 새로운 질문이 추가되면 최신 대화로 이동하도록 설정
+    if (userCount > previousUserCountRef.current) {
+      shouldAutoScrollRef.current = true;
+    }
+
+    previousUserCountRef.current = userCount;
+
+    // 사용자가 이전 답변을 읽는 중이라면 자동 이동하지 않음
+    if (!shouldAutoScrollRef.current) return;
+
+    // 채팅 영역 내부에서만 최신 메시지로 이동
+    container.scrollTop = container.scrollHeight;
+  }, [messages, isLoading, similarityScore]);
 
   /*
    * 특정 챗봇 답변 바로 앞에 있었던 사용자 질문을 찾는 함수
@@ -332,7 +362,11 @@ function ChatWindow({
   };
 
   return (
-    <div className="chat-window">
+    <div 
+      className="chat-window"
+      ref={chatContainerRef}
+      onScroll={handleChatScroll}
+    >
       {/* 전체 채팅 메시지를 순서대로 화면에 출력 */}
       {messages.map((message, index) => {
         /*
@@ -770,9 +804,7 @@ function ChatWindow({
           </div>
         );
       })}
-
-      {/* 새로운 메시지가 생길 때 자동 스크롤할 채팅창 마지막 위치 */}
-      <div ref={bottomRef}></div>
+      
     </div>
   );
 }

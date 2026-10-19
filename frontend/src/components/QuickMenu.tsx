@@ -1,3 +1,6 @@
+// FAQ 접기·펼치기 상태 관리
+import { useState } from "react";
+
 // QuickMenu 컴포넌트가 받을 props 타입 정의
 type QuickMenuProps = {
   /*
@@ -29,72 +32,84 @@ function QuickMenu({
   onSelect,
   disabled,
 }: QuickMenuProps) {
+
+  // FAQ 펼침 여부 (false: 접힘, true: 펼침)
+  const [isOpen, setIsOpen] = useState(true);
+
   return (
     // 자주 묻는 질문 전체 영역
     <div className="quick-menu">
-      {/* QuickMenu 상단 제목 영역 */}
-      <div className="quick-menu-header">
-        {/* 자주 묻는 질문 제목 */}
-        <h3>🔥 이번 주 자주 묻는 질문</h3>
+      {/* FAQ 접기·펼치기 버튼 */}
+      <button
+        type="button"
+        className="quick-menu-toggle"
+        onClick={() => setIsOpen((prev) => !prev)}
+        aria-expanded={isOpen}
+        aria-controls="quick-menu-list"
+      >
+        {/* FAQ 질문 아이콘 */}
+        <span className="quick-menu-leading-icon" aria-hidden="true">
+          <svg
+            width="18"
+            height="18"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <circle cx="12" cy="12" r="9" />
+            <path d="M9.5 9a2.5 2.5 0 0 1 5 0c0 1.7-2.5 2-2.5 4" />
+            <path d="M12 17h.01" />
+          </svg>
+        </span>
 
-        {/* 질문을 집계한 기간 안내 */}
-        <span>최근 7일 기준</span>
-      </div>
+        {/* FAQ 메뉴 이름 */}
+        <span className="quick-menu-title">
+          자주 묻는 질문
+        </span>
 
-      {/* FAQ 질문 버튼 목록 */}
-      <div className="quick-button-list">
-        {questions.length > 0 ? (
-          /*
-           * 전달받은 질문 배열을 순회하면서
-           * 질문마다 하나의 버튼을 생성
-           */
-          questions.map((question, index) => (
-            <button
-              /*
-               * 질문 내용과 배열 순서를 함께 key로 사용
-               *
-               * 같은 질문이 중복으로 들어오더라도
-               * React key가 겹치는 것을 방지
-               */
-              key={`${question}-${index}`}
-              type="button"
+        {/* 접기·펼치기 화살표 */}
+        <span
+          className="quick-menu-arrow"
+          aria-hidden="true"
+        />
+      </button>
 
-              /*
-               * 버튼 스타일 적용
-               *
-               * 번호와 질문 내용을 가로로 배치하고
-               * 두 요소 사이에 간격을 주기 위한 클래스
-               */
-              className="quick-menu-button"
+      {/* 펼쳤을 때만 질문 목록 표시 */}
+      {isOpen && (
+        <div id="quick-menu-list" className="quick-button-list">
 
-              /*
-               * 버튼을 클릭하면 선택한 질문을
-               * App.tsx의 onSelect 함수로 전달
-               */
-              onClick={() => onSelect(question)}
+          {questions.length > 0 ? (
+            // FAQ 질문 목록 생성
+            questions.map((question, index) => (
+              <button
+                key={`${question}-${index}`}
+                type="button"
+                className="quick-menu-button"
 
-              /*
-               * 챗봇이 답변을 생성 중일 때는
-               * 버튼을 클릭할 수 없도록 비활성화
-               */
-              disabled={disabled}
-            >
-              {/* 실제 질문 내용 */}
-              <span className="quick-question-text">
-                {question}
-              </span>
-            </button>
-          ))
-        ) : (
-          /*
-           * 전달받은 질문 배열이 비어 있을 경우
-           * FAQ 버튼 대신 안내 문구 표시
-           */
-          <p className="quick-menu-empty">
-            아직 집계된 질문이 없습니다.
-          </p>
-        )}
-      </div>
+                // 클릭한 질문을 챗봇에 전달
+                onClick={() => onSelect(question)}
+
+                // 답변 생성 중에는 중복 질문 방지
+                disabled={disabled}
+              >
+                <span className="quick-question-text">
+                  {question}
+                </span>
+              </button>
+            ))
+          ) : (
+            // 질문 데이터가 없을 때 표시
+            <p className="quick-menu-empty">
+              아직 집계된 질문이 없습니다.
+            </p>
+          )}
+
+        </div>
+      )}
+
     </div>
   );
 }
