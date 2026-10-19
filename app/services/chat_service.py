@@ -243,24 +243,11 @@ async def ask_saha_ai_stream(user_question: str, history: List[Dict[str, str]] =
         f"출처: {c.title} (URL: {c.url})\n내용: {c.chunk_text}" 
         for c in relevant_chunks
     ])
-    # RAG 참고 문서 개인정보 검사
-    try:
-        if context_text.strip():
-            context_text = await privacy_guard(
-                context_text,
-                max_length=12000
-            )
-        else:
-            context_text = "검색된 참고 문서가 없습니다."
 
-    except PrivacyBlocked:
-        yield json.dumps({
-            "type": "text",
-            "content": "참고 문서를 안전하게 검사할 수 없습니다."
-        }, ensure_ascii=False) + " "
-
-        yield json.dumps({"type": "done"}) + " "
-        return
+    # RAG 참고 문서는 GPT 답변 생성에 사용
+    # 개인정보 검사는 사용자 질문 및 대화 이력에서 수행
+    if not context_text.strip():
+        context_text = "검색된 참고 문서가 없습니다."
     
     # GPT 프롬프트
     messages = [
@@ -364,20 +351,20 @@ async def ask_saha_ai_stream(user_question: str, history: List[Dict[str, str]] =
         if content:
             gpt_answer_accumulator += content
 
-    # 사용자에게 보내기 전에 개인정보 검사
-    try:
-        gpt_answer_accumulator = await privacy_guard(
-            gpt_answer_accumulator
-        )
+    # # 사용자에게 보내기 전에 개인정보 검사
+    # try:
+    #     gpt_answer_accumulator = await privacy_guard(
+    #         gpt_answer_accumulator
+    #     )
 
-    except PrivacyBlocked:
-        yield json.dumps({
-            "type": "text",
-            "content": "답변을 안전하게 검사할 수 없습니다. 다시 질문해 주세요."
-        }, ensure_ascii=False) + " "
+    # except PrivacyBlocked:
+    #     yield json.dumps({
+    #         "type": "text",
+    #         "content": "답변을 안전하게 검사할 수 없습니다. 다시 질문해 주세요."
+    #     }, ensure_ascii=False) + " "
 
-        yield json.dumps({"type": "done"}) + " "
-        return
+    #     yield json.dumps({"type": "done"}) + " "
+    #     return
 
     # 검사 완료된 답변만 전송
     yield json.dumps({
@@ -437,11 +424,11 @@ async def ask_saha_ai_stream(user_question: str, history: List[Dict[str, str]] =
         # 기존 DB에서 가져온 결과와 새로 생성한 결과 모두 검사
         normalized_question = await privacy_guard(normalized_question)
 
-        # 외부 GPT 품질 평가 요청 전에 답변 개인정보 재검사
-        gpt_answer_accumulator = await privacy_guard(
-            gpt_answer_accumulator,
-            max_length=12000
-        )
+        # # 외부 GPT 품질 평가 요청 전에 답변 개인정보 재검사
+        # gpt_answer_accumulator = await privacy_guard(
+        #     gpt_answer_accumulator,
+        #     max_length=12000
+        # )
 
         #답변실패여부(answer_success), 실패이유(failure_reason) 판정
         eval_response = client.chat.completions.create(
@@ -485,10 +472,10 @@ async def ask_saha_ai_stream(user_question: str, history: List[Dict[str, str]] =
         print(f"📊 [AI 검수 결과] 성공 여부: {is_success} / 사유: {failure_reason}")
         
         # DB에 저장할 텍스트 최종 검사
-        user_question = await privacy_guard(user_question)
+        # user_question = await privacy_guard(user_question)
         refined_question = await privacy_guard(refined_question)
         normalized_question = await privacy_guard(normalized_question)
-        gpt_answer_accumulator = await privacy_guard(gpt_answer_accumulator)
+        # gpt_answer_accumulator = await privacy_guard(gpt_answer_accumulator)
 
         if failure_reason:
             failure_reason = await privacy_guard(failure_reason)
