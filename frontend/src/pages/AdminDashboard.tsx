@@ -8,7 +8,7 @@ import FailedQuestions from "../components/admin/FailedQuestions";
 import HourlyUsage from "../components/admin/HourlyUsage";
 import PopularQuestions from "../components/admin/PopularQuestions";
 import MissingDocumentAreas from "../components/admin/MissingDocumentAreas";
-const BACKEND_URL = "http://localhost:8000";
+const BACKEND_URL = "";
 import {
   //dashboardSummaryMock, 이제 안씀
   failedQuestionsMock,
@@ -147,7 +147,7 @@ function AdminDashboard() {
   const handleLogout = async () => {
     try {
       const response = await fetch(
-        "http://localhost:8000/admin/logout",
+        "/admin/logout",
         {
           method: "POST",
 

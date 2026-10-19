@@ -52,7 +52,7 @@ function AdminSignup() {
     setIsSubmitting(true);
 
     try {
-      const response = await fetch("http://localhost:8000/admin/signup", {
+      const response = await fetch("/admin/signup", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

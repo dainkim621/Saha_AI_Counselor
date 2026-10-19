@@ -1,7 +1,7 @@
 import bcrypt
 import secrets
 import hashlib
-
+import os
 from fastapi import APIRouter, Depends, HTTPException, Response, Cookie
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
@@ -355,7 +355,7 @@ def admin_login(
 
         # 개발 환경은 HTTP이므로 우선 False
         # 실제 HTTPS 배포 환경에서는 반드시 True로 변경
-        secure=False,
+        secure=os.getenv("COOKIE_SECURE", "false").lower() == "true",
 
         # 쿠키를 8시간 후 만료
         max_age=ADMIN_SESSION_HOURS * 60 * 60,

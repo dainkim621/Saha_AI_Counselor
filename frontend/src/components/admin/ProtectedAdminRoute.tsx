@@ -16,7 +16,7 @@ function ProtectedAdminRoute({ children }: ProtectedAdminRouteProps) {
     const checkAdminLogin = async () => {
       try {
         const response = await fetch(
-          "http://localhost:8000/admin/me",
+          "/admin/me",
           {
             // HttpOnly 세션 쿠키를 서버에 함께 전송
             credentials: "include",

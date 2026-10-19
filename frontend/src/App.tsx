@@ -84,7 +84,7 @@ function App() {
   const audioChunksRef = useRef<Blob[]>([]);
 
   // 페이지가 처음 열릴 때 백엔드에서 자주 묻는 질문 Top 5 조회
-  // 페이지가 열리면 자동으로 GET http://localhost:8000/frequent-questions가 호출됨.
+  // 페이지가 열리면 자동으로 GET /frequent-questions가 호출됨.
   useEffect(() => {
     const fetchFrequentQuestions = async () => {
       try {

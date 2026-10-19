@@ -5,7 +5,7 @@ import gouni from "../assets/gouni-profile.png";
 import remarkGfm from "remark-gfm";
 
 // 백엔드 서버 주소
-const BACKEND_URL = "http://localhost:8000";
+const BACKEND_URL = "";
 
 /*
  * ChatWindow 컴포넌트가 부모 컴포넌트로부터 전달받는 값
