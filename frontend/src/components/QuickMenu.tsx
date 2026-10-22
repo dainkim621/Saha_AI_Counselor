@@ -1,6 +1,3 @@
-// FAQ 접기·펼치기 상태 관리
-import { useState } from "react";
-
 // QuickMenu 컴포넌트가 받을 props 타입 정의
 type QuickMenuProps = {
   /*
@@ -23,6 +20,8 @@ type QuickMenuProps = {
    * App.tsx에서 localStorage의 최근 7일 질문 기록을
    * 집계한 결과를 배열 형태로 전달받음
    */
+  isOpen: boolean;       // 추가
+  onToggle: () => void;  // 추가
   questions: string[];
 };
 
@@ -31,11 +30,9 @@ function QuickMenu({
   questions,
   onSelect,
   disabled,
+  isOpen,
+  onToggle,
 }: QuickMenuProps) {
-
-  // FAQ 펼침 여부 (false: 접힘, true: 펼침)
-  const [isOpen, setIsOpen] = useState(true);
-
   return (
     // 자주 묻는 질문 전체 영역
     <div className="quick-menu">
@@ -43,7 +40,7 @@ function QuickMenu({
       <button
         type="button"
         className="quick-menu-toggle"
-        onClick={() => setIsOpen((prev) => !prev)}
+        onClick={onToggle}
         aria-expanded={isOpen}
         aria-controls="quick-menu-list"
       >

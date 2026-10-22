@@ -153,7 +153,7 @@ function ChatWindow({
   isLoading,
   similarityScore,
 }: ChatWindowProps) {
-  // 실제 채팅 메시지가 표시되는 영역
+
   const chatContainerRef = useRef<HTMLDivElement | null>(null);
   
   // 사용자가 최신 대화를 보고 있는지 여부
@@ -178,45 +178,55 @@ function ChatWindow({
   const [feedbackStates, setFeedbackStates] = useState<
     Record<number, FeedbackState>
   >({});
-
-  // 사용자가 직접 스크롤할 때 현재 위치 확인
+  
+  // 사용자가 채팅창을 직접 스크롤했는지 확인
   const handleChatScroll = () => {
     const container = chatContainerRef.current;
     if (!container) return;
 
-    // 채팅 영역 맨 아래까지 남은 거리
     const distanceToBottom =
       container.scrollHeight -
       container.scrollTop -
       container.clientHeight;
 
-    // 하단 근처에 있을 때만 자동 스크롤 허용
-    shouldAutoScrollRef.current = distanceToBottom < 100;
+    // 최신 메시지 근처에 있을 때만 자동 스크롤
+    shouldAutoScrollRef.current = distanceToBottom < 120;
   };
 
-  // 새로운 질문 또는 AI 답변이 추가되었을 때 스크롤 처리
+  // 새 질문 및 AI 답변이 추가될 때 자동 스크롤
   useEffect(() => {
     const container = chatContainerRef.current;
     if (!container) return;
 
-    // 현재 사용자가 입력한 질문 개수
     const userCount = messages.filter(
       (message) => message.role === "user"
     ).length;
 
-    // 새로운 질문이 추가되면 최신 대화로 이동하도록 설정
-    if (userCount > previousUserCountRef.current) {
-      shouldAutoScrollRef.current = true;
-    }
+    const isNewQuestion =
+      userCount > previousUserCountRef.current;
 
     previousUserCountRef.current = userCount;
 
-    // 사용자가 이전 답변을 읽는 중이라면 자동 이동하지 않음
+    // 처음 인사말만 있을 때는 이동하지 않음
+    if (messages.length <= 1) return;
+
+    // 새로운 질문을 하면 최신 대화로 이동
+    if (isNewQuestion) {
+      shouldAutoScrollRef.current = true;
+    }
+
+    // 사용자가 과거 답변을 읽고 있으면 이동 중단
     if (!shouldAutoScrollRef.current) return;
 
-    // 채팅 영역 내부에서만 최신 메시지로 이동
-    container.scrollTop = container.scrollHeight;
+    const frame = requestAnimationFrame(() => {
+      container.scrollTop = container.scrollHeight;
+    });
+
+    return () => cancelAnimationFrame(frame);
   }, [messages, isLoading, similarityScore]);
+
+
+
 
   /*
    * 특정 챗봇 답변 바로 앞에 있었던 사용자 질문을 찾는 함수
@@ -362,8 +372,7 @@ function ChatWindow({
   };
 
   return (
-    <div 
-      className="chat-window"
+    <div className="chat-window"
       ref={chatContainerRef}
       onScroll={handleChatScroll}
     >
