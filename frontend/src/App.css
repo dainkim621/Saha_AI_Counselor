@@ -608,7 +608,7 @@
 
 /* 왼쪽 사이드바 */
 .left-section {
-  width: 270px;
+  width: 300px;
   flex-shrink: 0;
 
   min-height: 0;
@@ -651,7 +651,7 @@
   border-radius: 8px;
 
   font-family: inherit;
-  font-size: 15px;
+  font-size: inherit;
   font-weight: 600;
 
   cursor: pointer;
@@ -662,7 +662,7 @@
 .new-chat-icon {
   position: static;
 
-  font-size: 18px;
+  font-size: 1.2em;
   font-weight: 400;
   line-height: 1;
   flex-shrink: 0;
@@ -827,6 +827,7 @@
   display: flex;
   align-items: center;
   justify-content: flex-start;
+  font-size: inherit;
 
   /* 아이콘과 글자 사이 간격 */
   gap: 10px;
@@ -853,11 +854,16 @@
   justify-content: center;
 
   /* 새 채팅 + 아이콘과 크기 통일 */
-  width: 18px;
-  height: 18px;
+  width: 1.2em;
+  height: 1.2em;
   flex-shrink: 0;
 
   color: #404040;
+}
+
+.quick-menu-leading-icon svg {
+  width: 100%;
+  height: 100%;
 }
 
 /* FAQ 메뉴 제목 */
@@ -866,7 +872,7 @@
   flex: 1;
   min-width: 0;
 
-  font-size: 15px;
+  font-size: inherit;
   font-weight: 600;
   text-align: left;
 }
@@ -1001,7 +1007,7 @@
 
   color: #171717;
   font-family: inherit;
-  font-size: 15px;
+  font-size: inherit;
   font-weight: 600;
 
   cursor: pointer;
@@ -1020,6 +1026,8 @@
 .history-toggle svg {
   flex-shrink: 0;
   color: #404040;
+  width: 1.2em;
+  height: 1.2em;
 }
 
 .history-title {
@@ -1067,7 +1075,7 @@
 
   color: #404040;
   font-family: inherit;
-  font-size: 14px;
+  font-size: inherit;
   line-height: 1.5;
   text-align: left;
 
@@ -1268,11 +1276,13 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  font-size: inherit;
 
   flex-shrink: 0;
-  width: 56px;
-  height: 48px;
-  min-width: 56px;
+  width: clamp(42px, 3.5em, 72px);
+  height: clamp(38px, 3em, 60px);
+  min-width: 0;
+  font-size: inherit;
   padding: 0;
   box-sizing: border-box;
 
@@ -1292,8 +1302,8 @@
 
 /* 전송 버튼 아이콘 */
 .chat-input-box button svg {
-  width: 22px;
-  height: 22px;
+  width: clamp(16px, 1.375em, 30px);
+  height: clamp(16px, 1.375em, 30px);
   flex-shrink: 0;
 }
 
@@ -1478,22 +1488,27 @@
 
 .app.font-xsmall {
   font-size: 12px;
+  --mobile-menu-font-size: 11px;
 }
 
 .app.font-small {
   font-size: 14px;
+  --mobile-menu-font-size: 12px;
 }
 
 .app.font-normal {
   font-size: 16px;
+  --mobile-menu-font-size: 13px;
 }
 
 .app.font-large {
   font-size: 20px;
+  --mobile-menu-font-size: 14px;
 }
 
 .app.font-xlarge {
   font-size: 26px;
+  --mobile-menu-font-size: 15px;
 }
 
 /* 헤더 제목 - 글자 크기 5단계 조절 */
@@ -1571,11 +1586,21 @@
 .app.font-xlarge .mascot-card p { font-size: 20px; }
 
 /* Quick Menu */
-.app.font-xsmall .quick-button-list button { font-size: 12px; }
-.app.font-small .quick-button-list button { font-size: 13px; }
-.app.font-normal .quick-button-list button { font-size: 14px; }
-.app.font-large .quick-button-list button { font-size: 18px; }
-.app.font-xlarge .quick-button-list button { font-size: 22px; }
+/* FAQ 질문 목록 및 상담 내역 글자 크기 통일 */
+.app.font-xsmall .quick-button-list button,
+.app.font-xsmall .history-item { font-size: 12px; }
+
+.app.font-small .quick-button-list button,
+.app.font-small .history-item { font-size: 13px; }
+
+.app.font-normal .quick-button-list button,
+.app.font-normal .history-item { font-size: 14px; }
+
+.app.font-large .quick-button-list button,
+.app.font-large .history-item { font-size: 18px; }
+
+.app.font-xlarge .quick-button-list button,
+.app.font-xlarge .history-item { font-size: 22px; }
 
 /* Chat */
 .app.font-xsmall .message-bubble { font-size: 13px; }
@@ -1677,14 +1702,6 @@
 .app.font-normal .chat-input-box input { font-size: 16px; }
 .app.font-large .chat-input-box input { font-size: 20px; }
 .app.font-xlarge .chat-input-box input { font-size: 24px; }
-
-.app.font-large .chat-input-box button {
-  font-size: 18px;
-}
-
-.app.font-xlarge .chat-input-box button {
-  font-size: 22px;
-}
 
 /* Accessibility */
 .app.font-xsmall .font-controls span { font-size: 12px; }
@@ -2460,9 +2477,9 @@
   transform: none;
 
   flex-shrink: 0;
-  width: 48px;
-  height: 40px;
-  min-height: 40px;
+  width: clamp(38px, 3.43em, 68px);
+  height: clamp(34px, 2.86em, 56px);;
+  min-height: 0;
   box-sizing: border-box;
   margin: 0 0 0 26px;
   padding: 0;
@@ -2496,8 +2513,8 @@
 
 /* 아이콘 크기 */
 .header-actions .guide-toolbar-button svg {
-  width: 22px;
-  height: 22px;
+  width: 1.375em;
+  height: 1.375em;
 }
 
 
@@ -2974,7 +2991,7 @@ body,
 
   .chat-input-box button {
     flex-shrink: 0;
-    padding: 12px 14px;
+    padding: 0
   }
 
   /* 이용 가이드 팝업 */
@@ -3045,7 +3062,7 @@ body,
   }
 
   .chat-input-box button {
-    padding: 10px;
+    padding: 0
   }
 }
 
@@ -3095,18 +3112,18 @@ body,
     justify-content: center;
     gap: 5px;
 
-    font-size: 13px;
+    font-size: var(--mobile-menu-font-size);
     white-space: nowrap;
   }
 
   .left-section .new-chat-icon {
-    font-size: 18px;
+    font-size: 1.2em;
   }
 
   .left-section .new-chat-text,
   .left-section .history-title {
     flex: 0 1 auto;
-    font-size: 13px;
+    font-size: inherit;
     white-space: nowrap;
   }
 
@@ -3118,7 +3135,7 @@ body,
 
   .left-section .quick-menu-title::after {
     content: "FAQ";
-    font-size: 13px;
+    font-size: var(--mobile-menu-font-size);
     font-weight: 600;
   }
 
