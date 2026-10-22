@@ -592,8 +592,65 @@ function App() {
 
   return (
     <div className={`app ${fontModes[fontLevel]}`}>
-      {/* 상단 헤더 */}
-      <Header onGuideClick={() => setShowGuide(true)} />
+      
+      {/* 상단 헤더 및 오른쪽 도구 버튼 */}
+      <div className="header-top-row">
+        <Header onGuideClick={() => setShowGuide(true)} />
+
+        <div className="header-actions">
+          {/* 이용 가이드 */}
+          <button
+            type="button"
+            className="guide-toolbar-button"
+            onClick={() => setShowGuide(true)}
+            title="이용 가이드"
+            aria-label="이용 가이드 열기"
+          >
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.8"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M12 7v14" />
+              <path d="M3 18V5a2 2 0 0 1 2-2h3a4 4 0 0 1 4 4" />
+              <path d="M12 7a4 4 0 0 1 4-4h3a2 2 0 0 1 2 2v13" />
+              <path d="M3 18a1 1 0 0 0 1 1h4a4 4 0 0 1 4 2 4 4 0 0 1 4-2h4a1 1 0 0 0 1-1" />
+            </svg>
+          </button>
+
+    {/* 글자 크기 조절 */}
+    <div className="font-controls">
+      <span>글자 크기</span>
+
+      <button
+        type="button"
+        onClick={decreaseFont}
+        aria-label="글자 크기 줄이기"
+      >
+        －
+      </button>
+
+      <div className="font-label">
+        {fontLabels[fontLevel]}
+      </div>
+
+      <button
+        type="button"
+        onClick={increaseFont}
+        aria-label="글자 크기 키우기"
+      >
+        ＋
+      </button>
+    </div>
+  </div>
+</div>
+
 
       {/* 이용 가이드 모달 */}
       {showGuide && (
@@ -672,31 +729,6 @@ function App() {
 
       {/* 음성 입력, 음성 출력, 글자 크기 조절 영역 */}
       <div className="accessibility-bar">
-        {/* 이용 가이드 버튼 */}
-        <button
-          type="button"
-          className="guide-toolbar-button"
-          onClick={() => setShowGuide(true)}
-        >
-          <svg
-            width="20"
-            height="20"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.8"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            aria-hidden="true"
-          >
-            <path d="M12 7v14" />
-            <path d="M3 18V5a2 2 0 0 1 2-2h3a4 4 0 0 1 4 4" />
-            <path d="M12 7a4 4 0 0 1 4-4h3a2 2 0 0 1 2 2v13" />
-            <path d="M3 18a1 1 0 0 0 1 1h4a4 4 0 0 1 4 2 4 4 0 0 1 4-2h4a1 1 0 0 0 1-1" />
-          </svg>
-
-          <span>이용 가이드</span>
-        </button>
         <div className="voice-accessibility-controls">
          {/* <button
             type="button"
@@ -743,18 +775,6 @@ function App() {
               입력하지 마세요.
             </span>
           </div>
-        </div>
-
-        <div className="font-controls">
-          <span>글자 크기</span>
-
-          <button onClick={decreaseFont}>－</button>
-
-          <div className="font-label">
-            {fontLabels[fontLevel]}
-          </div>
-
-          <button onClick={increaseFont}>＋</button>
         </div>
       </div>
 
