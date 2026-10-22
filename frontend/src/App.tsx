@@ -18,6 +18,12 @@ export type Message = {
   similarityScore?: number;
 };
 
+type SavedChat = {
+  id: number;
+  title: string;
+  messages: Message[];
+};
+
 // 글자 크기 단계별 CSS 클래스
 const fontModes = [
   "font-xsmall",
@@ -40,7 +46,20 @@ function App() {
       content: "안녕하세요! 사하구 민원 상담을 도와드릴게요.",
     },
   ]);
+  
+  // 현재 접속 중에만 유지되는 상담 내역
+  const [savedChats, setSavedChats] = useState<SavedChat[]>([]);
+  
+  // 상담 내역 접기/펼치기
+  const [historyOpen, setHistoryOpen] = useState(false);
+  
+  // 현재 상담 및 다음 상담 식별자
+  const activeChatIdRef = useRef(0);
+  const nextChatIdRef = useRef(1);
 
+  // AI가 생성한 현재 상담 제목
+  const activeChatTitleRef = useRef<string>("");
+  
   // 답변 생성 중 여부
   const [isLoading, setIsLoading] = useState(false);
 
@@ -125,8 +144,42 @@ function App() {
 
     fetchFrequentQuestions();
   }, []);
+  
+  // 브라우저 뒤로 가기 캐시에서 복원되는 경우 상담 내용 초기화
+  useEffect(() => {
+    const resetRestoredPage = (event: PageTransitionEvent) => {
+      if (!event.persisted) return;
 
+      // 임시 상담 내역 초기화
+      setSavedChats([]);
+      setHistoryOpen(false);
 
+      // 현재 채팅 초기화
+      setMessages([
+        {
+          role: "assistant",
+          content: "안녕하세요! 사하구 민원 상담을 도와드릴게요.",
+        },
+      ]);
+
+      setInput("");
+      setSimilarityScore(null);
+
+      // 상담 식별자 초기화
+      activeChatIdRef.current = 0;
+      nextChatIdRef.current = 1;
+      lastSpokenIndexRef.current = 0;
+      activeChatTitleRef.current = "";
+
+      window.speechSynthesis?.cancel();
+    };
+
+    window.addEventListener("pageshow", resetRestoredPage);
+
+    return () => {
+      window.removeEventListener("pageshow", resetRestoredPage);
+    };
+  }, []);
 
   // TTS로 읽기 전 Markdown, 링크, 특수기호 제거
   const cleanTextForTTS = (text: string) => {
@@ -373,6 +426,11 @@ function App() {
     // 이미 답변 생성 중이면 중복 전송하지 않음
     if (isLoading) return;
 
+    // 현재 상담의 첫 질문인지 확인
+    const isFirstQuestion = !messages.some(
+      (message) => message.role === "user"
+    );
+
     const userMessage: Message = {
       role: "user",
       content: trimmedQuestion,
@@ -472,6 +530,15 @@ function App() {
           // JSON 문자열을 객체로 변환
           const parsed = JSON.parse(data);
 
+          // 첫 질문의 AI 요약 제목 저장
+          if (parsed.type === "title" && isFirstQuestion) {
+            const title = String(parsed.content ?? "").trim();
+            
+            if (title) {
+              activeChatTitleRef.current = title;
+            }
+          }
+
           // 유사도 점수 수신
           if (parsed.type === "score") {
             const score = Number(parsed.content);
@@ -563,31 +630,101 @@ function App() {
   const increaseFont = () => {
     setFontLevel((prev) => Math.min(prev + 1, 4));
   };
+  
+  // 이전 상담을 임시 상담 내역에 저장
+  const archiveCurrentChat = () => {
+    const firstQuestion = messages.find(
+      (message) => message.role === "user"
+    )?.content;
+    
+    // 질문하지 않은 빈 상담은 저장하지 않음
+    if (!firstQuestion) return;
+    
+    const savedChat: SavedChat = {
+      id: activeChatIdRef.current,
+      title: 
+        activeChatTitleRef.current ||
+        firstQuestion.slice(0, 11) + (firstQuestion.length > 11 ? "…" : ""),
+      messages: messages.map((message) => ({
+        ...message,
+        files: message.files
+          ? message.files.map((file) => ({ ...file }))
+          : undefined,
+      })),
+    };
 
-  // 새 채팅 시작: 이전 상담 내역 초기화
+    // 같은 상담은 중복 저장하지 않음
+    setSavedChats((prev) => [
+      savedChat,
+      ...prev.filter((chat) => chat.id !== savedChat.id),
+    ]);
+  };
+
+  // 새로운 상담 시작
   const handleNewChat = () => {
-    // AI 답변 생성 중이거나 음성 녹음 중이면 초기화 방지
     if (isLoading || isListening) return;
-    
-    // 기존에 재생 중인 음성 중지
+
     window.speechSynthesis?.cancel();
-    
-    // 기존 질문과 답변을 지우고 초기 인사말만 표시
+
+    // 기존 상담을 목록에 보관
+    archiveCurrentChat();
+    activeChatTitleRef.current = "";
+
+    // 완전히 새로운 상담 ID 부여
+    activeChatIdRef.current = nextChatIdRef.current++;
+
+    // 이전 질문/답변 초기화
     setMessages([
       {
         role: "assistant",
         content: "안녕하세요! 사하구 민원 상담을 도와드릴게요.",
       },
     ]);
-    
-    // 채팅 입력창 초기화
+
     setInput("");
-    
-    // 이전 질문의 유사도 점수 초기화
     setSimilarityScore(null);
-    
-    // 초기 인사말이 자동으로 다시 재생되지 않도록 설정
     lastSpokenIndexRef.current = 0;
+    setHistoryOpen(false);
+  };
+
+  // 상담 내역에서 이전 상담 선택
+  const handleRestoreChat = (selectedChat: SavedChat) => {
+    if (isLoading || isListening) return;
+
+    window.speechSynthesis?.cancel();
+
+    // 현재 진행 중인 상담을 먼저 보관
+    archiveCurrentChat();
+
+    // 선택한 상담을 임시 목록에서 제외
+    setSavedChats((prev) =>
+      prev.filter((chat) => chat.id !== selectedChat.id)
+    );
+
+    // 선택한 상담을 현재 상담으로 복원
+    activeChatIdRef.current = selectedChat.id;
+    activeChatTitleRef.current = selectedChat.title;
+    setMessages(selectedChat.messages);
+
+    // 입력창 초기화
+    setInput("");
+
+    // 해당 상담의 마지막 매칭도 복원
+    const lastScore = [...selectedChat.messages]
+      .reverse()
+      .find(
+        (message) =>
+          message.role === "assistant" &&
+          message.similarityScore !== undefined
+      )?.similarityScore;
+
+    setSimilarityScore(lastScore ?? null);
+
+    // 복원한 답변을 자동 재생하지 않도록 설정
+    lastSpokenIndexRef.current =
+      selectedChat.messages.length - 1;
+
+    setHistoryOpen(false);
   };
 
   return (
@@ -812,6 +949,69 @@ function App() {
             // 답변 생성 중에는 FAQ 버튼 비활성화
             disabled={isLoading}
           />
+          {/* 상담 내역 - 현재 접속 중에만 임시 보관 */}
+  <div className="history-menu">
+    <button
+      type="button"
+      className="history-toggle"
+      onClick={() => setHistoryOpen((prev) => !prev)}
+      aria-expanded={historyOpen}
+      aria-controls="saved-chat-history"
+    >
+      {/* 상담 내역 아이콘 */}
+      <svg
+        width="18"
+        height="18"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden="true"
+      >
+        <path d="M3 12a9 9 0 1 0 3-6.7" />
+        <path d="M3 3v5h5" />
+        <path d="M12 7v5l3 2" />
+      </svg>
+
+      <span className="history-title">
+        상담 내역
+      </span>
+
+      <span
+        className="history-arrow"
+        aria-hidden="true"
+      />
+    </button>
+
+    {historyOpen && (
+      <div
+        id="saved-chat-history"
+        className="history-list"
+      >
+        {savedChats.length === 0 ? (
+          <p className="history-empty">
+            아직 이전 상담이 없습니다.
+          </p>
+        ) : (
+          savedChats.map((chat) => (
+            <button
+              key={chat.id}
+              type="button"
+              className="history-item"
+              onClick={() => handleRestoreChat(chat)}
+              disabled={isLoading || isListening}
+              title={chat.title}
+            >
+              {chat.title}
+            </button>
+          ))
+        )}
+      </div>
+    )}
+  </div>
+
         </section>
 
         <section className="chat-section">
