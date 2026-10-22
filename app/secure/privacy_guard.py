@@ -1,6 +1,7 @@
 #app/secure/privacy_guard.py
 from app.secure.regex_filter import regex_filter, PrivacyBlocked
 from app.secure.gemma_detector import detect_personal_info
+import logging
 
 MASK_LABELS = {
     "PERSON": "[이름]",
@@ -16,10 +17,19 @@ BLOCK_TYPES = {"ACCOUNT", "ID_NUMBER"}
 async def privacy_guard(question, max_length=3000):
     cleaned = regex_filter(question, max_length=max_length)
 
+    
+
+    logger = logging.getLogger(__name__)
+
     try:
         entities = await detect_personal_info(cleaned)
-    except Exception:
-        raise PrivacyBlocked("Gemma 개인정보 탐지 실패")
+
+    except Exception as e:
+        logger.error(
+            "Gemma 개인정보 검사 실패: %s",
+            type(e).__name__
+        )
+        raise PrivacyBlocked("Gemma 개인정보 탐지 실패") from e
 
     if any(e["type"] in BLOCK_TYPES for e in entities):
         raise PrivacyBlocked("민감한 개인정보 탐지")

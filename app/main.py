@@ -18,6 +18,7 @@ from typing import Optional
 from datetime import datetime, timedelta
 from sqlalchemy import func
 from fastapi.responses import FileResponse
+import traceback
 
 SERVER_URL = 'https://snack-sanded-passover.ngrok-free.dev';
 
@@ -191,9 +192,17 @@ async def chat_endpoint(request: ChatRequest):
                 
             yield "data: [DONE]\n\n"
 
-        except Exception:
-            print("AI 챗봇 처리 중 오류가 발생했습니다.")
-            yield f"data: {json.dumps({'type': 'error', 'content': '일시적인 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.'}, ensure_ascii=False)}\n\n"
+        except Exception as e:
+            print(
+                f"❌ AI 챗봇 오류: {type(e).__name__}",
+                flush=True
+            )
+            traceback.print_exception(
+                type(e),
+                e,
+                e.__traceback__,
+                limit=5
+            )
     return StreamingResponse(event_generator(), media_type="text/event-stream")
 
 # main.py 에 추가할 피드백 저장 API
