@@ -62,6 +62,49 @@ function App() {
   // AI가 생성한 현재 상담 제목
   const activeChatTitleRef = useRef<string>("");
   
+  // 질문이 입력되면 상담 내역에 즉시 등록하고
+  // 이후 AI 답변까지 같은 상담 내역에 갱신
+  useEffect(() => {
+    const firstQuestion = messages.find(
+      (message) => message.role === "user"
+    )?.content;
+
+    // 아직 질문하지 않은 빈 채팅은 저장하지 않음
+    if (!firstQuestion) return;
+
+    const chatId = activeChatIdRef.current;
+
+    const title =
+      activeChatTitleRef.current ||
+      firstQuestion.slice(0, 11) +
+        (firstQuestion.length > 11 ? "…" : "");
+
+    const currentChat: SavedChat = {
+      id: chatId,
+      title,
+      messages: messages.map((message) => ({
+        ...message,
+        files: message.files?.map((file) => ({ ...file })),
+      })),
+    };
+
+    setSavedChats((prev) => {
+      const exists = prev.some(
+        (chat) => chat.id === chatId
+      );
+
+      // 이미 등록된 상담이면 메시지만 갱신
+      if (exists) {
+        return prev.map((chat) =>
+          chat.id === chatId ? currentChat : chat
+        );
+      }
+
+      // 처음 질문한 상담이면 목록 맨 아래에 추가
+      return [...prev, currentChat];
+    });
+  }, [messages]);
+  
   // 답변 생성 중 여부
   const [isLoading, setIsLoading] = useState(false);
 
@@ -433,6 +476,14 @@ function App() {
       (message) => message.role === "user"
     );
 
+    // PC에서는 첫 질문부터 상담 내역을 보여줌
+    if (
+      isFirstQuestion &&
+      window.matchMedia("(min-width: 769px)").matches
+    ) {
+      setHistoryOpen(true);
+    }
+
     const userMessage: Message = {
       role: "user",
       content: trimmedQuestion,
@@ -535,9 +586,19 @@ function App() {
           // 첫 질문의 AI 요약 제목 저장
           if (parsed.type === "title" && isFirstQuestion) {
             const title = String(parsed.content ?? "").trim();
-            
+
             if (title) {
               activeChatTitleRef.current = title;
+
+              const chatId = activeChatIdRef.current;
+
+              setSavedChats((prev) =>
+                prev.map((chat) =>
+                  chat.id === chatId
+                    ? { ...chat, title }
+                    : chat
+                )
+              );
             }
           }
 
@@ -632,35 +693,6 @@ function App() {
   const increaseFont = () => {
     setFontLevel((prev) => Math.min(prev + 1, 4));
   };
-  
-  // 이전 상담을 임시 상담 내역에 저장
-  const archiveCurrentChat = () => {
-    const firstQuestion = messages.find(
-      (message) => message.role === "user"
-    )?.content;
-    
-    // 질문하지 않은 빈 상담은 저장하지 않음
-    if (!firstQuestion) return;
-    
-    const savedChat: SavedChat = {
-      id: activeChatIdRef.current,
-      title: 
-        activeChatTitleRef.current ||
-        firstQuestion.slice(0, 11) + (firstQuestion.length > 11 ? "…" : ""),
-      messages: messages.map((message) => ({
-        ...message,
-        files: message.files
-          ? message.files.map((file) => ({ ...file }))
-          : undefined,
-      })),
-    };
-
-    // 같은 상담은 중복 저장하지 않음
-    setSavedChats((prev) => [
-      savedChat,
-      ...prev.filter((chat) => chat.id !== savedChat.id),
-    ]);
-  };
 
   // 새로운 상담 시작
   const handleNewChat = () => {
@@ -669,7 +701,6 @@ function App() {
     window.speechSynthesis?.cancel();
 
     // 기존 상담을 목록에 보관
-    archiveCurrentChat();
     activeChatTitleRef.current = "";
 
     // 완전히 새로운 상담 ID 부여
@@ -686,7 +717,6 @@ function App() {
     setInput("");
     setSimilarityScore(null);
     lastSpokenIndexRef.current = 0;
-    setHistoryOpen(false);
   };
 
   // 상담 내역에서 이전 상담 선택
@@ -694,14 +724,6 @@ function App() {
     if (isLoading || isListening) return;
 
     window.speechSynthesis?.cancel();
-
-    // 현재 진행 중인 상담을 먼저 보관
-    archiveCurrentChat();
-
-    // 선택한 상담을 임시 목록에서 제외
-    setSavedChats((prev) =>
-      prev.filter((chat) => chat.id !== selectedChat.id)
-    );
 
     // 선택한 상담을 현재 상담으로 복원
     activeChatIdRef.current = selectedChat.id;
@@ -725,8 +747,6 @@ function App() {
     // 복원한 답변을 자동 재생하지 않도록 설정
     lastSpokenIndexRef.current =
       selectedChat.messages.length - 1;
-
-    setHistoryOpen(false);
   };
 
   return (
