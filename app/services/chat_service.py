@@ -385,7 +385,7 @@ async def ask_saha_ai_stream(user_question: str, history: List[Dict[str, str]] =
                 f"🆕 FAQ 최초 정규화: "
                 f"'{refined_question}' → '{normalized_question}'"
             )
-            
+
         #답변실패여부(answer_success), 실패이유(failure_reason) 판정
         eval_response = client.chat.completions.create(
             model="gpt-4o-mini",  
@@ -405,11 +405,23 @@ async def ask_saha_ai_stream(user_question: str, history: List[Dict[str, str]] =
                         "- INAPPROPRIATE : 욕설 등 부적절한 질문인 경우\n"
                         "- OTHER : 기타 이유로 실패한 경우\n"
                         "- NONE : 성공한 경우\n\n"
+                        "[상담 내역 제목 생성]\n"
+                        "사용자의 질문을 바탕으로 상담 내역 제목도 생성하세요.\n"
+                        "1. 제목은 한국어 명사형으로 작성하세요.\n"
+                        "2. 5~12자 이내의 짧은 제목을 작성하세요.\n"
+                        "3. 문장이 아니라 핵심 민원 주제만 표현하세요.\n"
+                        "4. 글자를 중간에 자르거나 말줄임표를 사용하지 마세요.\n"
+                        "5. 길어질 경우 핵심 명사만 남겨 제목을 다시 구성하세요.\n"
+                        "6. AI 답변이 아닌 사용자 질문의 의도를 기준으로 작성하세요.\n"
+                        "예시: '가족관계증명서를 어떻게 발급받나요?' → '가족관계증명서'\n"
+                        "예시: '사하구에서 열리는 축제가 궁금해요' → '사하구 축제'\n"
+                        "예시: '여권 재발급 장소는 어디인가요?' → '여권 재발급'\n\n"
                         "반드시 아래 JSON 형식으로만 응답하세요:\n"
                         "{\n"
                         '  "success": true 또는 false,\n'
                         '  "category": "위 [실패 유형 카테고리] 중 가장 알맞은 코드 1개",\n'
                         '  "reason": "false인 경우 구체적인 사유 서술, true인 경우 빈 문자열(\"\")"\n'
+                        '  "chat_title": "5~12자의 짧은 명사형 상담 제목"\n'
                         "}"
                     )
                 },
@@ -425,6 +437,23 @@ async def ask_saha_ai_stream(user_question: str, history: List[Dict[str, str]] =
         is_success = eval_result.get("success", True)
         failure_category = eval_result.get("category", "NONE")
         failure_reason = eval_result.get("reason", "")
+        # AI 평가 결과에서 상담 제목 가져오기
+        # 현재 상담의 첫 번째 질문일 때만 프론트엔드에 전송
+        if not history:
+            chat_title = str(
+                eval_result.get("chat_title") or ""
+            ).strip().strip("\"'“”‘’")
+
+            if not chat_title:
+                chat_title = "민원 상담"
+
+            yield json.dumps(
+                {
+                    "type": "title",
+                    "content": chat_title
+                },
+                ensure_ascii=False
+            ) + " "
         print(f"📊 [AI 검수 결과] 성공 여부: {is_success} / 사유: {failure_reason}")
         
         # 질문 및 AI 답변 로그 저장
