@@ -191,9 +191,9 @@ async def chat_endpoint(request: ChatRequest):
                 
             yield "data: [DONE]\n\n"
 
-        except Exception as e:
-            print(f"🔥 백엔드 에러 발생: {e}")
-            yield f"data: {json.dumps({'type': 'error', 'content': str(e)})}\n\n"
+        except Exception:
+            print("AI 챗봇 처리 중 오류가 발생했습니다.")
+            yield f"data: {json.dumps({'type': 'error', 'content': '일시적인 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.'}, ensure_ascii=False)}\n\n"
     return StreamingResponse(event_generator(), media_type="text/event-stream")
 
 # main.py 에 추가할 피드백 저장 API

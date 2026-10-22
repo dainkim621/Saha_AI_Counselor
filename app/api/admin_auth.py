@@ -420,7 +420,10 @@ def admin_logout(
     # 브라우저에 저장된 HttpOnly 세션 쿠키 삭제
     response.delete_cookie(
         key="admin_session",
-        path="/"
+        path="/",
+        httponly=True,
+        samesite="strict",
+        secure=os.getenv("COOKIE_SECURE", "false").lower() == "true"
     )
 
     return {

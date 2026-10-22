@@ -1,13 +1,17 @@
-#app/secure/gemma_detector.py
+# app/secure/gemma_detector.py
 import json
 import os
+from dotenv import load_dotenv
 from openai import AsyncOpenAI
+
+# Gemma 클라이언트 생성 전에 환경 변수 로드
+load_dotenv()
 
 # 로컬 Gemma 서버에 연결
 gemma_client = AsyncOpenAI(
     base_url=os.getenv(
         "GEMMA_BASE_URL",
-        "http://127.0.0.1:8001/v1"
+        "http://127.0.0.1:11434/v1"
     ),
     api_key=os.getenv("GEMMA_API_KEY", "local-only"),
     timeout=30.0,
@@ -16,7 +20,7 @@ gemma_client = AsyncOpenAI(
 
 GEMMA_MODEL = os.getenv(
     "GEMMA_MODEL",
-    "google/gemma-4-26B-A4B-it"
+    "gemma3:4b"
 )
 
 SYSTEM_PROMPT = """

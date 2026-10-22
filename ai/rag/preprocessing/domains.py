@@ -14,6 +14,19 @@ def process_general_docs(doc):
     - 이제 file_path 대신 마스터가 읽어준 단일 doc(딕셔너리)을 인자로 받습니다.
     - chunks.append 대신, 이 문서 안에서 정제된 순수 데이터 리스트를 return 합니다.
     """
+    # 직원 업무 정보는 sections가 아닌 text를 사용하므로 별도 처리
+    if doc.get("page_type") == "staff":
+        staff_text = (doc.get("text") or "").strip()
+
+        if not staff_text:
+            return []
+
+        return [{
+            "title": doc.get("title", "직원업무안내"),
+            "page_type": "staff",
+            "text": staff_text,
+            "author": doc.get("department") or doc.get("author", "담당부서 미지정"),
+        }]
     refined_sections = []  # 이 문서 안에서 살아남은 데이터 담을 임시 상자
     
     doc_id = doc.get("doc_id")
