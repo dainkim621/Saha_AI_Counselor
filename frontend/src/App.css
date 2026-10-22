@@ -3,12 +3,13 @@
 .app {
   /* 브라우저 화면 높이에 맞춤 */
   height: 100dvh;
+  min-height: 0;
 
   display: flex;
   flex-direction: column;
 
   /* 웹페이지 바깥쪽 스크롤*/
-  overflow: visible;
+  overflow: hidden;
 
   /* AI 답변의 흰색 카드가 자연스럽게 돋보이도록 연회색 배경 적용 */
   background-color: #FFFFFF;
@@ -591,8 +592,9 @@
 /* 메인 화면: 사이드바와 대화 영역 */
 .main-layout {
   display: flex;
-  flex: 1;
+  flex: 1 1 auto;
   min-height: 0;
+  overflow: hidden;
 
   /* 화면 오른쪽 끝까지 영역 확장 */
   width: 100%;
@@ -608,6 +610,9 @@
 .left-section {
   width: 270px;
   flex-shrink: 0;
+
+  min-height: 0;
+  overflow-y: auto;
 
   display: flex;
   flex-direction: column;
@@ -1219,19 +1224,17 @@
 
 /* 채팅 입력창 전체 영역 */
 .chat-input-box {
-  position: fixed;
-  bottom: 0;
-  left: calc(50% + 135px);
-  transform: translateX(-50%);
+  position: static;
+  flex-shrink: 0;
   z-index: 100;
 
   display: flex;
   align-items: center;
   gap: 10px;
 
-  width: min(1050px, calc(100vw - 302px));
+  width: min(1050px, 100%);
   max-width: 1050px;
-  margin: 0;
+  margin: 0 auto;
 
   padding: 12px 16px;
   box-sizing: border-box;
@@ -1379,16 +1382,6 @@
     border-radius: 10px;
   }
 
-  /* 모바일에서도 제목과 고우니를 나란히 배치 */
-  .header-content {
-    flex-direction: row;
-    align-items: center;
-    justify-content: space-between;
-
-    gap: 12px;
-    text-align: left;
-  }
-
   /* 제목 영역 */
   .header-text {
     flex: 1;
@@ -1447,13 +1440,6 @@
   .left-section {
     width: 100%;
   }
-
-  /* 모바일에서도 대화 내용에 따라 채팅창 높이가 늘어나도록 설정 */
-.chat-section {
-  width: 100%;
-  height: 70vh;
-  min-height: 380px;
-}
 
   .message-bubble {
     max-width: 85%;
@@ -2368,6 +2354,7 @@
 
 .header-top-row {
   display: flex;
+  flex-shrink: 0;
   align-items: center;
   justify-content: space-between;
   gap: 20px;
@@ -2625,6 +2612,7 @@
 .accessibility-bar {
   position: relative;
   display: flex;
+  flex-shrink: 0;
   align-items: center;
   justify-content: center;
 
@@ -2707,39 +2695,6 @@ body,
   overflow-x: clip;
 }
 
-.app {
-  width: 100%;
-  min-height: 100dvh;
-  height: auto;
-  overflow: visible;
-}
-
-/* 메인 영역 */
-.main-layout {
-  flex: 1 0 auto;
-  min-height: 0;
-}
-
-/* 채팅 영역 */
-.chat-section {
-  min-height: 400px;
-  height: auto;
-  overflow: visible;
-
-  /* 고정 입력창에 마지막 답변이 가려지지 않도록 */
-  padding-bottom: 60px;
-}
-
-/* 채팅 내용 */
-.chat-window {
-  flex: 1 0 auto;
-  min-height: 300px;
-  height: auto;
-  max-height: none;
-  overflow-y: visible;
-  overscroll-behavior: auto;
-}
-
 /* =========================================
    모바일 화면
 ========================================= */
@@ -2753,7 +2708,7 @@ body,
   .main-layout {
     display: flex;
     flex-direction: column;
-    flex: none;
+    flex: 1 1 auto;
 
     width: 100%;
     min-width: 0;
@@ -2768,28 +2723,18 @@ body,
     box-sizing: border-box;
   }
 
-  .chat-section {
-    width: 100%;
-    min-width: 0;
-    min-height: 400px;
-    height: auto;
-    flex: none;
-    box-sizing: border-box;
-  }
-
 .chat-input-box {
-  left: 50%;
-  width: calc(100vw - 20px);
-  max-width: none;
+  width: 100%;
+  max-width: 100%;
 }
 
 
   .chat-window {
-    flex: none;
-    min-height: 300px;
+    flex: 1 1 auto;
+    min-height: 0;
     height: auto;
     padding: 16px 12px;
-    overflow: visible;
+    overflow-y: auto;
   }
 
   .accessibility-bar {
@@ -2981,7 +2926,7 @@ body,
     width: 100%;
     min-width: 0;
     height: auto;
-    overflow: visible;
+    overflow: hidden;
   }
 
   .chat-window {
@@ -3012,8 +2957,8 @@ body,
   
   /* 질문 입력창 */
   .chat-input-box {
-    width: calc(100vw - 20px);
-    max-width: none;
+    width: 100%;
+    max-width: 100%;
     min-width: 0;
     padding: 10px;
     gap: 8px;
@@ -3214,13 +3159,5 @@ body,
 
   .left-section .history-list {
     z-index: 41;
-  }
-
-  /* 모바일 채팅 영역 */
-  .main-layout .chat-section {
-    width: 100%;
-    min-width: 0;
-    height: auto;
-    overflow: visible;
   }
 }
