@@ -52,6 +52,8 @@ function App() {
   
   // 상담 내역 접기/펼치기
   const [historyOpen, setHistoryOpen] = useState(false);
+  // FAQ 접기/펼치기 상태
+  const [faqOpen, setFaqOpen] = useState(false);
   
   // 현재 상담 및 다음 상담 식별자
   const activeChatIdRef = useRef(0);
@@ -948,13 +950,27 @@ function App() {
             onSelect={sendMessage}
             // 답변 생성 중에는 FAQ 버튼 비활성화
             disabled={isLoading}
+            isOpen={faqOpen}
+            onToggle={() => {
+              setFaqOpen((prev) => !prev);
+              // 모바일에서만 상담 내역 닫기
+              if (window.matchMedia("(max-width: 768px)").matches) {
+                setHistoryOpen(false);
+              }
+            }}
           />
           {/* 상담 내역 - 현재 접속 중에만 임시 보관 */}
   <div className="history-menu">
     <button
       type="button"
       className="history-toggle"
-      onClick={() => setHistoryOpen((prev) => !prev)}
+      onClick={() => {
+        setHistoryOpen((prev) => !prev);
+        // 모바일에서만 FAQ 닫기
+        if (window.matchMedia("(max-width: 768px)").matches) {
+          setFaqOpen(false);
+        }
+      }}
       aria-expanded={historyOpen}
       aria-controls="saved-chat-history"
     >
