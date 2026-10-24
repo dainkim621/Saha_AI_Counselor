@@ -995,6 +995,134 @@
    상담 내역 - 접이식 메뉴
 ========================= */
 
+/* 현재 채팅 질문 메뉴 */
+.current-questions-menu {
+  width: 100%;
+  box-sizing: border-box;
+  background: #FFFFFF;
+  border: 1px solid #E5E5E5;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+/* 현재 채팅 질문 접기/펼치기 */
+.current-questions-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 10px;
+
+  width: 100%;
+  min-height: 52px;
+  padding: 12px 16px;
+
+  background: #FFFFFF;
+  border: none;
+  color: #171717;
+
+  font-family: inherit;
+  font-size: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+/* 현재 채팅 질문 아이콘도 글자 크기에 맞춰 확대 */
+.current-questions-toggle svg {
+  width: 1.2em;
+  height: 1.2em;
+  flex-shrink: 0;
+}
+
+.current-questions-toggle:hover {
+  background: #F5F5F5;
+}
+
+/* 메뉴 제목 */
+.current-questions-title {
+  flex: 1;
+  min-width: 0;
+  text-align: left;
+}
+
+/* 현재 채팅 질문 접기/펼치기 화살표 */
+.current-questions-arrow {
+  width: 8px;
+  height: 8px;
+  flex-shrink: 0;
+
+  margin-right: 4px;
+
+  border-right: 2px solid #666666;
+  border-bottom: 2px solid #666666;
+
+  transform: rotate(45deg);
+  transition: transform 0.2s ease;
+}
+
+/* 메뉴가 펼쳐졌을 때 */
+.current-questions-toggle[aria-expanded="true"]
+.current-questions-arrow {
+  transform: rotate(225deg);
+}
+
+/* 펼쳐진 질문 목록 */
+.current-questions-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+
+  max-height: 240px;
+  overflow-y: auto;
+  padding: 10px;
+  border-top: 1px solid #E5E5E5;
+}
+
+/* 개별 질문 */
+.current-question-item {
+  width: 100%;
+  padding: 10px 12px;
+
+  background: #FFFFFF;
+  border: 1px solid #CDCDCD;
+  border-radius: 6px;
+
+  color: #404040;
+  font-family: inherit;
+  font-size: inherit;
+  text-align: left;
+
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+
+.current-question-item:hover:not(:disabled) {
+  background: #F7F7F7;
+}
+
+.current-question-item:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.current-questions-empty {
+  margin: 0;
+  padding: 10px 6px;
+  color: #666666;
+  font-size: 13px;
+}
+
+/* PC에서는 모바일 질문 이동 버튼 숨김 */
+.current-questions-mobile {
+  display: none;
+}
+
+/* PC에서는 모바일 질문 목록 팝업 숨김 */
+.mobile-questions-backdrop {
+  display: none;
+}
+
 .history-menu {
   width: 100%;
   box-sizing: border-box;
@@ -1481,6 +1609,148 @@
     width: 40px;
     height: 40px;
   }
+  
+  /* 모바일에서는 현재 채팅 질문 메뉴 숨김 */
+  .current-questions-menu {
+    display: none;
+  }
+
+  /* 모바일 채팅창 오른쪽 위 질문 목록 아이콘 */
+  .current-questions-mobile {
+    display: block;
+    position: absolute;
+    top: 8px;
+    right: 12px;
+    z-index: 20;
+
+    width: auto;
+    padding: 0;
+  }
+
+  /* 질문 목록 아이콘 버튼 */
+  .current-questions-mobile-button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    width: 36px;
+    height: 36px;
+    padding: 0;
+
+    background: #FFFFFF;
+    border: 1px solid #DADADA;
+    border-radius: 9px;
+
+    color: #404040;
+    cursor: pointer;
+  }
+  
+  /* 모바일 질문 목록 팝업 배경 */
+  .mobile-questions-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    padding: 16px;
+    background: rgba(0, 0, 0, 0.3);
+    box-sizing: border-box;
+  }
+
+  /* 질문 목록 팝업 */
+  .mobile-questions-dialog {
+    display: flex;
+    flex-direction: column;
+
+    width: min(440px, 100%);
+    max-height: min(70dvh, 560px);
+
+    padding: 20px;
+    background: #FFFFFF;
+    border-radius: 16px;
+
+    box-shadow: 0 12px 36px rgba(0, 0, 0, 0.16);
+    box-sizing: border-box;
+  }
+
+  /* 팝업 제목 영역 */
+  .mobile-questions-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+
+    margin-bottom: 16px;
+  }
+
+  .mobile-questions-header h2 {
+    margin: 0;
+    color: #171717;
+    font-size: 18px;
+    font-weight: 700;
+  }
+
+  /* 닫기 버튼 */
+  .mobile-questions-close {
+    width: 32px;
+    height: 32px;
+
+    background: #F5F5F5;
+    border: none;
+    border-radius: 8px;
+
+    color: #404040;
+    cursor: pointer;
+  }
+
+  /* 스크롤 가능한 질문 목록 */
+  .mobile-questions-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+
+    min-height: 0;
+    overflow-y: auto;
+  }
+
+  /* 팝업 내 질문 버튼 */
+  .mobile-questions-list .current-question-item {
+    flex-shrink: 0;
+    width: 100%;
+    min-width: 0;
+
+    padding: 12px 14px;
+    border-radius: 8px;
+
+    white-space: normal;
+    overflow-wrap: anywhere;
+    text-align: left;
+    line-height: 1.5;
+  }
+
+  /* 질문이 없을 때 */
+  .mobile-questions-empty {
+    margin: 0;
+    padding: 14px 0;
+
+    color: #666666;
+    font-size: 14px;
+    text-align: center;
+  }
+
+
+  /* 질문 목록 아이콘의 위치 기준 */
+  .chat-section {
+    position: relative;
+  }
+
+  /* 아이콘과 첫 메시지가 겹치지 않도록 상단 공간 확보 */
+  .chat-section > .chat-window {
+    padding-top: 52px;
+  }
 
   .accessibility-bar {
     flex-direction: column;
@@ -1599,21 +1869,68 @@
 .app.font-xlarge .mascot-card p { font-size: 20px; }
 
 /* Quick Menu */
-/* FAQ 질문 목록 및 상담 내역 글자 크기 통일 */
+/* FAQ, 상담 내역, 현재 채팅 질문 목록 글자 크기 통일 */
 .app.font-xsmall .quick-button-list button,
-.app.font-xsmall .history-item { font-size: 12px; }
+.app.font-xsmall .history-item,
+.app.font-xsmall .current-question-item { font-size: 12px; }
 
 .app.font-small .quick-button-list button,
-.app.font-small .history-item { font-size: 13px; }
+.app.font-small .history-item,
+.app.font-small .current-question-item { font-size: 13px; }
 
 .app.font-normal .quick-button-list button,
-.app.font-normal .history-item { font-size: 14px; }
+.app.font-normal .history-item,
+.app.font-normal .current-question-item { font-size: 14px; }
 
 .app.font-large .quick-button-list button,
-.app.font-large .history-item { font-size: 18px; }
+.app.font-large .history-item,
+.app.font-large .current-question-item { font-size: 18px; }
 
 .app.font-xlarge .quick-button-list button,
-.app.font-xlarge .history-item { font-size: 22px; }
+.app.font-xlarge .history-item,
+.app.font-xlarge .current-question-item { font-size: 22px; }
+
+/* 모바일 질문 이동 버튼 글자 크기 5단계 */
+.app.font-xsmall .current-questions-mobile-button { font-size: 12px; }
+.app.font-small .current-questions-mobile-button { font-size: 13px; }
+.app.font-normal .current-questions-mobile-button { font-size: 14px; }
+.app.font-large .current-questions-mobile-button { font-size: 16px; }
+.app.font-xlarge .current-questions-mobile-button { font-size: 18px; }
+
+/* 모바일 현재 채팅 질문 - 글자 크기 5단계 */
+@media (max-width: 768px) {
+
+  /* 아주 작게 */
+  .app.font-xsmall .mobile-questions-header h2 { font-size: 15px; }
+  .app.font-xsmall .mobile-questions-list .current-question-item { font-size: 12px; }
+  .app.font-xsmall .mobile-questions-empty { font-size: 12px; }
+
+  /* 작게 */
+  .app.font-small .mobile-questions-header h2 { font-size: 16px; }
+  .app.font-small .mobile-questions-list .current-question-item { font-size: 14px; }
+  .app.font-small .mobile-questions-empty { font-size: 13px; }
+
+  /* 기본 */
+  .app.font-normal .mobile-questions-header h2 { font-size: 18px; }
+  .app.font-normal .mobile-questions-list .current-question-item { font-size: 16px; }
+  .app.font-normal .mobile-questions-empty { font-size: 14px; }
+
+  /* 크게 */
+  .app.font-large .mobile-questions-header h2 { font-size: 21px; }
+  .app.font-large .mobile-questions-list .current-question-item { font-size: 19px; }
+  .app.font-large .mobile-questions-empty { font-size: 17px; }
+
+  /* 아주 크게 */
+  .app.font-xlarge .mobile-questions-header h2 { font-size: 24px; }
+  .app.font-xlarge .mobile-questions-list .current-question-item { font-size: 22px; }
+  .app.font-xlarge .mobile-questions-empty { font-size: 20px; }
+
+  /* 모바일 질문 목록 아이콘 크기도 연동 */
+  .current-questions-mobile-button svg {
+    width: 1.4em;
+    height: 1.4em;
+  }
+}
 
 /* Chat */
 .app.font-xsmall .message-bubble { font-size: 13px; }
