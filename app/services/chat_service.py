@@ -420,14 +420,18 @@ async def ask_saha_ai_stream(user_question: str, history: List[Dict[str, str]] =
                         "{\n"
                         '  "success": true 또는 false,\n'
                         '  "category": "위 [실패 유형 카테고리] 중 가장 알맞은 코드 1개",\n'
-                        '  "reason": "false인 경우 구체적인 사유 서술, true인 경우 빈 문자열(\"\")"\n'
+                        '  "reason": "false인 경우 구체적인 사유 서술, true인 경우 빈 문자열",\n'
                         '  "chat_title": "5~12자의 짧은 명사형 상담 제목"\n'
                         "}"
                     )
                 },
                 {
                     "role": "user",
-                    "content": f"질문: {user_question}\n\nAI 답변: {gpt_answer_accumulator}"
+                    "content": (
+                        f"사용자 원본 질문: {user_question}\n"
+                        f"대화 맥락을 반영한 검색 질문: {refined_question}\n\n"
+                        f"AI 답변: {gpt_answer_accumulator}"
+                    )
                 }
             ],
             temperature=0.0
@@ -437,23 +441,22 @@ async def ask_saha_ai_stream(user_question: str, history: List[Dict[str, str]] =
         is_success = eval_result.get("success", True)
         failure_category = eval_result.get("category", "NONE")
         failure_reason = eval_result.get("reason", "")
-        # AI 평가 결과에서 상담 제목 가져오기
-        # 현재 상담의 첫 번째 질문일 때만 프론트엔드에 전송
-        if not history:
-            chat_title = str(
-                eval_result.get("chat_title") or ""
-            ).strip().strip("\"'“”‘’")
+        # AI 평가 결과에서 현재 질문의 요약 제목 가져오기
+        # 첫 번째 질문뿐 아니라 모든 질문에 제목 전송
+        chat_title = str(
+            eval_result.get("chat_title") or ""
+        ).strip().strip("\"'“”‘’")
 
-            if not chat_title:
-                chat_title = "민원 상담"
+        if not chat_title:
+            chat_title = "민원 상담"
 
-            yield json.dumps(
-                {
-                    "type": "title",
-                    "content": chat_title
-                },
-                ensure_ascii=False
-            ) + " "
+        yield json.dumps(
+            {
+                "type": "title",
+                "content": chat_title
+            },
+            ensure_ascii=False
+        ) + " "
         print(f"📊 [AI 검수 결과] 성공 여부: {is_success} / 사유: {failure_reason}")
         
         # 질문 및 AI 답변 로그 저장
