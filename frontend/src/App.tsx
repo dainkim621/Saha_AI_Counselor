@@ -14,6 +14,7 @@ const BACKEND_URL = 'http://localhost:8000';  // 다인 임시로 로컬 쓴거
 export type Message = {
   role: "user" | "assistant";
   content: string;
+  questionTitle?: string;
   files?: { file_name: string; file_url: string }[];
   similarityScore?: number;
 };
@@ -54,6 +55,11 @@ function App() {
   const [historyOpen, setHistoryOpen] = useState(false);
   // FAQ 접기/펼치기 상태
   const [faqOpen, setFaqOpen] = useState(false);
+
+  // PC 현재 채팅 질문 목록 접기/펼치기
+  const [questionListOpen, setQuestionListOpen] = useState(false);
+  // 모바일 질문 이동 목록 접기/펼치기
+  const [mobileQuestionListOpen, setMobileQuestionListOpen] = useState(false);
   
   // 현재 상담 및 다음 상담 식별자
   const activeChatIdRef = useRef(0);
@@ -584,21 +590,42 @@ function App() {
           const parsed = JSON.parse(data);
 
           // 첫 질문의 AI 요약 제목 저장
-          if (parsed.type === "title" && isFirstQuestion) {
+          // AI가 생성한 질문 제목 저장
+          if (parsed.type === "title") {
             const title = String(parsed.content ?? "").trim();
 
             if (title) {
-              activeChatTitleRef.current = title;
+              // 현재 질문에 AI 제목 저장
+              setMessages((prev) => {
+                const updated = [...prev];
 
-              const chatId = activeChatIdRef.current;
+                for (let i = updated.length - 1; i >= 0; i--) {
+                  if (updated[i].role === "user") {
+                    updated[i] = {
+                      ...updated[i],
+                      questionTitle: title,
+                    };
+                    break;
+                  }
+                }
 
-              setSavedChats((prev) =>
-                prev.map((chat) =>
-                  chat.id === chatId
-                    ? { ...chat, title }
-                    : chat
-                )
-              );
+                return updated;
+              });
+
+              // 첫 질문의 제목은 기존 상담 내역 제목에도 사용
+              if (isFirstQuestion) {
+                activeChatTitleRef.current = title;
+
+                const chatId = activeChatIdRef.current;
+
+                setSavedChats((prev) =>
+                  prev.map((chat) =>
+                    chat.id === chatId
+                      ? { ...chat, title }
+                      : chat
+                  )
+                );
+              }
             }
           }
 
@@ -717,6 +744,7 @@ function App() {
     setInput("");
     setSimilarityScore(null);
     lastSpokenIndexRef.current = 0;
+    setMobileQuestionListOpen(false);
   };
 
   // 상담 내역에서 이전 상담 선택
@@ -729,6 +757,15 @@ function App() {
     activeChatIdRef.current = selectedChat.id;
     activeChatTitleRef.current = selectedChat.title;
     setMessages(selectedChat.messages);
+
+    // 상담 전환 후 현재 채팅 질문 목록 펼치기
+    setQuestionListOpen(true);
+
+    // 상담 내역 메뉴 닫기
+    setHistoryOpen(false);
+
+    // 모바일 질문 목록 팝업 닫기
+    setMobileQuestionListOpen(false);
 
     // 입력창 초기화
     setInput("");
@@ -747,7 +784,52 @@ function App() {
     // 복원한 답변을 자동 재생하지 않도록 설정
     lastSpokenIndexRef.current =
       selectedChat.messages.length - 1;
+    setMobileQuestionListOpen(false);
   };
+  
+  // 현재 채팅에서 사용자 질문만 추출
+  // 현재 채팅에서 사용자 질문과 AI 제목 추출
+  const currentQuestions = messages
+    .filter((message) => message.role === "user")
+    .map((message) => {
+      const content = message.content.replace(/\s+/g, " ").trim();
+
+      return {
+        content,
+        title:
+          message.questionTitle?.trim() ||
+          (content.length > 24
+            ? `${content.slice(0, 24)}…`
+            : content),
+      };
+    });
+    
+    // 선택한 질문 위치로 이동
+    const jumpToQuestion = (questionIndex: number) => {
+      const chatWindow =
+        document.querySelector<HTMLElement>(".chat-window");
+
+      const questionRows =
+        chatWindow?.querySelectorAll<HTMLElement>(".user-row");
+
+      const target = questionRows?.[questionIndex];
+
+      if (!chatWindow || !target) return;
+
+      const offset =
+        target.getBoundingClientRect().top -
+        chatWindow.getBoundingClientRect().top;
+
+      chatWindow.scrollTo({
+        top: Math.max(
+          0,
+          chatWindow.scrollTop + offset - 12
+        ),
+        behavior: "smooth",
+      });
+
+      setMobileQuestionListOpen(false);
+    };
 
   return (
     <div className={`app ${fontModes[fontLevel]}`}>
@@ -783,33 +865,32 @@ function App() {
             </svg>
           </button>
 
-    {/* 글자 크기 조절 */}
-    <div className="font-controls">
-      <span>글자 크기</span>
+      {/* 글자 크기 조절 */}
+      <div className="font-controls">
+        <span>글자 크기</span>
 
-      <button
-        type="button"
-        onClick={decreaseFont}
-        aria-label="글자 크기 줄이기"
-      >
-        －
-      </button>
+        <button
+          type="button"
+          onClick={decreaseFont}
+          aria-label="글자 크기 줄이기"
+        >
+          －
+        </button>
 
-      <div className="font-label">
-        {fontLabels[fontLevel]}
+        <div className="font-label">
+          {fontLabels[fontLevel]}
+        </div>
+
+        <button
+          type="button"
+          onClick={increaseFont}
+          aria-label="글자 크기 키우기"
+        >
+          ＋
+        </button>
       </div>
-
-      <button
-        type="button"
-        onClick={increaseFont}
-        aria-label="글자 크기 키우기"
-      >
-        ＋
-      </button>
     </div>
   </div>
-</div>
-
 
       {/* 이용 가이드 모달 */}
       {showGuide && (
@@ -856,6 +937,9 @@ function App() {
                 <li>새 채팅으로 새로운 상담 시작하기</li>
                 <li>자주 묻는 질문 이용하기</li>
                 <li>이전 상담 내역 확인하기</li>
+                <li>
+                  이전 질문·답변으로 이동하기 (🖥️ PC: 현재 채팅 질문 / 📱 모바일: 우측 목록 아이콘)
+                </li>
                 <li>글자 크기 조절하기</li>
                 <li>관련 첨부파일 다운로드하기</li>
               </ul>
@@ -979,21 +1063,91 @@ function App() {
               }
             }}
           />
+          
+          {/* 현재 채팅 질문 - PC 사이드바 */}
+          <div className="current-questions-menu">
+            <button
+              type="button"
+              className="current-questions-toggle"
+              aria-expanded={questionListOpen}
+              aria-controls="current-questions-list"
+              onClick={() => {
+                setQuestionListOpen((prev) => !prev);
+                setFaqOpen(false);
+                setHistoryOpen(false);
+              }}
+            >
+              <svg
+                width="18"
+                height="18"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M8 6h13" />
+                <path d="M8 12h13" />
+                <path d="M8 18h13" />
+                <path d="M3 6h.01" />
+                <path d="M3 12h.01" />
+                <path d="M3 18h.01" />
+              </svg>
+
+              <span className="current-questions-title">
+                현재 채팅 질문
+              </span>
+              
+              <span
+                className="current-questions-arrow"
+                aria-hidden="true"
+              />
+            </button>
+
+            {questionListOpen && (
+              <div
+                id="current-questions-list"
+                className="current-questions-list"
+              >
+                {currentQuestions.length === 0 ? (
+                  <p className="current-questions-empty">
+                    질문을 입력하면 여기에 표시됩니다.
+                  </p>
+                ) : (
+                  currentQuestions.map((question, index) => (
+                    <button
+                      key={index}
+                      type="button"
+                      className="current-question-item"
+                      title={question.content}
+                      disabled={isLoading}
+                      onClick={() => jumpToQuestion(index)}
+                    >
+                      {index + 1}. {question.title}
+                    </button>
+                  ))
+                )}
+              </div>
+            )}
+          </div>
+
           {/* 상담 내역 - 현재 접속 중에만 임시 보관 */}
-  <div className="history-menu">
-    <button
-      type="button"
-      className="history-toggle"
-      onClick={() => {
-        setHistoryOpen((prev) => !prev);
-        // 모바일에서만 FAQ 닫기
-        if (window.matchMedia("(max-width: 768px)").matches) {
-          setFaqOpen(false);
-        }
-      }}
-      aria-expanded={historyOpen}
-      aria-controls="saved-chat-history"
-    >
+          <div className="history-menu">
+            <button
+              type="button"
+              className="history-toggle"
+              onClick={() => {
+                setHistoryOpen((prev) => !prev);
+                // 모바일에서만 FAQ 닫기
+                if (window.matchMedia("(max-width: 768px)").matches) {
+                  setFaqOpen(false);
+                }
+              }}
+              aria-expanded={historyOpen}
+              aria-controls="saved-chat-history"
+            >
       {/* 상담 내역 아이콘 */}
       <svg
         width="18"
@@ -1051,6 +1205,40 @@ function App() {
         </section>
 
         <section className="chat-section">
+          {/* 모바일 전용 질문 목록 아이콘 */}
+          <div className="current-questions-mobile">
+            <button
+              type="button"
+              className="current-questions-mobile-button"
+              onClick={() => {
+                setMobileQuestionListOpen(true);
+                setFaqOpen(false);
+                setHistoryOpen(false);
+              }}
+              aria-label="현재 채팅 질문 목록 열기"
+              title="질문 목록"
+            >
+              <svg
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M8 6h13" />
+                <path d="M8 12h13" />
+                <path d="M8 18h13" />
+                <path d="M3 6h.01" />
+                <path d="M3 12h.01" />
+                <path d="M3 18h.01" />
+              </svg>
+            </button>
+          </div>
+
           <ChatWindow
             messages={messages}
             isLoading={isLoading}
@@ -1065,6 +1253,59 @@ function App() {
           />
         </section>
       </main>
+      
+      {/* 모바일 질문 목록 팝업 */}
+      {mobileQuestionListOpen && (
+        <div
+          className="mobile-questions-backdrop"
+          onClick={() => setMobileQuestionListOpen(false)}
+        >
+          <div
+            className="mobile-questions-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="mobile-questions-heading"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="mobile-questions-header">
+              <h2 id="mobile-questions-heading">
+                현재 채팅 질문
+              </h2>
+
+              <button
+                type="button"
+                className="mobile-questions-close"
+                onClick={() => setMobileQuestionListOpen(false)}
+                aria-label="질문 목록 닫기"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="mobile-questions-list">
+              {currentQuestions.length === 0 ? (
+                <p className="mobile-questions-empty">
+                  아직 입력한 질문이 없습니다.
+                </p>
+              ) : (
+                currentQuestions.map((question, index) => (
+                  <button
+                    key={index}
+                    type="button"
+                    className="current-question-item"
+                    title={question.content}
+                    disabled={isLoading}
+                    onClick={() => jumpToQuestion(index)}
+                  >
+                    {index + 1}. {question.title}
+                  </button>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
