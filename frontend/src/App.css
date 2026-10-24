@@ -484,16 +484,22 @@
 .privacy-warning {
   display: inline-flex;
   align-items: center;
-  gap: 9px;
+  justify-content: flex-start;
+  gap: 10px;
+
+  width: fit-content;
+  max-width: 100%;
+  box-sizing: border-box;
+  transform: translateX(135px);
 
   margin-left: 0px;
-  padding: 8px 15px;
+  padding: 10px 484px 10px 0px;
 
-  background-color: #F5F5F5;
-  border: 1px solid #E5E5E5;
+  background-color: #F2F2F2;
+  border: none;
   border-radius: 999px;
 
-  color: #404040;
+  color: #171717;
   font-size: 14px;
   font-weight: 600;
   line-height: 1.5;
@@ -506,11 +512,17 @@
 .privacy-warning-icon {
   flex-shrink: 0;
   font-size: 17px;
+  transform: translateX(242px);
+  position: relative;
+  top: -2px;
+
 }
 
 /* 개인정보 안내 문구 */
 .privacy-warning-text {
   display: inline;
+  margin-left: 6px;
+  transform: translateX(242px);
 }
 
 
@@ -531,11 +543,12 @@
   padding: 12px 16px;
   
   /* 흰색 AI 답변과 구분되는 연한 회색 배경 */
-  background: #F5F5F5;
+  background: #FFFFFF;
   
   /* 파일별 경계를 명확하게 구분 */
-  border: 1px solid #E5E5E5;
+  border: 1px solid #C9C9C9;
   border-radius: 14px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
 
   text-decoration: none;
   color: inherit;
@@ -559,7 +572,7 @@
 
   border-radius: 10px;
 
-  background: #FFFFFF;
+  background: #F1F1F1;
 
   font-size: 20px;
 }
@@ -1214,7 +1227,7 @@
 }/* 주민 질문 말풍선 - AI 답변보다 차분하게 표시 */
 .user-bubble {
   /* 중립적인 회색 배경 */
-  background-color: #F3F3F3;
+  background-color: #DCDCDC;
 
   /* 질문 글씨 색상 */
   color: #404040;
@@ -1796,14 +1809,14 @@
 .assistant-bubble {
   flex: 0 1 auto;
   width: fit-content;
-  max-width: 100%;
+  max-width: min(800px, 100%);
   min-width: 0;
 
   /* 밝은 회색 배경으로 흰색 매칭도 카드와 구분 */
-  background-color: #F0F0F0;
+  background-color: #FAFAFA;
   color: #171717;
 
-  border: 1px solid #E5E5E5;
+  border: none;
   border-radius: 12px;
   border-bottom-left-radius: 6px;
 
@@ -1815,6 +1828,15 @@
 
   /* 말풍선에는 번지는 효과를 적용하지 않음 */
   box-shadow: none;
+}
+
+/* 첫 인사말만 조금 더 선명하게 표시 */
+.chat-window > .assistant-row:first-child .assistant-bubble {
+  background-color: #F3F3F3;
+  border: none;
+  border-radius: 16px;
+  border-bottom-left-radius: 6px;
+  padding: 15px 18px;
 }
 
 /* =========================
@@ -1845,12 +1867,12 @@
 
   /* 회색빛이 바깥쪽으로 은은하게 번지는 효과 */
   box-shadow:
-    0 0 0 1px rgba(23, 23, 23, 0.03),
-    0 0 18px 3px rgba(23, 23, 23, 0.08),
-    0 8px 24px rgba(23, 23, 23, 0.05);
+    0 0 0 1px rgba(23, 23, 23, 0.05),
+    0 0 18px 3px rgba(23, 23, 23, 0.18),
+    0 8px 24px rgba(23, 23, 23, 0.09);
 
-  /* 부드럽게 빛이 퍼졌다가 줄어드는 효과 */
-  animation: similarityGlow 3.5s ease-in-out infinite;
+  /* 그림자 애니메이션 제거 */
+  animation: none;
 }
 
 /* 참고 정보 매칭도 번짐 애니메이션 */
@@ -2820,6 +2842,33 @@ body,
     box-sizing: border-box;
   }
 
+  /* 태블릿과 모바일에서 개인정보 안내 카드 위치 초기화 */
+  .privacy-warning {
+    width: min(760px, 100%);
+    max-width: 100%;
+    transform: none;
+
+    padding: 10px 16px;
+    justify-content: center;
+    gap: 10px;
+    box-sizing: border-box;
+  }
+
+  /* 자물쇠의 PC용 가로 이동값 제거 */
+  .privacy-warning-icon {
+    transform: none;
+    top: -2px;
+  }
+
+  /* 개인정보 안내 문구의 PC용 이동값 제거 */
+  .privacy-warning-text {
+    display: block;
+    margin-left: 0;
+    transform: none;
+    min-width: 0;
+    overflow-wrap: break-word;
+  }
+
   .download-card-content {
     min-width: 0;
     overflow-wrap: anywhere;
@@ -2914,12 +2963,20 @@ body,
   }
 
   .privacy-warning {
-    width: fit-content;
+    width: 100%;
     max-width: 100%;
     min-width: 0;
-    padding: 8px 12px;
+
+    padding: 10px 14px;
+
+    justify-content: center;
+    align-items: center;
+    gap: 10px;
+
+    border-radius: 999px;
     white-space: normal;
-    overflow-wrap: anywhere;
+    word-break: keep-all;
+    overflow-wrap: break-word;
     box-sizing: border-box;
   }
 
