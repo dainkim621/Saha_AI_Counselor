@@ -629,6 +629,90 @@
   white-space: nowrap;
 }
 
+/* =========================
+   사용자 만족도 현황
+========================= */
+
+.satisfaction-card {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+/* 긍정 / 부정 평가 */
+.satisfaction-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.satisfaction-stat-item {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 20px;
+  background: #f7f7f7;
+  border-radius: 12px;
+}
+
+.satisfaction-stat-item span {
+  font-size: 13px;
+  color: #666;
+}
+
+.satisfaction-stat-item strong {
+  font-size: 26px;
+  font-weight: 700;
+  color: #171717;
+}
+
+/* 긍정 평가 비율 */
+.satisfaction-rate-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 14px;
+  color: #404040;
+}
+
+.satisfaction-rate-header strong {
+  color: #171717;
+  font-size: 17px;
+}
+
+/* 비율 그래프 */
+.satisfaction-progress {
+  height: 10px;
+  background: #e8e8e8;
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.satisfaction-progress-fill {
+  height: 100%;
+  background: #404040;
+  border-radius: 999px;
+  transition: width 0.3s ease;
+}
+
+/* 하단 안내 */
+.satisfaction-description {
+  margin: 0;
+  font-size: 12px;
+  color: #888;
+}
+
+@media (max-width: 480px) {
+  .satisfaction-stat-item {
+    padding: 14px;
+  }
+
+  .satisfaction-stat-item strong {
+    font-size: 22px;
+  }
+}
+
 /* 모바일 */
 @media (max-width: 900px) {
 
