@@ -135,6 +135,12 @@ def admin_signup(
 
     # admins 테이블에 새 관리자 추가
     db.add(new_admin)
+
+    # 새 관리자 ID를 생성하되 아직 DB에 최종 저장하지 않음
+    db.flush()
+
+    # 초대 코드를 사용하여 가입한 관리자 ID 저장
+    admin_invite.used_by_admin_id = new_admin.id
     
     # 관리자 계정 생성에 사용된 초대 코드를 사용 완료 처리
     admin_invite.is_used = True
@@ -392,7 +398,8 @@ def get_current_admin(
     return {
         "id": current_admin.id,
         "username": current_admin.username,
-        "name": current_admin.name
+        "name": current_admin.name,
+        "is_super_admin": current_admin.is_super_admin
     }
 
 
