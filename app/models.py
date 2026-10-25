@@ -151,6 +151,15 @@ class Admin(Base):
         nullable=True
     )
 
+    # 최고 관리자 여부
+    is_super_admin = Column(
+        Boolean,
+        nullable=False,
+        default=False,
+        server_default="false"
+    )
+
+
 # 로그인한 관리자의 세션 정보를 저장하는 테이블
 class AdminSession(Base):
     __tablename__ = "admin_sessions"
