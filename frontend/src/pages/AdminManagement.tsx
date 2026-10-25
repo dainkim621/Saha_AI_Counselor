@@ -799,6 +799,128 @@ function AdminManagement() {
       </section>
 
       {/* =====================================
+          신규 관리자 초대
+      ===================================== */}
+
+      <section className="admin-management-card">
+
+        <div className="admin-management-card-header">
+          <div>
+            <h2>신규 관리자 초대</h2>
+            <p>
+              초대 코드를 발급하여 신규 관리자의
+              회원가입을 허용합니다.
+            </p>
+          </div>
+        </div>
+
+        <div className="admin-management-invite">
+
+          <div className="admin-management-invite-info">
+            <strong>관리자 초대 코드</strong>
+            <p>
+              발급된 초대 코드는 신규 관리자가
+              회원가입할 때 사용합니다.
+            </p>
+          </div>
+
+          {/* 초대 코드 발급 버튼 */}
+          <button
+            type="button"
+            className="admin-management-primary-button"
+            onClick={handleCreateInvite}
+            disabled={isIssuing}
+          >
+            {isIssuing
+              ? "발급 중..."
+              : "초대 코드 발급"}
+          </button>
+
+        </div>
+
+        {/* ===================================
+            초대 코드 발급 결과
+        =================================== */}
+
+        <div aria-live="polite">
+
+          {inviteCode && (
+            <div className="admin-management-invite-result">
+
+              <h3>
+                초대 코드가 발급되었습니다.
+              </h3>
+
+              <p>
+                아래 코드를 신규 관리자에게 전달해 주세요.
+              </p>
+
+              {/* 실제 초대 코드 */}
+              <div className="admin-management-invite-code">
+
+                <code>{inviteCode}</code>
+
+                {/* 초대 코드 복사 */}
+                <button
+                  type="button"
+                  onClick={async () => {
+                    try {
+                      await navigator.clipboard.writeText(
+                        inviteCode
+                      );
+
+                      alert(
+                        "초대 코드가 복사되었습니다."
+                      );
+                    } catch {
+                      alert(
+                        "복사에 실패했습니다. 코드를 직접 복사해 주세요."
+                      );
+                    }
+                  }}
+                >
+                  복사
+                </button>
+
+              </div>
+
+              {/* 초대 코드 만료 시간 */}
+              <p className="admin-management-invite-expiry">
+                만료 시간:{" "}
+                {expiresAt
+                  ? new Date(expiresAt).toLocaleString(
+                      "ko-KR",
+                      {
+                        timeZone: "Asia/Seoul",
+                      }
+                    )
+                  : "-"}
+              </p>
+
+              {/* 초대 코드 주의사항 */}
+              <p className="admin-management-invite-warning">
+                초대 코드는 1회만 사용할 수 있으며,
+                이 화면을 벗어나면 다시 확인할 수 없습니다.
+              </p>
+
+            </div>
+          )}
+
+          {/* 초대 코드 발급 오류 */}
+          {inviteError && (
+            <p
+              className="admin-management-invite-error"
+              role="alert"
+            >
+              {inviteError}
+            </p>
+          )}
+
+        </div>
+
+      </section>
+
+      {/* =====================================
           관리자 계정 목록
       ===================================== */}
 
@@ -1054,131 +1176,6 @@ function AdminManagement() {
         )}
 
       </section>
-
-
-      {/* =====================================
-          신규 관리자 초대
-      ===================================== */}
-
-      <section className="admin-management-card">
-
-        <div className="admin-management-card-header">
-          <div>
-            <h2>신규 관리자 초대</h2>
-            <p>
-              초대 코드를 발급하여 신규 관리자의
-              회원가입을 허용합니다.
-            </p>
-          </div>
-        </div>
-
-        <div className="admin-management-invite">
-
-          <div className="admin-management-invite-info">
-            <strong>관리자 초대 코드</strong>
-            <p>
-              발급된 초대 코드는 신규 관리자가
-              회원가입할 때 사용합니다.
-            </p>
-          </div>
-
-          {/* 초대 코드 발급 버튼 */}
-          <button
-            type="button"
-            className="admin-management-primary-button"
-            onClick={handleCreateInvite}
-            disabled={isIssuing}
-          >
-            {isIssuing
-              ? "발급 중..."
-              : "초대 코드 발급"}
-          </button>
-
-        </div>
-
-
-        {/* ===================================
-            초대 코드 발급 결과
-        =================================== */}
-
-        <div aria-live="polite">
-
-          {inviteCode && (
-            <div className="admin-management-invite-result">
-
-              <h3>
-                초대 코드가 발급되었습니다.
-              </h3>
-
-              <p>
-                아래 코드를 신규 관리자에게 전달해 주세요.
-              </p>
-
-              {/* 실제 초대 코드 */}
-              <div className="admin-management-invite-code">
-
-                <code>{inviteCode}</code>
-
-                {/* 초대 코드 복사 */}
-                <button
-                  type="button"
-                  onClick={async () => {
-                    try {
-                      await navigator.clipboard.writeText(
-                        inviteCode
-                      );
-
-                      alert(
-                        "초대 코드가 복사되었습니다."
-                      );
-                    } catch {
-                      alert(
-                        "복사에 실패했습니다. 코드를 직접 복사해 주세요."
-                      );
-                    }
-                  }}
-                >
-                  복사
-                </button>
-
-              </div>
-
-              {/* 초대 코드 만료 시간 */}
-              <p className="admin-management-invite-expiry">
-                만료 시간:{" "}
-                {expiresAt
-                  ? new Date(expiresAt).toLocaleString(
-                      "ko-KR",
-                      {
-                        timeZone: "Asia/Seoul",
-                      }
-                    )
-                  : "-"}
-              </p>
-
-              {/* 초대 코드 주의사항 */}
-              <p className="admin-management-invite-warning">
-                초대 코드는 1회만 사용할 수 있으며,
-                이 화면을 벗어나면 다시 확인할 수 없습니다.
-              </p>
-
-            </div>
-          )}
-
-          {/* 초대 코드 발급 오류 */}
-          {inviteError && (
-            <p
-              className="admin-management-invite-error"
-              role="alert"
-            >
-              {inviteError}
-            </p>
-          )}
-
-        </div>
-
-      </section>
-
 
       {/* =====================================
           초대 코드 발급 이력
