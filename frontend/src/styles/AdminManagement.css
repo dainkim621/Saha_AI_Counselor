@@ -453,6 +453,55 @@
   color: #a3a3a3;
 }
 
+/* 취소된 초대 코드 */
+.admin-management-invite-status.revoked {
+  background: #f5f5f5;
+  border: 1px solid #d4d4d4;
+  color: #737373;
+}
+
+
+/* =========================================
+   초대 코드 취소 버튼
+========================================= */
+
+/* 초대 코드 취소 버튼 */
+.admin-management-revoke-button {
+  min-width: 70px;
+  padding: 9px 14px;
+
+  background: #ffffff;
+  border: 1px solid #d4d4d4;
+  border-radius: 6px;
+
+  color: #525252;
+  font-size: 13px;
+  font-weight: 600;
+
+  cursor: pointer;
+
+  transition:
+    background-color 0.2s ease,
+    border-color 0.2s ease;
+}
+
+/* 마우스 오버 */
+.admin-management-revoke-button:hover:not(:disabled) {
+  background: #f5f5f5;
+  border-color: #a3a3a3;
+}
+
+/* 취소 처리 중 */
+.admin-management-revoke-button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* 키보드 포커스 */
+.admin-management-revoke-button:focus-visible {
+  outline: 2px solid #525252;
+  outline-offset: 3px;
+}
 
 /* 모바일 화면 */
 @media (max-width: 600px) {
