@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from sqlalchemy import extract
 from app.database import get_db
-from app.models import Admin, UserChatLog
+from app.models import Admin, UserChatLog, Feedback
 from app.api.admin_auth import require_admin
 from datetime import datetime, timedelta
 from sqlalchemy import func
@@ -229,3 +229,48 @@ def get_missing_document_areas(
         }
         for area, count in area_counts.most_common()
     ]
+
+# 사용자 만족도 현황 API
+@router.get("/satisfaction")
+def get_satisfaction_stats(
+    current_admin: Admin = Depends(require_admin),
+    db: Session = Depends(get_db)
+):
+    # 최근 7일 기준
+    one_week_ago = datetime.utcnow() - timedelta(days=7)
+
+    # 긍정 및 부정 평가 건수 집계
+    results = (
+        db.query(
+            Feedback.rating,
+            func.count(Feedback.id)
+        )
+        .filter(Feedback.created_at >= one_week_ago)
+        .filter(Feedback.rating.in_(["positive", "negative"]))
+        .group_by(Feedback.rating)
+        .all()
+    )
+
+    rating_counts = {
+        rating: count
+        for rating, count in results
+    }
+
+    positive_count = rating_counts.get("positive", 0)
+    negative_count = rating_counts.get("negative", 0)
+
+    total_count = positive_count + negative_count
+
+    # 긍정 평가 비율 계산
+    positive_rate = (
+        round(positive_count / total_count * 100, 1)
+        if total_count > 0
+        else 0
+    )
+
+    return {
+        "positiveCount": positive_count,
+        "negativeCount": negative_count,
+        "totalCount": total_count,
+        "positiveRate": positive_rate
+    }
