@@ -33,6 +33,16 @@ async def privacy_guard(question, max_length=3000):
 
     if any(e["type"] in BLOCK_TYPES for e in entities):
         raise PrivacyBlocked("민감한 개인정보 탐지")
+    # 공공기관 명칭이 상세주소로 잘못 탐지되는 경우 방지
+    PUBLIC_OFFICES = {"사하구청"}
+
+    entities = [
+        entity for entity in entities
+        if not (
+            entity["type"] == "ADDRESS"
+            and entity["text"] in PUBLIC_OFFICES
+        )
+    ]
 
     entities.sort(key=lambda e: len(e["text"]), reverse=True)
 

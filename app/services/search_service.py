@@ -102,7 +102,7 @@ async def get_similar_chunks(query: str, top_k: int = 3): # k값을 조금 늘�
         
         final_output.append(doc)
     
-    print(f"🔍 [하이브리드 검색 완료] 최종 합산된 문서 수: {len(final_output)}개")
+    print(f"🔍 [하이브리드 검색 완료] 최종 합산된 문서 수: {len(final_output)}개----------------------------------------")
     if final_output:
         print(f"DEBUG: 1등 문서 제목 -> {final_output[0].title}, 유사도: {final_output[0].score}%")
     else:
