@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Text, DateTime, JSON, Date, Boolean
+from sqlalchemy import Column, Integer, String, Text, DateTime, JSON, Date, Boolean, ForeignKey
 from pgvector.sqlalchemy import Vector  # 추가
 from sqlalchemy.sql import func
 from app.database import Base
@@ -151,6 +151,15 @@ class Admin(Base):
         nullable=True
     )
 
+    # 최고 관리자 여부
+    is_super_admin = Column(
+        Boolean,
+        nullable=False,
+        default=False,
+        server_default="false"
+    )
+
+
 # 로그인한 관리자의 세션 정보를 저장하는 테이블
 class AdminSession(Base):
     __tablename__ = "admin_sessions"
@@ -236,9 +245,24 @@ class AdminInvite(Base):
         default=False,
         nullable=False
     )
+    
+    # 관리자에 의한 초대 코드 취소 여부
+    is_revoked = Column(
+        Boolean,
+        nullable=False,
+        default=False,
+        server_default="false"
+    )
 
     # 실제 사용된 시간
     used_at = Column(
         DateTime(timezone=True),
         nullable=True
     )
+    
+    # 초대 코드를 사용하여 가입한 관리자 계정 ID 저장
+    used_by_admin_id = Column(
+    Integer,
+    ForeignKey("admins.id"),
+    nullable=True
+)

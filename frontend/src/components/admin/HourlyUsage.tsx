@@ -36,8 +36,8 @@ function HourlyUsage({ stats }: HourlyUsageProps) {
                     width: `${(item.count / maxCount) * 100}%`,
 
                     backgroundColor: isPeakHour
-                      ? "#1d4ed8"  // 가장 많은 시간대: 진한 파란색
-                      : "#93C5FD", // 나머지 시간대: 연한 하늘색
+                      ? "#171717"  // 가장 많은 시간대: 검정색
+                      : "#A3A3A3", // 나머지 시간대: 연한 회색
                   }}
                 />
               </div>

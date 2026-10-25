@@ -82,6 +82,14 @@ def admin_signup(
             detail="관리자 초대 코드가 올바르지 않습니다."
         )
 
+    
+    # 관리자가 취소한 초대 코드인지 확인
+    if admin_invite.is_revoked:
+        raise HTTPException(
+            status_code=403,
+            detail="취소된 초대 코드입니다."
+        )
+
     # 이미 사용된 초대 코드인지 확인
     if admin_invite.is_used:
         raise HTTPException(
@@ -127,6 +135,12 @@ def admin_signup(
 
     # admins 테이블에 새 관리자 추가
     db.add(new_admin)
+
+    # 새 관리자 ID를 생성하되 아직 DB에 최종 저장하지 않음
+    db.flush()
+
+    # 초대 코드를 사용하여 가입한 관리자 ID 저장
+    admin_invite.used_by_admin_id = new_admin.id
     
     # 관리자 계정 생성에 사용된 초대 코드를 사용 완료 처리
     admin_invite.is_used = True
@@ -384,7 +398,8 @@ def get_current_admin(
     return {
         "id": current_admin.id,
         "username": current_admin.username,
-        "name": current_admin.name
+        "name": current_admin.name,
+        "is_super_admin": current_admin.is_super_admin
     }
 
 
@@ -420,10 +435,7 @@ def admin_logout(
     # 브라우저에 저장된 HttpOnly 세션 쿠키 삭제
     response.delete_cookie(
         key="admin_session",
-        path="/",
-        httponly=True,
-        samesite="strict",
-        secure=os.getenv("COOKIE_SECURE", "false").lower() == "true"
+        path="/"
     )
 
     return {

@@ -2,7 +2,6 @@ import type { DashboardSummary } from "../../types/adminDashboard";
 function SummaryCards({
   totalQuestions,
   failedQuestionCount,
-  topLanguage,
   peakHour,
 }: DashboardSummary) {
   return (
@@ -35,20 +34,6 @@ function SummaryCards({
 
         <span className="dashboard-summary-description">
           관련 문서 또는 FAQ 보완 필요
-        </span>
-      </article>
-
-      <article className="dashboard-summary-card">
-        <span className="dashboard-summary-label">
-          가장 많이 사용된 언어
-        </span>
-
-        <strong className="dashboard-summary-value dashboard-summary-text">
-          {topLanguage}
-        </strong>
-
-        <span className="dashboard-summary-description">
-          사용자 질문 기준
         </span>
       </article>
 

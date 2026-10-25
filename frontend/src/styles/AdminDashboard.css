@@ -14,8 +14,8 @@
   display: flex;
   flex-direction: column;
 
-  background: #173a78;
-  color: #ffffff;
+  background: #ffffff;
+  color: #171717;
   box-sizing: border-box;
 
   overflow: hidden;
@@ -44,7 +44,7 @@
   min-height: 100px;
   padding: 20px 12px 20px 20px;
 
-  border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+  border-bottom: 1px solid #e5e5e5;
   box-sizing: border-box;
 }
 
@@ -73,7 +73,7 @@
   border: none;
   border-radius: 8px;
 
-  color: #ffffff;
+  color: #171717;
   font-size: 20px;
 
   cursor: pointer;
@@ -82,12 +82,12 @@
 
 /* 토글 버튼 hover */
 .admin-sidebar-toggle:hover {
-  background: rgba(255, 255, 255, 0.15);
+  background: #f5f5f5;
 }
 
 /* 토글 버튼 키보드 포커스 */
 .admin-sidebar-toggle:focus-visible {
-  outline: 2px solid #ffffff;
+  outline: 2px solid #525252;
   outline-offset: 2px;
 }
 
@@ -105,7 +105,7 @@
   margin-top: 7px;
   font-size: 11px;
   letter-spacing: 1.5px;
-  color: #b9cdee;
+  color: #737373;
 }
 
 /* 사이드바 메뉴 영역 */
@@ -128,8 +128,9 @@
   border-radius: 8px;
   font-size: 14px;
   font-weight: 500;
-  color: #d6e2f5;
+  color: #404040;
   box-sizing: border-box;
+  text-decoration: none;
 }
 
 /* 사이드바 메뉴 아이콘 */
@@ -141,7 +142,7 @@
 
 /* 현재 선택된 메뉴 */
 .admin-sidebar-menu.active {
-  background: #345b9d;
+  background: #171717;
   color: #ffffff;
   font-weight: 600;
 }
@@ -180,7 +181,7 @@
 .admin-sidebar-footer {
   margin-top: 0;
   padding: 12px;
-  border-top: 1px solid rgba(255, 255, 255, 0.15);
+  border-top: 1px solid #e5e5e5;
 }
 
 /* 사이드바 로그아웃 버튼 */
@@ -196,7 +197,7 @@
   border: none;
   border-radius: 8px;
 
-  color: #ffffff;
+  color: #404040;
   font-size: 14px;
   font-weight: 500;
   text-align: left;
@@ -207,12 +208,12 @@
 
 /* 로그아웃 버튼 hover */
 .admin-sidebar-logout:hover {
-  background: rgba(255, 255, 255, 0.12);
+  background: #f5f5f5;
 }
 
 /* 로그아웃 버튼 키보드 포커스 */
 .admin-sidebar-logout:focus-visible {
-  outline: 2px solid #ffffff;
+  outline: 2px solid #525252;
   outline-offset: 2px;
 }
 
@@ -220,13 +221,13 @@
 .admin-main-content {
   flex: 1;
   min-width: 0;
-  background: #f5f7fb;
+  background: #fafafa;
 }
 
 /* 관리자 대시보드 전체 */
 .admin-dashboard {
   min-height: 100vh;
-  background: #f5f7fb;
+  background: #fafafa;
   padding: 32px;
   box-sizing: border-box;
 }
@@ -235,7 +236,7 @@
 .admin-dashboard-header {
   margin-bottom: 32px;
   padding-bottom: 24px;
-  border-bottom: 1px solid #e1e6ee;
+  border-bottom: 1px solid #e5e5e5;
 }
 
 /* 관리자 시스템 브랜드 영역 */
@@ -248,19 +249,19 @@
 
   font-size: 14px;
   font-weight: 700;
-  color: #315f96;
+  color: #171717;
 }
 
 /* 관리자 시스템 표시 */
 .admin-dashboard-brand span {
   padding: 5px 10px;
 
-  background: #e8eff8;
+  background: #f5f5f5;
   border-radius: 6px;
 
   font-size: 12px;
   font-weight: 600;
-  color: #315f96;
+  color: #525252;
 }
 
 /* 제목과 로그아웃 버튼 가로 배치 */
@@ -282,7 +283,7 @@
 
   font-size: 30px;
   font-weight: 700;
-  color: #1e293b;
+  color: #171717;
   letter-spacing: -0.7px;
 }
 
@@ -292,7 +293,7 @@
 
   font-size: 15px;
   line-height: 1.6;
-  color: #64748b;
+  color: #737373;
 }
 
 /* 로그아웃 버튼 */
@@ -305,12 +306,12 @@
   padding: 11px 20px;
 
   background: #ffffff;
-  border: 1px solid #cbd5e1;
+  border: 1px solid #d4d4d4;
   border-radius: 8px;
 
   font-size: 14px;
   font-weight: 600;
-  color: #475569;
+  color: #404040;
 
   cursor: pointer;
   transition: background 0.2s, border-color 0.2s, color 0.2s;
@@ -318,14 +319,14 @@
 
 /* 로그아웃 버튼 마우스 hover */
 .admin-dashboard-logout:hover {
-  background: #edf3fa;
-  border-color: #315f96;
-  color: #315f96;
+  background: #f5f5f5;
+  border-color: #a3a3a3;
+  color: #171717;
 }
 
 /* 키보드 접근 시 포커스 표시 */
 .admin-dashboard-logout:focus-visible {
-  outline: 2px solid #315f96;
+  outline: 2px solid #525252;
   outline-offset: 3px;
 }
 
@@ -338,10 +339,10 @@
 
 /* 공통 카드 */
 .dashboard-card {
-  background: white;
+  background: #ffffff;
   border-radius: 12px;
   padding: 20px;
-  border: 1px solid #ddd;
+  border: 1px solid #e5e5e5;
   min-height: 180px;
 }
 
@@ -355,6 +356,7 @@
   margin-top: 0;
   margin-bottom: 16px;
   font-size: 20px;
+  color: #171717;  
 }
 
 /* 상단 주요 통계 카드 영역 */
@@ -362,14 +364,14 @@
   grid-column: 1 / 3;
 
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 20px;
 }
 
 /* 상단 주요 통계 개별 카드 */
 .dashboard-summary-card {
-  background: white;
-  border: 1px solid #ddd;
+  background: #ffffff;
+  border: 1px solid #e5e5e5;
   border-radius: 12px;
   padding: 20px;
 
@@ -381,14 +383,14 @@
 /* 통계 이름 */
 .dashboard-summary-label {
   font-size: 15px;
-  color: #666;
+  color: #525252;
 }
 
 /* 통계 값 */
 .dashboard-summary-value {
   font-size: 28px;
   font-weight: 700;
-  color: #222;
+  color: #171717;
 }
 
 /* 숫자가 아닌 통계 값 */
@@ -399,7 +401,7 @@
 /* 통계 설명 */
 .dashboard-summary-description {
   font-size: 14px;
-  color: #777;
+  color: #737373;
 }
 
 /* 답변 실패 질문 목록 */
@@ -479,7 +481,7 @@
   width: 100%;
   height: 10px;
 
-  background: #edf0f5;
+  background: #eeeeee;
   border-radius: 999px;
   overflow: hidden;
 }
@@ -488,7 +490,7 @@
 .language-stat-fill {
   height: 100%;
 
-  background: #4f7cff;
+  background: #525252;
   border-radius: 999px;
 }
 
@@ -518,7 +520,7 @@
   width: 100%;
   height: 10px;
 
-  background: #edf0f5;
+  background: #eeeeee;
   border-radius: 999px;
   overflow: hidden;
 }
@@ -527,7 +529,7 @@
 .hourly-usage-fill {
   height: 100%;
 
-  background: #4f7cff;
+  background: #525252;
   border-radius: 999px;
 }
 
@@ -570,24 +572,24 @@
   align-items: center;
   justify-content: center;
 
-  background: #edf2ff;
+  background: #f5f5f5;
   border-radius: 8px;
 
   font-size: 14px;
   font-weight: 700;
-  color: #4f7cff;
+  color: #171717;
 }
 
 /* 질문 내용 */
 .popular-question-text {
   font-size: 15px;
-  color: #222;
+  color: #171717;
 }
 
 /* 질문 횟수 */
 .popular-question-count {
   font-size: 14px;
-  color: #555;
+  color: #525252;
   text-align: right;
   white-space: nowrap;
 }
@@ -625,6 +627,90 @@
   font-size: 14px;
   color: #d14343;
   white-space: nowrap;
+}
+
+/* =========================
+   사용자 만족도 현황
+========================= */
+
+.satisfaction-card {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+/* 긍정 / 부정 평가 */
+.satisfaction-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.satisfaction-stat-item {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 20px;
+  background: #f7f7f7;
+  border-radius: 12px;
+}
+
+.satisfaction-stat-item span {
+  font-size: 13px;
+  color: #666;
+}
+
+.satisfaction-stat-item strong {
+  font-size: 26px;
+  font-weight: 700;
+  color: #171717;
+}
+
+/* 긍정 평가 비율 */
+.satisfaction-rate-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 14px;
+  color: #404040;
+}
+
+.satisfaction-rate-header strong {
+  color: #171717;
+  font-size: 17px;
+}
+
+/* 비율 그래프 */
+.satisfaction-progress {
+  height: 10px;
+  background: #e8e8e8;
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.satisfaction-progress-fill {
+  height: 100%;
+  background: #404040;
+  border-radius: 999px;
+  transition: width 0.3s ease;
+}
+
+/* 하단 안내 */
+.satisfaction-description {
+  margin: 0;
+  font-size: 12px;
+  color: #888;
+}
+
+@media (max-width: 480px) {
+  .satisfaction-stat-item {
+    padding: 14px;
+  }
+
+  .satisfaction-stat-item strong {
+    font-size: 22px;
+  }
 }
 
 /* 모바일 */
