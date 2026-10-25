@@ -7,6 +7,7 @@ from app.models import Admin, UserChatLog
 from app.api.admin_auth import require_admin
 from datetime import datetime, timedelta
 from sqlalchemy import func
+from collections import Counter
 
 # 관리자 대시보드 전용 라우터
 router = APIRouter()
@@ -62,7 +63,7 @@ def get_failed_questions(
             UserChatLog.created_at
         )
         .filter(UserChatLog.answer_success == False)
-        .order_by(UserChatLog.id.desc())
+        .order_by(UserChatLog.created_at.desc(), UserChatLog.id.desc())
         .limit(10) # 대시보드 성능을 위해 최근 100개만 전송
         .all()
     )
@@ -142,3 +143,89 @@ def get_hourly_usage(
         "peakHour": peak_hour_text,
         "hourlyUsage": hourly_stats
     }
+
+# 문서 보완 필요 분야 API
+@router.get("/missing-document-areas")
+def get_missing_document_areas(
+    current_admin: Admin = Depends(require_admin),
+    db: Session = Depends(get_db)
+):
+    # 답변 실패 질문 조회
+    failed_logs = (
+        db.query(
+            UserChatLog.search_query,
+            UserChatLog.failure_category,
+            UserChatLog.failure_reason
+        )
+        .filter(UserChatLog.answer_success == False)
+        .all()
+    )
+
+    # 행정 분야별 키워드
+    area_keywords = {
+        "여권": ["여권", "passport"],
+        "복지": [
+            "복지", "목욕비", "기초생활",
+            "지원금", "수급자", "장애인",
+            "기초연금", "노인복지"
+        ],
+        "전입·주소": [
+            "전입", "전출", "주소",
+            "주민등록", "등본", "초본"
+        ],
+        "폐기물": [
+            "폐기물", "쓰레기", "종량제",
+            "재활용", "배출"
+        ]
+    }
+
+    # 문서 부족에 해당하는 실패 사유
+    document_keywords = [
+        "관련 문서 부족",
+        "문서 부족",
+        "문서 없음",
+        "검색 결과 부족",
+        "정보 부족",
+        "자료 부족",
+        "근거 부족",
+        "찾을 수 없",
+        "제공 문서에 없"
+    ]
+
+    area_counts = Counter()
+
+    for log in failed_logs:
+        category = (log.failure_category or "").upper()
+        reason = (log.failure_reason or "").lower()
+        question = (log.search_query or "").lower()
+
+        # 서비스 범위 밖 질문과 부적절한 질문 제외
+        if category in ("OUT_OF_DOMAIN", "INAPPROPRIATE"):
+            continue
+
+        # 문서 부족과 관련된 실패만 집계
+        is_document_failure = (
+            category == "NO_INFO"
+            or any(keyword in reason for keyword in document_keywords)
+        )
+
+        if not is_document_failure:
+            continue
+
+        # 질문 내용으로 행정 분야 분류
+        area = "기타"
+
+        for area_name, keywords in area_keywords.items():
+            if any(keyword in question for keyword in keywords):
+                area = area_name
+                break
+        area_counts[area] += 1
+
+    # 실패 건수 기준 내림차순
+    return [
+        {
+            "area": area,
+            "count": count
+        }
+        for area, count in area_counts.most_common()
+    ]
