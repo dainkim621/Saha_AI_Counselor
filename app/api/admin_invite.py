@@ -209,6 +209,8 @@ def get_admin_invite_history(
         # 초대 코드 상태 확인
         if invite.is_used:
             status = "used"
+        elif invite.is_revoked:
+            status = "revoked"
         elif expires_at <= now:
             status = "expired"
         else:
@@ -222,6 +224,7 @@ def get_admin_invite_history(
             ),
             "expires_at": expires_at,
             "is_used": invite.is_used,
+            "is_revoked": invite.is_revoked,
             "status": status
         })
 
@@ -236,6 +239,84 @@ def get_admin_invite_history(
         "available_count": available_count,
         "invites": invite_history
     }
+
+# =========================================
+# 관리자 초대 코드 취소
+# =========================================
+
+@router.patch("/invites/{invite_id}/revoke")
+def revoke_admin_invite(
+    invite_id: int,
+    current_admin: Admin = Depends(require_admin),
+    db: Session = Depends(get_db)
+):
+    # 1. 최고 관리자 권한 확인
+    if not current_admin.is_super_admin:
+        raise HTTPException(
+            status_code=403,
+            detail="최고 관리자만 초대 코드를 취소할 수 있습니다."
+        )
+
+    # 2. 취소할 초대 코드 조회
+    invite = (
+        db.query(AdminInvite)
+        .filter(AdminInvite.id == invite_id)
+        .with_for_update()
+        .first()
+    )
+
+    # 3. 초대 코드 존재 여부 확인
+    if invite is None:
+        raise HTTPException(
+            status_code=404,
+            detail="초대 코드를 찾을 수 없습니다."
+        )
+
+    # 4. 이미 사용한 코드인지 확인
+    if invite.is_used:
+        raise HTTPException(
+            status_code=409,
+            detail="이미 사용된 초대 코드는 취소할 수 없습니다."
+        )
+
+    # 5. 이미 취소된 코드인지 확인
+    if invite.is_revoked:
+        raise HTTPException(
+            status_code=409,
+            detail="이미 취소된 초대 코드입니다."
+        )
+
+    # 6. 현재 시간 확인
+    now = datetime.now(timezone.utc)
+
+    # DB에 저장된 만료 시간
+    expires_at = invite.expires_at
+
+    # 시간대 정보가 없는 경우 UTC 기준으로 처리
+    if expires_at.tzinfo is None:
+        expires_at = expires_at.replace(
+            tzinfo=timezone.utc
+        )
+
+    # 7. 만료된 코드인지 확인
+    if expires_at <= now:
+        raise HTTPException(
+            status_code=409,
+            detail="이미 만료된 초대 코드는 취소할 수 없습니다."
+        )
+
+    # 8. 초대 코드 취소 처리
+    invite.is_revoked = True
+
+    # 9. DB에 저장
+    db.commit()
+
+    return {
+        "message": "관리자 초대 코드가 취소되었습니다.",
+        "invite_id": invite.id,
+        "is_revoked": True
+    }
+
 
 
 
