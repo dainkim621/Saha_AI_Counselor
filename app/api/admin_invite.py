@@ -5,7 +5,7 @@ from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, aliased
 
 from app.database import get_db
 from app.models import Admin, AdminInvite, AdminSession
@@ -60,17 +60,41 @@ def create_admin_invite(
         "expires_at": expires_at
     }
 
-
 # 관리자 계정 목록 조회
 @router.get("/admins")
 def get_admin_list(
     current_admin: Admin = Depends(require_admin),
     db: Session = Depends(get_db)
 ):
+    # 최고 관리자만 전체 관리자 계정 목록 조회 가능
+    if not current_admin.is_super_admin:
+        raise HTTPException(
+            status_code=403,
+            detail="전체 관리자 목록 조회 권한이 없습니다."
+        )
+
+    # 초대 코드를 발급한 관리자 구분
+    Inviter = aliased(Admin)
+
     # DB에 등록된 관리자 전체 조회
+    # 초대 코드 사용 이력을 통해 초대자 이름도 함께 조회
     admins = (
-        db.query(Admin)
-        .order_by(Admin.created_at.desc(), Admin.id.desc())
+        db.query(
+            Admin,
+            Inviter.name.label("invited_by_name")
+        )
+        .outerjoin(
+            AdminInvite,
+            AdminInvite.used_by_admin_id == Admin.id
+        )
+        .outerjoin(
+            Inviter,
+            AdminInvite.created_by == Inviter.id
+        )
+        .order_by(
+            Admin.created_at.desc(),
+            Admin.id.desc()
+        )
         .all()
     )
 
@@ -81,14 +105,56 @@ def get_admin_list(
                 "id": admin.id,
                 "username": admin.username,
                 "name": admin.name,
+                "invited_by_name": (
+                    invited_by_name
+                    if invited_by_name
+                    else "초대 정보 없음"
+                ),
                 "is_active": admin.is_active,
                 "is_super_admin": admin.is_super_admin,
                 "created_at": admin.created_at,
                 "is_current": admin.id == current_admin.id,
             }
-            for admin in admins
+            for admin, invited_by_name in admins
         ]
     }
+
+# 현재 관리자가 초대한 관리자 계정 목록 조회
+@router.get("/admins/invited-by-me")
+def get_my_invited_admins(
+    current_admin: Admin = Depends(require_admin),
+    db: Session = Depends(get_db)
+):
+    # 현재 관리자가 발급한 초대 코드로 가입한 관리자만 조회
+    invited_admins = (
+        db.query(Admin)
+        .join(
+            AdminInvite,
+            AdminInvite.used_by_admin_id == Admin.id
+        )
+        .filter(
+            AdminInvite.created_by == current_admin.id,
+            AdminInvite.is_used.is_(True)
+        )
+        .order_by(
+            Admin.created_at.desc(),
+            Admin.id.desc()
+        )
+        .all()
+    )
+
+    # 본인이 초대한 관리자의 필요한 정보만 반환
+    return {
+        "admins": [
+            {
+                "name": admin.name,
+                "created_at": admin.created_at,
+                "is_active": admin.is_active,
+            }
+            for admin in invited_admins
+        ]
+    }
+
 
     
 # =========================================
@@ -178,19 +244,22 @@ def get_admin_invite_history(
     current_admin: Admin = Depends(require_admin),
     db: Session = Depends(get_db)
 ):
-    # 최고 관리자만 전체 초대 코드 이력 조회 가능
-    if not current_admin.is_super_admin:
-        raise HTTPException(
-            status_code=403,
-            detail="최고 관리자만 초대 코드 이력을 조회할 수 있습니다."
-        )
 
     # 현재 시간 (UTC)
     now = datetime.now(timezone.utc)
 
-    # 초대 코드 목록 조회 (최근 만료일 순)
+    # 초대 코드 발급 이력 조회 기본 쿼리
+    query = db.query(AdminInvite)
+
+    # 일반 관리자는 본인이 발급한 초대 코드만 조회
+    if not current_admin.is_super_admin:
+        query = query.filter(
+            AdminInvite.created_by == current_admin.id
+        )
+
+    # 최고 관리자는 전체, 일반 관리자는 본인 발급 이력 조회
     invites = (
-        db.query(AdminInvite)
+        query
         .order_by(AdminInvite.expires_at.desc())
         .all()
     )
@@ -240,6 +309,7 @@ def get_admin_invite_history(
         "invites": invite_history
     }
 
+
 # =========================================
 # 관리자 초대 코드 취소
 # =========================================
@@ -250,14 +320,7 @@ def revoke_admin_invite(
     current_admin: Admin = Depends(require_admin),
     db: Session = Depends(get_db)
 ):
-    # 1. 최고 관리자 권한 확인
-    if not current_admin.is_super_admin:
-        raise HTTPException(
-            status_code=403,
-            detail="최고 관리자만 초대 코드를 취소할 수 있습니다."
-        )
-
-    # 2. 취소할 초대 코드 조회
+    # 1. 취소할 초대 코드 조회
     invite = (
         db.query(AdminInvite)
         .filter(AdminInvite.id == invite_id)
@@ -265,11 +328,23 @@ def revoke_admin_invite(
         .first()
     )
 
-    # 3. 초대 코드 존재 여부 확인
+    # 2. 초대 코드 존재 여부 확인
     if invite is None:
         raise HTTPException(
             status_code=404,
             detail="초대 코드를 찾을 수 없습니다."
+        )
+
+    # 3. 초대 코드 취소 권한 확인
+    # 최고 관리자는 모든 초대 코드를 취소할 수 있음
+    # 일반 관리자는 본인이 발급한 초대 코드만 취소 가능
+    if (
+        not current_admin.is_super_admin
+        and invite.created_by != current_admin.id
+    ):
+        raise HTTPException(
+            status_code=403,
+            detail="본인이 발급한 초대 코드만 취소할 수 있습니다."
         )
 
     # 4. 이미 사용한 코드인지 확인
@@ -316,6 +391,7 @@ def revoke_admin_invite(
         "invite_id": invite.id,
         "is_revoked": True
     }
+
 
 
 
