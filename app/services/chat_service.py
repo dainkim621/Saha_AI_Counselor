@@ -347,30 +347,10 @@ async def ask_saha_ai_stream(user_question: str, history: List[Dict[str, str]] =
     
     for chunk in response:
         content = chunk.choices[0].delta.content
-
         if content:
-            gpt_answer_accumulator += content
-
-    # # 사용자에게 보내기 전에 개인정보 검사
-    # try:
-    #     gpt_answer_accumulator = await privacy_guard(
-    #         gpt_answer_accumulator
-    #     )
-
-    # except PrivacyBlocked:
-    #     yield json.dumps({
-    #         "type": "text",
-    #         "content": "답변을 안전하게 검사할 수 없습니다. 다시 질문해 주세요."
-    #     }, ensure_ascii=False) + " "
-
-    #     yield json.dumps({"type": "done"}) + " "
-    #     return
-
-    # 검사 완료된 답변만 전송
-    yield json.dumps({
-        "type": "text",
-        "content": gpt_answer_accumulator
-    }, ensure_ascii=False) + " "
+            # print(f"DEBUG: 스트리밍 조각 생성됨: {content}") # 스트리밍 되는지 확인용
+            gpt_answer_accumulator += content # 바가지에 물(텍스트) 모으기
+            yield json.dumps({'type': 'text', 'content': content}) + " " # 프론트로 즉시 발송
             
     #----------gpt 답변 생성 및 스트리밍 끝난 시점--------------
     #==================================================================
@@ -411,11 +391,10 @@ async def ask_saha_ai_stream(user_question: str, history: List[Dict[str, str]] =
                 f"'{refined_question}' → '{normalized_question}'"
             )
 
-        # 중복코드
         else:
             # 처음 들어온 질문만 GPT로 정규화
             normalized_question = normalize_faq_question(refined_question)
-            
+
             print(
                 f"🆕 FAQ 최초 정규화: "
                 f"'{refined_question}' → '{normalized_question}'"
@@ -423,12 +402,6 @@ async def ask_saha_ai_stream(user_question: str, history: List[Dict[str, str]] =
         
         # 기존 DB에서 가져온 결과와 새로 생성한 결과 모두 검사
         normalized_question = await privacy_guard(normalized_question)
-
-        # # 외부 GPT 품질 평가 요청 전에 답변 개인정보 재검사
-        # gpt_answer_accumulator = await privacy_guard(
-        #     gpt_answer_accumulator,
-        #     max_length=12000
-        # )
 
         #답변실패여부(answer_success), 실패이유(failure_reason) 판정
         eval_response = client.chat.completions.create(
@@ -471,7 +444,11 @@ async def ask_saha_ai_stream(user_question: str, history: List[Dict[str, str]] =
                 },
                 {
                     "role": "user",
-                    "content": f"질문: {user_question}\n\nAI 답변: {gpt_answer_accumulator}"
+                    "content": (
+                        f"사용자 원본 질문: {user_question}\n"
+                        f"대화 맥락을 반영한 검색 질문: {refined_question}\n\n"
+                        f"AI 답변: {gpt_answer_accumulator}"
+                    )
                 }
             ],
             temperature=0.0
@@ -481,23 +458,22 @@ async def ask_saha_ai_stream(user_question: str, history: List[Dict[str, str]] =
         is_success = eval_result.get("success", True)
         failure_category = eval_result.get("category", "NONE")
         failure_reason = eval_result.get("reason", "")
-        # AI 평가 결과에서 상담 제목 가져오기
-        # 현재 상담의 첫 번째 질문일 때만 프론트엔드에 전송
-        if not history:
-            chat_title = str(
-                eval_result.get("chat_title") or ""
-            ).strip().strip("\"'“”‘’")
+        # AI 평가 결과에서 현재 질문의 요약 제목 가져오기
+        # 첫 번째 질문뿐 아니라 모든 질문에 제목 전송
+        chat_title = str(
+            eval_result.get("chat_title") or ""
+        ).strip().strip("\"'“”‘’")
 
-            if not chat_title:
-                chat_title = "민원 상담"
+        if not chat_title:
+            chat_title = "민원 상담"
 
-            yield json.dumps(
-                {
-                    "type": "title",
-                    "content": chat_title
-                },
-                ensure_ascii=False
-            ) + " "
+        yield json.dumps(
+            {
+                "type": "title",
+                "content": chat_title
+            },
+            ensure_ascii=False
+        ) + " "
         print(f"📊 [AI 검수 결과] 성공 여부: {is_success} / 사유: {failure_reason}")
         
         # DB에 저장할 텍스트 최종 검사
