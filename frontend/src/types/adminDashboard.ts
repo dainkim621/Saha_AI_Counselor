@@ -77,4 +77,12 @@ export type MissingDocumentArea = {
   failedCount: number;
 };
 
+// 사용자 만족도 통계
+export type SatisfactionStat = {
+  positiveCount: number;
+  negativeCount: number;
+  totalCount: number;
+  positiveRate: number;
+};
+
 
