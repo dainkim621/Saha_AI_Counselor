@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Text, DateTime, JSON, Date, Boolean
+from sqlalchemy import Column, Integer, String, Text, DateTime, JSON, Date, Boolean, ForeignKey
 from pgvector.sqlalchemy import Vector  # 추가
 from sqlalchemy.sql import func
 from app.database import Base
@@ -259,3 +259,10 @@ class AdminInvite(Base):
         DateTime(timezone=True),
         nullable=True
     )
+    
+    # 초대 코드를 사용하여 가입한 관리자 계정 ID 저장
+    used_by_admin_id = Column(
+    Integer,
+    ForeignKey("admins.id"),
+    nullable=True
+)
