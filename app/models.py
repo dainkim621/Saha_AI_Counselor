@@ -245,6 +245,14 @@ class AdminInvite(Base):
         default=False,
         nullable=False
     )
+    
+    # 관리자에 의한 초대 코드 취소 여부
+    is_revoked = Column(
+        Boolean,
+        nullable=False,
+        default=False,
+        server_default="false"
+    )
 
     # 실제 사용된 시간
     used_at = Column(
