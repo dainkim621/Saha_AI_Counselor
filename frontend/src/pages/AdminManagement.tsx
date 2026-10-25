@@ -6,11 +6,13 @@ import "../styles/AdminManagement.css";
 
 const BACKEND_URL = "http://localhost:8000";
 
+
 /* 관리자 계정 정보 타입 */
 interface AdminAccount {
   id: number;
   username: string;
   name: string;
+  invited_by_name: string;
   is_active: boolean;
   is_super_admin: boolean;
   created_at: string;
@@ -22,6 +24,27 @@ interface AdminListResponse {
   admins: AdminAccount[];
 }
 
+
+/* 현재 로그인한 관리자 정보 타입 */
+interface CurrentAdmin {
+  id: number;
+  username: string;
+  name: string;
+  is_super_admin: boolean;
+}
+
+/* 일반 관리자가 초대한 관리자 정보 타입 */
+interface MyInvitedAdmin {
+  name: string;
+  created_at: string;
+  is_active: boolean;
+}
+
+/* 본인이 초대한 관리자 목록 API 응답 타입 */
+interface MyInvitedAdminResponse {
+  admins: MyInvitedAdmin[];
+}
+
 /* 초대 코드 발급 이력 타입 */
 interface AdminInviteHistory {
   id: number;
@@ -29,7 +52,8 @@ interface AdminInviteHistory {
   created_at: string | null;
   expires_at: string;
   is_used: boolean;
-  status: "available" | "used" | "expired";
+  is_revoked: boolean;
+  status: "available" | "used" | "expired" | "revoked";
 }
 
 /* 초대 코드 발급 이력 API 응답 타입 */
@@ -59,7 +83,6 @@ function AdminManagement() {
   // 초대 코드 발급 오류 메시지
   const [inviteError, setInviteError] = useState("");
 
-  
   // 초대 코드 발급 이력
   const [inviteHistory, setInviteHistory] = useState<
     AdminInviteHistory[]
@@ -80,6 +103,14 @@ function AdminManagement() {
   // 초대 코드 발급 후 이력 새로고침용
   const [inviteRefreshKey, setInviteRefreshKey] = useState(0);
 
+  // 현재 취소 처리 중인 초대 코드 ID
+  const [revokingInviteId, setRevokingInviteId] =
+    useState<number | null>(null);
+
+  // 초대 코드 취소 오류 메시지
+  const [revokeError, setRevokeError] = useState("");
+
+
   /* =========================================
      관리자 계정 목록 조회
   ========================================= */
@@ -87,33 +118,126 @@ function AdminManagement() {
   // 관리자 계정 목록
   const [adminList, setAdminList] = useState<AdminAccount[]>([]);
 
+  // 일반 관리자가 초대한 관리자 계정 목록
+  const [myInvitedAdmins, setMyInvitedAdmins] =
+    useState<MyInvitedAdmin[]>([]);
+
   // 목록 로딩 상태
   const [isAdminLoading, setIsAdminLoading] = useState(true);
 
   // 목록 조회 오류
   const [adminListError, setAdminListError] = useState("");
 
-  
   // 현재 상태 변경 중인 관리자 ID
-  const [updatingAdminId, setUpdatingAdminId] = useState<number | null>(null);
+  const [updatingAdminId, setUpdatingAdminId] =
+    useState<number | null>(null);
 
   // 계정 상태 변경 오류
   const [adminStatusError, setAdminStatusError] = useState("");
 
+  // 현재 로그인한 관리자 정보
+  const [currentAdmin, setCurrentAdmin] =
+    useState<CurrentAdmin | null>(null);
 
-  // 관리자 관리 페이지 진입 시 계정 목록 조회
+  // 현재 관리자 정보 조회 로딩 상태
+  const [isCurrentAdminLoading, setIsCurrentAdminLoading] =
+    useState(true);
+  
+  // 최고 관리자 권한 여부
+  const isSuperAdmin =
+    currentAdmin?.is_super_admin === true;
+
+  /* =========================================
+     현재 로그인한 관리자 정보 및 권한 확인
+  ========================================= */
+
   useEffect(() => {
     let cancelled = false;
 
-    const fetchAdminList = async () => {
+    const fetchCurrentAdmin = async () => {
       try {
         const response = await fetch(
-          `${BACKEND_URL}/admin/admins`,
+          `${BACKEND_URL}/admin/me`,
           {
             method: "GET",
             credentials: "include",
           }
         );
+
+        if (!response.ok) {
+          if (response.status === 401) {
+            throw new Error(
+              "로그인 세션이 만료되었습니다. 다시 로그인해 주세요."
+            );
+          }
+
+          throw new Error(
+            "현재 관리자 정보를 불러오지 못했습니다."
+          );
+        }
+
+        const data: CurrentAdmin = await response.json();
+
+        if (!cancelled) {
+          // 현재 로그인한 관리자 정보 저장
+          setCurrentAdmin(data);
+        }
+
+      } catch (error) {
+        if (!cancelled) {
+          console.error(
+            "현재 관리자 정보 조회 오류:",
+            error
+          );
+
+          setCurrentAdmin(null);
+        }
+      } finally {
+        if (!cancelled) {
+          setIsCurrentAdminLoading(false);
+        }
+      }
+    };
+
+    fetchCurrentAdmin();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // 관리자 관리 페이지 진입 시 계정 목록 조회
+  useEffect(() => {
+    // 현재 로그인한 관리자 정보 조회가 끝날 때까지 대기
+    if (isCurrentAdminLoading) return;
+
+    // 관리자 정보 조회에 실패한 경우
+    if (!currentAdmin) {
+      setAdminList([]);
+      setMyInvitedAdmins([]);
+      setAdminListError(
+        "현재 관리자 정보를 확인할 수 없습니다. 다시 로그인해 주세요."
+      );
+      setIsAdminLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+
+    const fetchAdminList = async () => {
+      setIsAdminLoading(true);
+      setAdminListError("");
+
+      try {
+        // 최고 관리자와 일반 관리자별 조회 API 구분
+        const endpoint = isSuperAdmin
+          ? `${BACKEND_URL}/admin/admins`
+          : `${BACKEND_URL}/admin/admins/invited-by-me`;
+
+        const response = await fetch(endpoint, {
+          method: "GET",
+          credentials: "include",
+        });
 
         if (!response.ok) {
           if (response.status === 401) {
@@ -133,12 +257,27 @@ function AdminManagement() {
           );
         }
 
-        const data: AdminListResponse =
-          await response.json();
+        if (isSuperAdmin) {
+          // 최고 관리자: 전체 관리자 계정 목록 조회
+          const data: AdminListResponse =
+            await response.json();
 
-        if (!cancelled) {
-          setAdminList(data.admins);
-          setAdminListError("");
+          if (!cancelled) {
+            setAdminList(data.admins);
+            setMyInvitedAdmins([]);
+            setAdminListError("");
+          }
+
+        } else {
+          // 일반 관리자: 본인이 초대한 관리자 계정 목록 조회
+          const data: MyInvitedAdminResponse =
+            await response.json();
+
+          if (!cancelled) {
+            setMyInvitedAdmins(data.admins);
+            setAdminList([]);
+            setAdminListError("");
+          }
         }
 
       } catch (error) {
@@ -147,6 +286,9 @@ function AdminManagement() {
             "관리자 목록 조회 오류:",
             error
           );
+
+          setAdminList([]);
+          setMyInvitedAdmins([]);
 
           setAdminListError(
             error instanceof Error
@@ -166,38 +308,35 @@ function AdminManagement() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [isCurrentAdminLoading, currentAdmin, isSuperAdmin]);
 
   // 전체 관리자 수
-  const totalAdmins = adminList.length;
+  // 최고 관리자는 전체 관리자, 일반 관리자는 본인이 초대한 관리자 기준
+  const totalAdmins = isSuperAdmin
+    ? adminList.length
+    : myInvitedAdmins.length;
 
   // 활성 관리자 수
-  const activeAdmins = adminList.filter(
-    (admin) => admin.is_active
-  ).length;
-
-  // 현재 로그인한 관리자
-  const currentAdmin = adminList.find(
-    (admin) => admin.is_current
-  );
-
-  // 최고 관리자 권한 여부
-  const isSuperAdmin =
-    currentAdmin?.is_super_admin === true;
+  // 최고 관리자는 전체 관리자, 일반 관리자는 본인이 초대한 관리자 기준
+  const activeAdmins = isSuperAdmin
+    ? adminList.filter((admin) => admin.is_active).length
+    : myInvitedAdmins.filter((admin) => admin.is_active).length;
   
   /* =========================================
      초대 코드 발급 이력 조회
-    ========================================= */
+  ========================================= */
 
   useEffect(() => {
-    // 관리자 목록 조회가 끝날 때까지 대기
-    if (isAdminLoading) return;
+    // 관리자 정보와 계정 목록 조회가 끝날 때까지 대기
+    if (isAdminLoading || isCurrentAdminLoading) return;
 
-    // 최고 관리자가 아니면 이력 조회하지 않음
-    if (!isSuperAdmin) {
+    // 현재 관리자 정보를 확인할 수 없는 경우
+    if (!currentAdmin) {
       setInviteHistory([]);
       setAvailableInviteCount(null);
-      setInviteHistoryError("");
+      setInviteHistoryError(
+        "현재 관리자 정보를 확인할 수 없습니다. 다시 로그인해 주세요."
+      );
       setIsInviteHistoryLoading(false);
       return;
     }
@@ -239,6 +378,7 @@ function AdminManagement() {
           await response.json();
 
         if (!cancelled) {
+          // 권한에 따라 백엔드에서 조회된 초대 코드 이력 저장
           setInviteHistory(data.invites);
 
           // 백엔드에서 계산한 사용 가능한 초대 코드 수 저장
@@ -251,6 +391,8 @@ function AdminManagement() {
             "초대 코드 이력 조회 오류:",
             error
           );
+
+          setInviteHistory([]);
 
           // 조회 실패 시 기존 초대 코드 개수 초기화
           setAvailableInviteCount(null);
@@ -273,7 +415,13 @@ function AdminManagement() {
     return () => {
       cancelled = true;
     };
-  }, [isAdminLoading, isSuperAdmin, inviteRefreshKey]);
+  }, [
+    isAdminLoading,
+    isCurrentAdminLoading,
+    currentAdmin,
+    inviteRefreshKey,
+  ]);
+
 
   /* =========================================
      초대 코드 발급 함수
@@ -342,10 +490,10 @@ function AdminManagement() {
     }
   };
 
-   
+
   /* =========================================
-   관리자 계정 활성화 / 비활성화
-   ========================================= */
+     관리자 계정 활성화 / 비활성화
+  ========================================= */
 
   const handleUpdateAdminStatus = async (
     adminId: number,
@@ -452,6 +600,106 @@ function AdminManagement() {
     }
   };
 
+
+  /* =========================================
+     관리자 초대 코드 취소
+  ========================================= */
+
+  const handleRevokeInvite = async (inviteId: number) => {
+    // 중복 취소 요청 방지
+    if (revokingInviteId !== null) return;
+
+    // 현재 로그인한 관리자 정보 확인
+    if (!currentAdmin) return;
+
+    // 취소할 초대 코드 확인
+    const targetInvite = inviteHistory.find(
+      (invite) => invite.id === inviteId
+    );
+
+    // 일반 관리자는 본인이 발급한 초대 코드만 취소 가능
+    if (
+      !isSuperAdmin &&
+      targetInvite?.created_by !== currentAdmin.id
+    ) {
+      return;
+    }
+
+    // 사용 가능한 초대 코드만 취소 가능
+    if (!targetInvite || targetInvite.status !== "available") {
+      return;
+    }
+
+    // 취소 여부 확인
+    const confirmed = window.confirm(
+      "선택한 관리자 초대 코드를 취소하시겠습니까?\n" +
+      "취소된 초대 코드는 더 이상 회원가입에 사용할 수 없습니다."
+    );
+
+    if (!confirmed) return;
+
+    setRevokingInviteId(inviteId);
+    setRevokeError("");
+
+    try {
+      const response = await fetch(
+        `${BACKEND_URL}/admin/invites/${inviteId}/revoke`,
+        {
+          method: "PATCH",
+          credentials: "include",
+        }
+      );
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error(
+            "로그인 세션이 만료되었습니다. 다시 로그인해 주세요."
+          );
+        }
+
+        if (response.status === 403) {
+          throw new Error(
+            "초대 코드 취소 권한이 없습니다."
+          );
+        }
+
+        if (response.status === 404) {
+          throw new Error(
+            "해당 초대 코드를 찾을 수 없습니다."
+          );
+        }
+
+        if (response.status === 409) {
+          throw new Error(
+            "이미 사용되거나 만료 또는 취소된 초대 코드입니다."
+          );
+        }
+
+        throw new Error(
+          "초대 코드 취소에 실패했습니다."
+        );
+      }
+
+      // 취소 성공 시 이력 목록과 사용 가능 개수 다시 조회
+      setInviteRefreshKey((prev) => prev + 1);
+
+    } catch (error) {
+      console.error(
+        "관리자 초대 코드 취소 오류:",
+        error
+      );
+
+      setRevokeError(
+        error instanceof Error
+          ? error.message
+          : "초대 코드 취소 중 오류가 발생했습니다."
+      );
+    } finally {
+      setRevokingInviteId(null);
+    }
+  };
+
+
   /* =========================================
      관리자 관리 페이지 UI
   ========================================= */
@@ -470,8 +718,7 @@ function AdminManagement() {
           </div>
         </div>
       </header>
-
-
+      
       {/* =====================================
           관리자 현황 요약
       ===================================== */}
@@ -480,36 +727,61 @@ function AdminManagement() {
 
         {/* 전체 관리자 */}
         <div className="admin-management-summary-card">
-          <span>전체 관리자</span>
+          <span>
+            {isSuperAdmin
+              ? "전체 관리자"
+              : "내가 초대한 관리자"}
+          </span>
 
           <strong>
-            {isAdminLoading || adminListError
+            {isCurrentAdminLoading ||
+            isAdminLoading ||
+            adminListError
               ? "—"
               : totalAdmins}
           </strong>
 
-          <p>등록된 관리자 계정</p>
+          <p>
+            {isSuperAdmin
+              ? "등록된 관리자 계정"
+              : "내 초대 코드로 가입한 관리자"}
+          </p>
         </div>
 
         {/* 활성 관리자 */}
         <div className="admin-management-summary-card">
-          <span>활성 관리자</span>
+          <span>
+            {isSuperAdmin
+              ? "활성 관리자"
+              : "내가 초대한 활성 관리자"}
+          </span>
 
           <strong>
-            {isAdminLoading || adminListError
+            {isCurrentAdminLoading ||
+            isAdminLoading ||
+            adminListError
               ? "—"
               : activeAdmins}
           </strong>
 
-          <p>현재 이용 가능한 계정</p>
+          <p>
+            {isSuperAdmin
+              ? "현재 이용 가능한 계정"
+              : "내가 초대한 관리자 중 활성 계정"}
+          </p>
         </div>
 
         {/* 미사용 초대 코드 */}
         <div className="admin-management-summary-card">
-          <span>미사용 초대 코드</span>
+          <span>
+            {isSuperAdmin
+              ? "미사용 초대 코드"
+              : "내 미사용 초대 코드"}
+          </span>
 
           <strong>
-            {!isSuperAdmin ||
+            {isCurrentAdminLoading ||
+            !currentAdmin ||
             isInviteHistoryLoading ||
             inviteHistoryError ||
             availableInviteCount === null
@@ -517,11 +789,14 @@ function AdminManagement() {
               : availableInviteCount}
           </strong>
 
-          <p>사용 가능한 초대 코드</p>
+          <p>
+            {isSuperAdmin
+              ? "전체 사용 가능한 초대 코드"
+              : "내가 발급한 사용 가능한 초대 코드"}
+          </p>
         </div>
 
       </section>
-
 
       {/* =====================================
           관리자 계정 목록
@@ -531,9 +806,16 @@ function AdminManagement() {
 
         <div className="admin-management-card-header">
           <div>
-            <h2>관리자 계정 목록</h2>
+            <h2>
+              {isSuperAdmin
+                ? "관리자 계정 목록"
+                : "내가 초대한 관리자"}
+            </h2>
+
             <p>
-              등록된 관리자 계정과 상태를 확인합니다.
+              {isSuperAdmin
+                ? "등록된 전체 관리자 계정과 초대자 및 상태를 확인합니다."
+                : "본인이 발급한 초대 코드로 가입한 관리자와 계정 상태를 확인합니다."}
             </p>
           </div>
         </div>
@@ -544,20 +826,32 @@ function AdminManagement() {
             <thead>
               <tr>
                 <th>이름</th>
-                <th>아이디</th>
+
+                {/* 최고 관리자만 아이디와 초대자 확인 가능 */}
+                {isSuperAdmin && (
+                  <>
+                    <th>아이디</th>
+                    <th>초대자</th>
+                  </>
+                )}
+
                 <th>가입일</th>
                 <th>상태</th>
-                <th>관리</th>
+
+                {/* 최고 관리자만 계정 관리 가능 */}
+                {isSuperAdmin && (
+                  <th>관리</th>
+                )}
               </tr>
             </thead>
 
             <tbody>
-              {isAdminLoading ? (
+              {isCurrentAdminLoading || isAdminLoading ? (
 
                 /* 관리자 목록 로딩 */
                 <tr>
                   <td
-                    colSpan={5}
+                    colSpan={isSuperAdmin ? 6 : 3}
                     className="admin-management-empty"
                   >
                     관리자 계정 목록을 불러오는 중입니다.
@@ -569,7 +863,7 @@ function AdminManagement() {
                 /* 관리자 목록 조회 오류 */
                 <tr>
                   <td
-                    colSpan={5}
+                    colSpan={isSuperAdmin ? 6 : 3}
                     className="admin-management-empty"
                     role="alert"
                   >
@@ -577,122 +871,187 @@ function AdminManagement() {
                   </td>
                 </tr>
 
-              ) : adminList.length === 0 ? (
+              ) : isSuperAdmin ? (
 
-                /* 관리자 계정이 없는 경우 */
-                <tr>
-                  <td
-                    colSpan={5}
-                    className="admin-management-empty"
-                  >
-                    등록된 관리자 계정이 없습니다.
-                  </td>
-                </tr>
+                /* 최고 관리자: 전체 관리자 계정 목록 */
+                adminList.length === 0 ? (
+                  <tr>
+                    <td
+                      colSpan={6}
+                      className="admin-management-empty"
+                    >
+                      등록된 관리자 계정이 없습니다.
+                    </td>
+                  </tr>
+                ) : (
+                  adminList.map((admin) => (
+                    <tr key={admin.id}>
+
+                      {/* 관리자 이름 */}
+                      <td>
+                        {admin.name}
+
+                        {/* 현재 로그인한 관리자 */}
+                        {admin.is_current && (
+                          <span className="admin-management-current">
+                            본인
+                          </span>
+                        )}
+                      </td>
+
+                      {/* 관리자 아이디 */}
+                      <td>
+                        {admin.username}
+                      </td>
+
+                      {/* 초대 코드를 발급한 관리자 */}
+                      <td>
+                        {admin.invited_by_name ||
+                          "초대 정보 없음"}
+                      </td>
+
+                      {/* 관리자 가입일 */}
+                      <td>
+                        {admin.created_at
+                          ? new Date(
+                              admin.created_at
+                            ).toLocaleDateString(
+                              "ko-KR",
+                              {
+                                timeZone: "Asia/Seoul",
+                              }
+                            )
+                          : "-"}
+                      </td>
+
+                      {/* 관리자 계정 상태 */}
+                      <td>
+                        <span
+                          className={`admin-management-status ${
+                            admin.is_active
+                              ? "active"
+                              : "inactive"
+                          }`}
+                        >
+                          {admin.is_active
+                            ? "활성"
+                            : "비활성"}
+                        </span>
+                      </td>
+
+                      {/* 관리자 계정 관리 기능 */}
+                      <td>
+                        {admin.is_current ||
+                        admin.is_super_admin ? (
+
+                          // 본인 또는 최고 관리자 계정 보호
+                          <span className="admin-management-pending">
+                            변경 불가
+                          </span>
+
+                        ) : (
+
+                          // 최고 관리자가 일반 관리자 계정 관리
+                          <button
+                            type="button"
+                            className={`admin-management-status-button ${
+                              admin.is_active
+                                ? "deactivate"
+                                : "activate"
+                            }`}
+                            onClick={() =>
+                              handleUpdateAdminStatus(
+                                admin.id,
+                                !admin.is_active
+                              )
+                            }
+                            disabled={updatingAdminId !== null}
+                          >
+                            {updatingAdminId === admin.id
+                              ? "처리 중..."
+                              : admin.is_active
+                                ? "비활성화"
+                                : "활성화"}
+                          </button>
+
+                        )}
+                      </td>
+
+                    </tr>
+                  ))
+                )
 
               ) : (
 
-                /* 실제 관리자 계정 목록 */
-                adminList.map((admin) => (
-                  <tr key={admin.id}>
-
-                    {/* 관리자 이름 */}
-                    <td>
-                      {admin.name}
-
-                      {/* 현재 로그인한 관리자 */}
-                      {admin.is_current && (
-                        <span className="admin-management-current">
-                          본인
-                        </span>
-                      )}
+                /* 일반 관리자: 본인이 초대한 관리자 계정 목록 */
+                myInvitedAdmins.length === 0 ? (
+                  <tr>
+                    <td
+                      colSpan={3}
+                      className="admin-management-empty"
+                    >
+                      본인이 초대한 관리자 계정이 없습니다.
                     </td>
-
-                    {/* 관리자 아이디 */}
-                    <td>
-                      {admin.username}
-                    </td>
-
-                    {/* 관리자 가입일 */}
-                    <td>
-                      {admin.created_at
-                        ? new Date(
-                            admin.created_at
-                          ).toLocaleDateString(
-                            "ko-KR",
-                            {
-                              timeZone: "Asia/Seoul",
-                            }
-                          )
-                        : "-"}
-                    </td>
-
-                    {/* 관리자 계정 상태 */}
-                    <td>
-                      <span
-                        className={`admin-management-status ${
-                          admin.is_active
-                            ? "active"
-                            : "inactive"
-                        }`}
-                      >
-                        {admin.is_active
-                          ? "활성"
-                          : "비활성"}
-                      </span>
-                    </td>
-                    
-                    {/* 관리자 계정 관리 기능 */}
-                    <td>
-                    {!isSuperAdmin ? (
-                        // 일반 관리자는 계정 상태를 변경할 수 없음
-                        <span className="admin-management-pending">
-                        권한 없음
-                        </span>
-                    ) : admin.is_current || admin.is_super_admin ? (
-                        // 본인 또는 최고 관리자 계정 보호
-                        <span className="admin-management-pending">
-                        변경 불가
-                        </span>
-                    ) : (
-                        // 최고 관리자가 일반 관리자 계정 관리
-                        <button
-                        type="button"
-                        className={`admin-management-status-button ${
-                            admin.is_active ? "deactivate" : "activate"
-                        }`}
-                        onClick={() =>
-                            handleUpdateAdminStatus(
-                            admin.id,
-                            !admin.is_active
-                            )
-                        }
-                        disabled={updatingAdminId !== null}
-                        >
-                        {updatingAdminId === admin.id
-                            ? "처리 중..."
-                            : admin.is_active
-                            ? "비활성화"
-                            : "활성화"}
-                        </button>
-                    )}
-                    </td>
-
                   </tr>
-                ))
+                ) : (
+                  myInvitedAdmins.map((admin, index) => (
+                    <tr
+                      key={`${admin.name}-${admin.created_at}-${index}`}
+                    >
+
+                      {/* 관리자 이름 */}
+                      <td>
+                        {admin.name}
+                      </td>
+
+                      {/* 관리자 가입일 */}
+                      <td>
+                        {admin.created_at
+                          ? new Date(
+                              admin.created_at
+                            ).toLocaleDateString(
+                              "ko-KR",
+                              {
+                                timeZone: "Asia/Seoul",
+                              }
+                            )
+                          : "-"}
+                      </td>
+
+                      {/* 관리자 계정 상태 */}
+                      <td>
+                        <span
+                          className={`admin-management-status ${
+                            admin.is_active
+                              ? "active"
+                              : "inactive"
+                          }`}
+                        >
+                          {admin.is_active
+                            ? "활성"
+                            : "비활성"}
+                        </span>
+                      </td>
+
+                    </tr>
+                  ))
+                )
 
               )}
             </tbody>
 
           </table>
         </div>
-        {adminStatusError && (
+
+        {/* 계정 상태 변경 오류 */}
+        {isSuperAdmin && adminStatusError && (
           <p
-              className="admin-management-invite-error"
-              role="alert"
+            className="admin-management-invite-error"
+            role="alert"
           >
-              {adminStatusError}
+            {adminStatusError}
           </p>
-          )}
+        )}
 
       </section>
 
@@ -831,8 +1190,9 @@ function AdminManagement() {
           <div>
             <h2>초대 코드 발급 이력</h2>
             <p>
-              초대 코드의 발급일, 만료일 및
-              사용 여부를 확인합니다.
+              {isSuperAdmin
+                ? "전체 초대 코드의 발급일, 만료일 및 사용·취소 상태를 확인합니다."
+                : "본인이 발급한 초대 코드의 발급일, 만료일 및 사용·취소 상태를 확인합니다."}
             </p>
           </div>
         </div>
@@ -848,89 +1208,138 @@ function AdminManagement() {
                 <th>관리</th>
               </tr>
             </thead>
-            
+
             <tbody>
-            {isAdminLoading || isInviteHistoryLoading ? (
+              {isAdminLoading || isInviteHistoryLoading ? (
+
                 <tr>
-                <td colSpan={4} className="admin-management-empty">
+                  <td
+                    colSpan={4}
+                    className="admin-management-empty"
+                  >
                     초대 코드 발급 이력을 불러오는 중입니다.
-                </td>
+                  </td>
                 </tr>
-            ) : !isSuperAdmin ? (
+
+              ) : inviteHistoryError ? (
+
                 <tr>
-                <td colSpan={4} className="admin-management-empty">
-                    초대 코드 발급 이력은 최고 관리자만
-                    조회할 수 있습니다.
-                </td>
-                </tr>
-            ) : inviteHistoryError ? (
-                <tr>
-                <td
+                  <td
                     colSpan={4}
                     className="admin-management-empty"
                     role="alert"
-                >
+                  >
                     {inviteHistoryError}
-                </td>
+                  </td>
                 </tr>
-            ) : inviteHistory.length === 0 ? (
+
+              ) : inviteHistory.length === 0 ? (
+
                 <tr>
-                <td colSpan={4} className="admin-management-empty">
+                  <td
+                    colSpan={4}
+                    className="admin-management-empty"
+                  >
                     발급된 초대 코드가 없습니다.
-                </td>
+                  </td>
                 </tr>
-            ) : (
+
+              ) : (
+
                 inviteHistory.map((invite) => (
-                <tr key={invite.id}>
+                  <tr key={invite.id}>
 
                     {/* 발급일 */}
                     <td>
-                    {invite.created_at
-                        ? new Date(invite.created_at).toLocaleString(
+                      {invite.created_at
+                        ? new Date(
+                            invite.created_at
+                          ).toLocaleString(
                             "ko-KR",
-                            { timeZone: "Asia/Seoul" }
-                        )
+                            {
+                              timeZone: "Asia/Seoul",
+                            }
+                          )
                         : "-"}
                     </td>
 
                     {/* 만료일 */}
                     <td>
-                    {new Date(invite.expires_at).toLocaleString(
+                      {new Date(
+                        invite.expires_at
+                      ).toLocaleString(
                         "ko-KR",
-                        { timeZone: "Asia/Seoul" }
-                    )}
+                        {
+                          timeZone: "Asia/Seoul",
+                        }
+                      )}
                     </td>
 
                     {/* 초대 코드 상태 */}
                     <td>
-                    <span
-                        className={`admin-management-invite-status ${invite.status}`}
-                    >
+                      <span
+                        className={`admin-management-invite-status ${
+                          invite.status
+                        }`}
+                      >
                         {invite.status === "available"
-                        ? "사용 가능"
-                        : invite.status === "used"
+                          ? "사용 가능"
+                          : invite.status === "used"
                             ? "사용 완료"
-                            : "만료"}
-                    </span>
+                            : invite.status === "revoked"
+                              ? "취소됨"
+                              : "만료"}
+                      </span>
                     </td>
 
                     {/* 초대 코드 관리 기능 */}
                     <td>
-                    <span className="admin-management-pending">
-                        {invite.status === "available"
-                        ? "취소 기능 준비 중"
-                        : "—"}
-                    </span>
+                      {invite.status === "available" &&
+                      (isSuperAdmin ||
+                        invite.created_by === currentAdmin?.id) ? (
+                        <button
+                          type="button"
+                          className="admin-management-revoke-button"
+                          onClick={() =>
+                            handleRevokeInvite(invite.id)
+                          }
+                          disabled={
+                            revokingInviteId !== null ||
+                            isInviteHistoryLoading
+                          }
+                        >
+                          {revokingInviteId === invite.id
+                            ? "취소 중..."
+                            : "취소"}
+                        </button>
+
+                      ) : (
+
+                        <span className="admin-management-pending">
+                          —
+                        </span>
+
+                      )}
                     </td>
 
-                </tr>
+                  </tr>
                 ))
-            )}
-            </tbody>
 
+              )}
+            </tbody>
 
           </table>
         </div>
+
+        {/* 초대 코드 취소 오류 (새로 추가) */}
+        {revokeError && (
+          <p
+            className="admin-management-invite-error"
+            role="alert"
+          >
+            {revokeError}
+          </p>
+        )}
 
       </section>
 
