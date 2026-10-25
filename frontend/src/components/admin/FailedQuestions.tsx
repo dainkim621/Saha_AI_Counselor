@@ -8,7 +8,7 @@ type FailedQuestionsProps = {
 const getCategoryLabel = (category?: string) => {
   switch (category) {
     case "NO_INFO":
-      return "[정보 없음]";
+      return "[정보 없음] "
     case "OUT_OF_DOMAIN":
       return "[관련 없음]";
     case "INAPPROPRIATE":
