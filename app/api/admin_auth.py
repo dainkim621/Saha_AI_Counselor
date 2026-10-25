@@ -82,6 +82,14 @@ def admin_signup(
             detail="관리자 초대 코드가 올바르지 않습니다."
         )
 
+    
+    # 관리자가 취소한 초대 코드인지 확인
+    if admin_invite.is_revoked:
+        raise HTTPException(
+            status_code=403,
+            detail="취소된 초대 코드입니다."
+        )
+
     # 이미 사용된 초대 코드인지 확인
     if admin_invite.is_used:
         raise HTTPException(
