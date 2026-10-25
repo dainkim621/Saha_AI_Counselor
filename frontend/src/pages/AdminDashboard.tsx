@@ -7,12 +7,14 @@ import FailedQuestions from "../components/admin/FailedQuestions";
 import HourlyUsage from "../components/admin/HourlyUsage";
 import PopularQuestions from "../components/admin/PopularQuestions";
 import MissingDocumentAreas from "../components/admin/MissingDocumentAreas";
+import SatisfactionStats from "../components/admin/SatisfactionStats";
 
 import type {
   HourlyUsageStat,
   PopularQuestion,
   FailedQuestion,
   MissingDocumentArea,
+  SatisfactionStat,
 } from "../types/adminDashboard";
 
 const BACKEND_URL = "http://localhost:8000";
@@ -31,6 +33,10 @@ function AdminDashboard() {
   // 답변 실패 질문 실제 데이터
   const [failedQuestionsData, setFailedQuestionsData] =
   useState<FailedQuestion[]>([]);
+
+  // 사용자 만족도 현황
+  const [satisfactionData, setSatisfactionData] =
+    useState<SatisfactionStat | null>(null);
 
   // 문서 보완 필요 분야 실제 데이터
   const [missingDocumentAreasData, setMissingDocumentAreasData] =
@@ -110,6 +116,36 @@ function AdminDashboard() {
     };
 
     fetchFailedQuestions();
+  }, []);
+
+  // 사용자 만족도 통계 조회
+  useEffect(() => {
+    const fetchSatisfactionStats = async () => {
+      try {
+        const response = await fetch(
+          `${BACKEND_URL}/admin/dashboard/satisfaction`,
+          {
+            credentials: "include",
+          }
+        );
+
+        if (!response.ok) {
+          throw new Error("만족도 통계 조회 실패");
+        }
+
+        const data: SatisfactionStat = await response.json();
+
+        setSatisfactionData(data);
+
+      } catch (error) {
+        console.error(
+          "만족도 통계 조회 오류:",
+          error
+        );
+      }
+    };
+
+    fetchSatisfactionStats();
   }, []);
 
   // 문서 보완 필요 분야 조회
@@ -260,6 +296,10 @@ function AdminDashboard() {
 
         <FailedQuestions
           questions={failedQuestionsData}
+        />
+
+        <SatisfactionStats
+          stats={satisfactionData}
         />
 
         <HourlyUsage
