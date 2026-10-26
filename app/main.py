@@ -18,6 +18,7 @@ from typing import Optional
 from datetime import datetime, timedelta
 from sqlalchemy import func
 from fastapi.responses import FileResponse
+import re
 
 SERVER_URL = 'https://snack-sanded-passover.ngrok-free.dev';
 
@@ -115,10 +116,12 @@ def read_notice(notice_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="공지사항을 찾을 수 없습니다.")
     return notice
 
+
 # 자주 묻는 질문 Top 5
 @app.get("/frequent-questions", tags=["FAQ"])
 def get_frequent_questions(db: Session = Depends(get_db)):
 
+    # 1. DB에 저장된 질문별 빈도 조회
     results = (
         db.query(
             UserChatLog.normalized_query,
@@ -126,18 +129,64 @@ def get_frequent_questions(db: Session = Depends(get_db)):
         )
         .filter(UserChatLog.normalized_query.isnot(None))
         .group_by(UserChatLog.normalized_query)
-        .order_by(func.count(UserChatLog.id).desc())
-        .limit(5)
         .all()
     )
 
+    grouped_questions = {}
+
+    for row in results:
+        question = row.normalized_query
+        count = int(row.question_count)
+
+        # 2. 앞뒤 불필요한 따옴표 및 공백 제거
+        question = re.sub(
+            r"""^[\s'"“”‘’]+|[\s'"“”‘’]+$""",
+            "",
+            question
+        )
+
+        # 연속된 공백을 하나로 정리
+        question = re.sub(r"\s+", " ", question).strip()
+
+        if not question:
+            continue
+
+        # 3. 띄어쓰기와 대소문자 차이 무시
+        comparison_key = re.sub(
+            r"\s+", "", question
+        ).casefold()
+
+        # 4. 동일 질문의 횟수 합산
+        if comparison_key not in grouped_questions:
+            grouped_questions[comparison_key] = {
+                "question": question,
+                "count": count,
+                "representative_count": count
+            }
+        else:
+            item = grouped_questions[comparison_key]
+            item["count"] += count
+
+            # 가장 많이 사용된 표현을 대표 질문으로 선택
+            if count > item["representative_count"]:
+                item["question"] = question
+                item["representative_count"] = count
+
+    # 5. 중복 통합 후 빈도순 정렬
+    sorted_questions = sorted(
+        grouped_questions.values(),
+        key=lambda item: (-item["count"], item["question"])
+    )
+
+    # 6. 서로 다른 질문 상위 5개 반환
     return [
         {
-            "question": row.normalized_query,
-            "count": row.question_count
+            "question": item["question"],
+            "count": item["count"]
         }
-        for row in results
+        for item in sorted_questions[:5]
     ]
+
 from sqlalchemy import desc
 
 @app.get("/notices/search", tags=["Notices"])
