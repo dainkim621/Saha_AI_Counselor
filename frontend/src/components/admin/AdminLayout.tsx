@@ -20,7 +20,7 @@ function AdminLayout() {
   const handleLogout = async () => {
     try {
       const response = await fetch(
-        "http://localhost:8000/admin/logout",
+        "/admin/logout",
         {
           method: "POST",
           credentials: "include",

@@ -72,9 +72,13 @@ async def ask_saha_ai_stream(user_question: str, history: List[Dict[str, str]] =
             if chat["role"] not in ("user", "assistant"):
                 raise PrivacyBlocked("잘못된 대화 이력")
 
-            safe_content = await privacy_guard(
-                chat["content"]
-            )
+            try:
+                safe_content = await privacy_guard(chat["content"])
+
+            except PrivacyBlocked:
+                # 개인정보가 포함되었거나 안전하게 검사할 수 없는
+                # 이전 대화는 GPT에 전달하지 않음
+                continue
 
             safe_history.append({
                 "role": chat["role"],

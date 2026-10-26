@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import "../styles/AdminDashboard.css";
 import "../styles/AdminManagement.css";
 
-const BACKEND_URL = "http://localhost:8000";
+const BACKEND_URL = "";
 
 
 /* 관리자 계정 정보 타입 */

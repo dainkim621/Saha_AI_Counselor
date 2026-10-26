@@ -43,7 +43,7 @@ def reciprocal_rank_fusion(vector_results, keyword_results, k=60):
     sorted_docs = sorted(rrf_score.values(), key=lambda x: x["score"], reverse=True)
     return [item["doc"] for item in sorted_docs]
 
-async def get_similar_chunks(query: str, top_k: int = 3): # k값을 조금 늘려주면 더 정확해짐. but 토큰이 늘어나서 비용이 증가할 수 있음.
+async def get_similar_chunks(query: str, top_k: int = 5): # k값을 조금 늘려주면 더 정확해짐. but 토큰이 늘어나서 비용이 증가할 수 있음.
     db: Session = SessionLocal()
     # 외부 임베딩 API 호출 전에 개인정보 재검사
     query = await privacy_guard(query)
@@ -98,9 +98,8 @@ async def get_similar_chunks(query: str, top_k: int = 3): # k값을 조금 늘�
             doc.score = int(round(adjusted_sim, 1))
         else: # 혹시라도 벡터 값이 없는 문서라면 안정적으로 기본값 넣음
             doc.score = 0.0
-        final_output = [doc for doc in final_output if doc.score >= 10.0]
-        
-        final_output.append(doc)
+        if doc.score >= 10.0:
+            final_output.append(doc)
     
     print(f"🔍 [하이브리드 검색 완료] 최종 합산된 문서 수: {len(final_output)}개----------------------------------------")
     if final_output:
