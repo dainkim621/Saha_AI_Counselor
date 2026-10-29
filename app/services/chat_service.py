@@ -478,6 +478,15 @@ async def ask_saha_ai_stream(user_question: str, history: List[Dict[str, str]] =
             },
             ensure_ascii=False
         ) + " "
+
+        # 답변 생성 및 answer_success 판별 완료 후
+        if answer_success is False:
+            final_confidence_score = 0.0
+
+        yield json.dumps({
+            "type": "score",
+            "content": float(final_confidence_score)
+        }) + " "
         print(f"📊 [AI 검수 결과] 성공 여부: {is_success} / 사유: {failure_reason}")
         
         # DB에 저장할 텍스트 최종 검사
