@@ -7,91 +7,78 @@ from .handler import check_merge_condition, build_merged_chunk_text
 
 # 전역 중복 차단기는 함수 외부(모듈 최상위)에 선언해 두어야 
 # 모든 문서를 돌면서 웹사이트 전역 중복을 거를 수 있음.
-seen_texts = set()
+# seen_texts = set()                                           #잠깐 주석 
 def process_general_docs(doc):
     """
-    1. 일반 웹페이지 정밀 처리 함수 (마스터 파이프라인 연동 버전)
-    - 이제 file_path 대신 마스터가 읽어준 단일 doc(딕셔너리)을 인자로 받습니다.
-    - chunks.append 대신, 이 문서 안에서 정제된 순수 데이터 리스트를 return 합니다.
-    """
-    # 직원 업무 정보는 sections가 아닌 text를 사용하므로 별도 처리
-    if doc.get("page_type") == "staff":
-        staff_text = (doc.get("text") or "").strip()
+    일반안내 문서의 원본 정보 보존 전처리.
 
-        if not staff_text:
+    - 모든 비어 있지 않은 sections 보존
+    - full_text_backup 보존
+    - 표 데이터 보존
+    - 짧은 텍스트 보존
+    - 문서 간 중복 제거하지 않음
+    - 원본 텍스트를 임의로 삭제하거나 치환하지 않음
+    """
+
+    title = doc.get("title") or "정보 안내"
+    page_type = doc.get("page_type") or "contents"
+
+    # 직원 업무 안내는 별도 text 필드 사용
+    if page_type == "staff":
+        staff_text = doc.get("text") or ""
+
+        if not staff_text.strip():
             return []
 
         return [{
-            "title": doc.get("title", "직원업무안내"),
+            "title": title,
             "page_type": "staff",
             "text": staff_text,
-            "author": doc.get("department") or doc.get("author", "담당부서 미지정"),
+            "author": doc.get("department") or doc.get("author")
         }]
-    refined_sections = []  # 이 문서 안에서 살아남은 데이터 담을 임시 상자
-    
-    doc_id = doc.get("doc_id")
-    title = doc.get("title", "정보 안내")
-    url = doc.get("url")
-    
-    # 1. 바로 가기 링크 맵 구성
-    link_map = {}
-    for link in doc.get("shortcut_links", []):
-        link_text = link.get("text", "").strip()
-        link_url = link.get("url", "").strip()
-        if link_text and link_url:
-            link_map[link_text] = link_url
 
-    # 2. 한 페이지 안에 들어있는 여러 section을 하나씩 검사
-    for sec in doc.get("sections", []):
-        heading_path = sec.get("heading_path", [])
-        block_type = sec.get("block_type", "")
-        sec_text = sec.get("text", "").strip()
-        
-        # 기본 예외 처리 및 만족도 조사 박스 제거
-        if block_type == "full_text_backup" or len(sec_text) < 15 or "research_box" in sec_text:
-            continue
-        
-        # 접근성용 중복 표 데이터 제거 (| 기호 3개 이상)
-        if sec_text.count("|") >= 3:
-            continue
-        
-        # 공백 제거 후 전역 중복 검사
-        norm_text = "".join(sec_text.split())
-        
-        if norm_text in seen_texts:
-            continue
-        
-        # 부분 중복 및 포섭 관계 검사
-        is_duplicate = False
-        for existing_norm in seen_texts:
-            if norm_text in existing_norm:
-                is_duplicate = True
-                break
-            
-        if is_duplicate:
-            continue
-        
-        # 중복 검사 통과 시 차단기에 등록
-        seen_texts.add(norm_text)
-        
-        # 마크다운 링크 치환
-        for text_key, url_val in link_map.items():
-            if text_key in sec_text and f"({url_val})" not in sec_text:
-                sec_text = sec_text.replace(text_key, f"[{text_key}]({url_val})")
+    refined_sections = []
+    sections = doc.get("sections") or []
 
-        # 마크다운 제목 구성
-        sub_title = " > ".join(heading_path) if heading_path else title
-        refined_text = f"# {sub_title}\n\n{sec_text}"
-        
-        # 마스터 파이프라인이 처리할 수 있도록 필요한 딕셔너리만 만들어 담기
+    # 원본 sections를 순서대로 보존
+    for sec in sections:
+        sec_text = sec.get("text") or ""
+
+        if not sec_text.strip():
+            continue
+
+        block_type = sec.get("block_type") or ""
+        heading_path = sec.get("heading_path") or []
+
+        # 백업과 상세 섹션을 모두 보존
+        if block_type == "full_text_backup":
+            sub_title = title
+        else:
+            sub_title = (
+                " > ".join(str(h) for h in heading_path)
+                if heading_path else title
+            )
+
         refined_sections.append({
             "title": sub_title,
             "page_type": "일반안내(contents)",
-            "text": refined_text
+            "text": f"# {sub_title}\n\n{sec_text}"
         })
-        
-    return refined_sections  # 정제된 리스트를 마스터에게 반환
 
+    # sections가 없을 때 최상위 text 사용
+    if not refined_sections:
+        raw_text = doc.get("text") or ""
+
+        if raw_text.strip():
+            refined_sections.append({
+                "title": title,
+                "page_type": "일반안내(contents)",
+                "text": f"# {title}\n\n{raw_text}"
+            })
+
+    return refined_sections
+
+    
 def process_civil_forms(form):
     """2. 민원안내 서식 (saha_civil_forms.jsonl) 처리 함수
     - 민원안내 데이터는 본문 내용이 길고 상세한 경우가 많아서, 청크 단위를 '민원 하나'로 잡아서 최대한 원문을 보존하는 방향으로 전처리 합니다."""

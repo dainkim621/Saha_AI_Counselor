@@ -23,7 +23,7 @@ def calculate_cosine_similarity(v1, v2):
         return 0.0
     return dot_product / (norm_a * norm_b)
 
-def reciprocal_rank_fusion(vector_results, keyword_results, k=60):
+def reciprocal_rank_fusion(vector_results, keyword_results, k=10):
     """벡터 검색 순위와 키워드 검색 순위를 합산(RRF)하는 함수"""
     rrf_score = {}
 
@@ -43,7 +43,7 @@ def reciprocal_rank_fusion(vector_results, keyword_results, k=60):
     sorted_docs = sorted(rrf_score.values(), key=lambda x: x["score"], reverse=True)
     return [item["doc"] for item in sorted_docs]
 
-async def get_similar_chunks(query: str, top_k: int = 5): # k값을 조금 늘려주면 더 정확해짐. but 토큰이 늘어나서 비용이 증가할 수 있음.
+async def get_similar_chunks(query: str, top_k: int = 10): # k값을 조금 늘려주면 더 정확해짐. but 토큰이 늘어나서 비용이 증가할 수 있음.
     db: Session = SessionLocal()
     # 외부 임베딩 API 호출 전에 개인정보 재검사
     query = await privacy_guard(query)
@@ -108,6 +108,15 @@ async def get_similar_chunks(query: str, top_k: int = 5): # k값을 조금 늘�
         print("DEBUG: ❌ 검색 결과가 없습니다!")
 
     db.close()
+
+    for i, doc in enumerate(final_output, start=1):
+        print(f"\n[검색 결과 {i}]")
+        print(f"제목: {doc.title}")
+        print(f"URL: {doc.url}")
+        print(f"유사도: {doc.score}%")
+        print(f"본문: {doc.chunk_text[:500]}")
+
+
     return final_output, query_embedding
 
 def search_notices(query_embedding, db):

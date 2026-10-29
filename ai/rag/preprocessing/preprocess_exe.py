@@ -7,10 +7,36 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter  # 청크 �
 from .domains import process_general_docs, process_civil_forms, process_bid_notices, process_waste_guides, process_passport_forms
 from .review import generate_html_dashboard
 
+'''
 text_splitter = RecursiveCharacterTextSplitter(
     chunk_size=1200, 
     chunk_overlap=50 
 )
+'''
+def split_text_without_loss(text, chunk_size=1200, chunk_overlap=50):
+    """
+    원본 문자를 삭제하지 않고 분할.
+    인접 청크 사이에 50자 중복 유지.
+    """
+    if not text:
+        return []
+
+    if not 0 <= chunk_overlap < chunk_size:
+        raise ValueError("chunk_overlap은 chunk_size보다 작아야 합니다.")
+
+    chunks = []
+    step = chunk_size - chunk_overlap
+
+    for start in range(0, len(text), step):
+        chunk = text[start:start + chunk_size]
+
+        if chunk:
+            chunks.append(chunk)
+
+        if start + chunk_size >= len(text):
+            break
+
+    return chunks
 
 # ========================================================================
 # [1] 전역 경로 설정 (실제 파일 위치에 맞게 세팅)
@@ -66,12 +92,19 @@ def create_chunk_object(doc_id, chunk_index, **kwargs):
     Notice DB 스키마 구조와 1:1 매핑되는 통합 청크 객체 생성 함수.
     전처리 함수가 리턴한 딕셔너리 데이터(**kwargs)를 풀어서 자동으로 조립합니다.
     """
-    # 1. 텍스트 본문 추출 및 안전장치
-    text_content = kwargs.get("text", "")
-    if not text_content and "chunk_text" in kwargs:
+    # 1. 텍스트 본문 추출 및 원본 보존
+    text_content = kwargs.get("text")
+
+    if text_content is None:
         text_content = kwargs.get("chunk_text", "")
-        
-    text_content = text_content.strip() if text_content else ""
+
+    if text_content is None:
+        text_content = ""
+
+    if not isinstance(text_content, str):
+        text_content = str(text_content)
+
+    # 원본 보존을 위해 strip()을 사용하지 않음
 
     # 2. 내용 변경 감지용 MD5 해시값 생성 (주석 해제 대비 자동 생성)
     text_hash = hashlib.md5(text_content.encode("utf-8")).hexdigest() if text_content else None
@@ -110,86 +143,166 @@ def create_chunk_object(doc_id, chunk_index, **kwargs):
     
     return chunk
 
+
 def run_preprocessing_pipeline(file_paths_dict):
     """
-    모든 JSONL 파일 경로들을 받아서 안전하게 파일을 열고, 
-    알맹이 데이터를 추출해 전처리 함수로 넘겨주는 마스터 파이프라인 (청킹 로직 포함)
+    전체 JSONL 데이터를 도메인별로 전처리하고 청킹하는 함수.
+
+    개선 사항:
+    1. 기존 5개 도메인 전처리 유지
+    2. 원본 텍스트를 임의로 strip()하여 삭제하지 않음
+    3. 문자 단위 청킹으로 텍스트 손실 방지
+    4. 청킹 후 원본 복원 검증
+    5. 문서별 chunk_index 순차 생성
     """
+
     final_db_ready_chunks = []
-    
+
+    # 동일 doc_id가 다른 크롤러에서 등장해도
+    # chunk_index가 이어지도록 관리
+    doc_chunk_counters = {}
+
+    processors = {
+        "general": process_general_docs,
+        "civil": process_civil_forms,
+        "bid": process_bid_notices,
+        "waste": process_waste_guides,
+        "passport": process_passport_forms
+    }
+
     for page_type, file_path in file_paths_dict.items():
+
         if not os.path.exists(file_path):
-            print(f"⚠️ 경고: {file_path} 파일이 존재하지 않아 건너뜁니다.")
-            continue 
-            
+            print(f"⚠️ 파일 없음: {file_path}")
+            continue
+
+        print(f"\n📂 전처리 시작: {file_path}")
+
+        processed_docs = 0
+        generated_chunks = 0
+
         with open(file_path, "r", encoding="utf-8") as f:
-            for line in f:
-                if not line.strip(): continue
-                doc = json.loads(line.strip())
-                
-                # 1. 도메인별 전처리 함수 호출
-                if page_type == "general":
-                    refined_data = process_general_docs(doc)
-                elif page_type == "waste":
-                    refined_data = process_waste_guides(doc)
-                elif page_type == "civil":
-                    refined_data = process_civil_forms(doc)
-                elif page_type == "bid":
-                    refined_data = process_bid_notices(doc)
-                elif page_type == "passport":
-                    refined_data = process_passport_forms(doc)
-                
+
+            for line_number, line in enumerate(f, start=1):
+
+                if not line.strip():
+                    continue
+
+                doc = json.loads(line)
+
+                processor = processors.get(page_type)
+
+                if processor is None:
+                    raise ValueError(
+                        f"지원하지 않는 도메인: {page_type}"
+                    )
+
+                # 1. 도메인별 전처리
+                refined_data = processor(doc)
+
                 if refined_data is None:
                     continue
-                
+
                 if not isinstance(refined_data, list):
                     refined_data = [refined_data]
-                    
+
                 doc_id = doc.get("doc_id")
-                
-                # 💡 핵심: 원본 문서 1개당 청크 번호를 0부터 순서대로 매기기 위한 카운터
-                chunk_counter = 0 
-                
+
+                if not doc_id:
+                    raise ValueError(
+                        f"doc_id 누락: {file_path}:{line_number}"
+                    )
+
+                chunk_counter = doc_chunk_counters.get(doc_id, 0)
+
+                # 2. 전처리 데이터 순회
                 for item in refined_data:
+
                     if item is None:
                         continue
-                        
+
                     base_meta = {
                         "url": doc.get("url"),
-                        "published_at": doc.get("published_at") or doc.get("date"),
+                        "published_at": (
+                            doc.get("published_at")
+                            or doc.get("date")
+                        ),
                         "views": doc.get("views", 0),
                         "menu_path": doc.get("menu_path", []),
                         "department": doc.get("department"),
                         "phone": doc.get("phone")
                     }
-                    
+
                     base_meta.update(item)
-                    
-                    # 💡 텍스트 분할 (Chunking) 로직 적용
-                    # item에서 텍스트를 꺼내옵니다 (우선순위: text -> chunk_text)
-                    raw_text = base_meta.get("text", "") or base_meta.get("chunk_text", "")
-                    raw_text = raw_text.strip()
-                    
-                    # 텍스트가 비어있지 않다면 splitter로 자르고, 비어있다면 빈 배열 하나만 둡니다.
-                    split_texts = text_splitter.split_text(raw_text) if raw_text else [""]
-                    
-                    # 잘라진 조각(split_texts) 개수만큼 반복하며 통합 객체 생성
+
+                    # 3. 전처리된 원문 가져오기
+                    raw_text = (
+                        base_meta.get("text")
+                        or base_meta.get("chunk_text")
+                        or ""
+                    )
+
+                    if not isinstance(raw_text, str):
+                        raw_text = str(raw_text)
+
+                    if not raw_text:
+                        continue
+
+                    # 4. 손실 없는 문자 단위 청킹
+                    split_texts = split_text_without_loss(
+                        raw_text,
+                        chunk_size=1200,
+                        chunk_overlap=50
+                    )
+
+                    # 5. 청크를 다시 결합하여 원문 보존 검증
+                    if split_texts:
+
+                        reconstructed = split_texts[0]
+
+                        for chunked_text in split_texts[1:]:
+                            reconstructed += chunked_text[50:]
+
+                        if reconstructed != raw_text:
+                            raise ValueError(
+                                "청킹 중 원문 손실 발생!\n"
+                                f"문서: {doc.get('title')}\n"
+                                f"doc_id: {doc_id}\n"
+                                f"도메인: {page_type}"
+                            )
+
+                    # 6. 최종 청크 객체 생성
                     for chunked_text in split_texts:
-                        # 쪼개진 텍스트로 base_meta 내용 덮어쓰기
-                        base_meta["text"] = chunked_text
-                        base_meta["chunk_text"] = chunked_text
-                        
-                        # create_chunk_object 내부에서 chunk_id = f"{doc_id}_{chunk_index}" 로 자동 생성됨
+
+                        chunk_meta = base_meta.copy()
+
+                        chunk_meta["text"] = chunked_text
+                        chunk_meta["chunk_text"] = chunked_text
+
                         chunk_obj = create_chunk_object(
                             doc_id=doc_id,
-                            chunk_index=chunk_counter, # 0, 1, 2, 3 ... 순차 부여
-                            **base_meta 
+                            chunk_index=chunk_counter,
+                            **chunk_meta
                         )
+
                         final_db_ready_chunks.append(chunk_obj)
-                        
-                        # 조각을 하나 만들었으니 카운터 증가
-                        chunk_counter += 1 
-                                        
+
+                        chunk_counter += 1
+                        generated_chunks += 1
+                doc_chunk_counters[doc_id] = chunk_counter
+                processed_docs += 1
+
+        print(
+            f"✅ {page_type} 전처리 완료 | "
+            f"문서: {processed_docs}개 | "
+            f"청크: {generated_chunks}개"
+        )
+
+    print(
+        f"\n🎉 전체 전처리 완료! "
+        f"총 {len(final_db_ready_chunks)}개 청크 생성"
+    )
+
     return final_db_ready_chunks
 
 if __name__ == "__main__":

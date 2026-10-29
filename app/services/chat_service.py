@@ -166,7 +166,7 @@ async def ask_saha_ai_stream(user_question: str, history: List[Dict[str, str]] =
     # query_embedding  → 검색할 때 이미 생성했던 질문 벡터
     relevant_chunks, query_embedding = await get_similar_chunks(
         refined_question,
-        top_k=3
+        top_k=10             # 3 -> 10
     )
     
     final_confidence_score = relevant_chunks[0].score if relevant_chunks else 0.0

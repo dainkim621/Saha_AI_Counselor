@@ -12,6 +12,14 @@ OUTPUT_LATEST_JSONL = os.path.join(DATA_DIR, "processed", "delta", "saha_clean_d
 def get_db_connection():
     return psycopg2.connect(host="localhost", database="saha_chatbot_db", user="saha_user", password="saha_password123!")
 
+# view ="" 오류 안나게 정규화
+def normalize_views(value):
+    """PostgreSQL 정수형 컬럼에 맞게 조회수 정규화"""
+    if value is None or str(value).strip() == "":
+        return 0
+
+    return int(str(value).replace(",", "").strip())
+
 
 def main():
     print("🌙 델타 동기화 시작...")
@@ -58,6 +66,10 @@ def main():
 
     # 2. DB를 수정하기 전에 전체 원본 데이터 전처리
     all_chunks = run_preprocessing_pipeline(raw_file_paths)
+
+    # PostgreSQL views 컬럼 타입 오류 방지
+    for chunk in all_chunks:
+        chunk["views"] = normalize_views(chunk.get("views"))
 
     # 전처리 결과가 비정상적으로 비어 있으면 기존 파일 보호
     if not all_chunks:
