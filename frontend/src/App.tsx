@@ -4,7 +4,6 @@ import "./App.css";
 import Header from "./components/Header";
 import ChatWindow from "./components/ChatWindow";
 import ChatInput from "./components/ChatInput";
-import QuickMenu from "./components/QuickMenu";
 
 // FastAPI 백엔드 서버 주소
 //const BACKEND_URL = 'https://snack-sanded-passover.ngrok-free.dev'; // 상대 경로로 변경하여 프록시 설정 사용
@@ -41,23 +40,24 @@ const fontLabels = ["아주 작게", "작게", "기본", "크게", "아주 크�
 
 function App() {
   // 채팅 메시지 목록
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      role: "assistant",
-      content: "안녕하세요! 사하구 민원 상담을 도와드릴게요.",
-    },
-  ]);
+  const [messages, setMessages] = useState<Message[]>([]);
   
   // 현재 접속 중에만 유지되는 상담 내역
   const [savedChats, setSavedChats] = useState<SavedChat[]>([]);
   
   // 상담 내역 접기/펼치기
-  const [historyOpen, setHistoryOpen] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(true)
+  
+  // PC 왼쪽 사이드바 접기/펼치기
+  const [leftSidebarOpen, setLeftSidebarOpen] = useState(true);
   // FAQ 접기/펼치기 상태
   const [faqOpen, setFaqOpen] = useState(false);
 
   // PC 현재 채팅 질문 목록 접기/펼치기
-  const [questionListOpen, setQuestionListOpen] = useState(false);
+  const [, setQuestionListOpen] = useState(false);
+
+  // 현재 채팅 질문 목록에서 선택된 질문 번호
+  const [activeQuestionIndex, setActiveQuestionIndex] = useState(0);
   // 모바일 질문 이동 목록 접기/펼치기
   const [mobileQuestionListOpen, setMobileQuestionListOpen] = useState(false);
   
@@ -107,7 +107,7 @@ function App() {
       }
 
       // 처음 질문한 상담이면 목록 맨 아래에 추가
-      return [...prev, currentChat];
+      return [currentChat, ...prev];
     });
   }, [messages]);
   
@@ -132,6 +132,11 @@ function App() {
 
   // 이용 가이드 모달 표시 여부
   const [showGuide, setShowGuide] = useState(false);
+
+
+  // 이용 가이드 선택 탭
+  const [showPrivacy, setShowPrivacy] = useState(false);
+  const [guideTab, setGuideTab] = useState<"questions" | "features">("questions");
 
   /*
    * QuickMenu에 표시할 질문 목록
@@ -206,15 +211,11 @@ function App() {
       setHistoryOpen(false);
 
       // 현재 채팅 초기화
-      setMessages([
-        {
-          role: "assistant",
-          content: "안녕하세요! 사하구 민원 상담을 도와드릴게요.",
-        },
-      ]);
+      setMessages([]);
 
       setInput("");
       setSimilarityScore(null);
+      setActiveQuestionIndex(0);
 
       // 상담 식별자 초기화
       activeChatIdRef.current = 0;
@@ -740,11 +741,15 @@ function App() {
         content: "안녕하세요! 사하구 민원 상담을 도와드릴게요.",
       },
     ]);
-
+    
     setInput("");
     setSimilarityScore(null);
     lastSpokenIndexRef.current = 0;
     setMobileQuestionListOpen(false);
+
+    // Figma Frame 1: 새 채팅 후 최근 상담 목록 표시
+    setHistoryOpen(true);
+    setFaqOpen(false);
   };
 
   // 상담 내역에서 이전 상담 선택
@@ -757,12 +762,10 @@ function App() {
     activeChatIdRef.current = selectedChat.id;
     activeChatTitleRef.current = selectedChat.title;
     setMessages(selectedChat.messages);
+    setActiveQuestionIndex(0);
 
     // 상담 전환 후 현재 채팅 질문 목록 펼치기
     setQuestionListOpen(true);
-
-    // 상담 내역 메뉴 닫기
-    setHistoryOpen(false);
 
     // 모바일 질문 목록 팝업 닫기
     setMobileQuestionListOpen(false);
@@ -815,6 +818,8 @@ function App() {
       const target = questionRows?.[questionIndex];
 
       if (!chatWindow || !target) return;
+      // 클릭한 질문을 현재 선택된 항목으로 표시
+      setActiveQuestionIndex(questionIndex);
 
       const offset =
         target.getBoundingClientRect().top -
@@ -830,6 +835,11 @@ function App() {
 
       setMobileQuestionListOpen(false);
     };
+
+  // 현재 채팅에 사용자 질문이 있는지 확인
+  const hasUserMessage = messages.some(
+    (message) => message.role === "user"
+  );
 
   return (
     <div className={`app ${fontModes[fontLevel]}`}>
@@ -891,6 +901,106 @@ function App() {
       </div>
     </div>
   </div>
+      
+      {/* 개인정보 보호 상세 안내 */}
+      {showPrivacy && (
+        <div
+          className="guide-overlay"
+          onClick={() => setShowPrivacy(false)}
+        >
+          <div
+            className="guide-modal privacy-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="privacy-modal-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            {/* 헤더 */}
+            <div className="privacy-modal-header">
+              <h2 id="privacy-modal-title">개인정보 보호 안내</h2>
+
+              <button
+                type="button"
+                className="privacy-modal-close"
+                onClick={() => setShowPrivacy(false)}
+                aria-label="닫기"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* 안내 본문 */}
+            <div className="privacy-modal-body">
+              <div className="privacy-info-item">
+                <div className="privacy-info-icon">
+                  <svg
+                    width="20"
+                    height="20"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    aria-hidden="true"
+                  >
+                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z" />
+                    <path d="M12 8v5" />
+                    <path d="M12 17h.01" />
+                  </svg>
+                </div>
+
+                <div className="privacy-info-text">
+                  <h3>개인정보 입력 주의</h3>
+                  <p>
+                    개인정보 보호를 위해 주민등록번호, 전화번호, 상세 주소 등
+                    개인을 식별할 수 있는 정보는 입력하지 마세요.
+                  </p>
+                </div>
+              </div>
+
+              <div className="privacy-divider" />
+
+              <div className="privacy-info-item">
+                <div className="privacy-info-icon">
+                  <svg
+                    width="20"
+                    height="20"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    aria-hidden="true"
+                  >
+                    <rect x="5" y="4" width="14" height="18" rx="2" />
+                    <rect x="9" y="2" width="6" height="4" rx="1" />
+                    <path d="M9 11h.01M12 11h4M9 15h.01M12 15h4" />
+                  </svg>
+                </div>
+
+                <div className="privacy-info-text">
+                  <h3>상담 내용 처리</h3>
+                  <p>
+                    입력한 질문은 상담 서비스 제공 및 품질 개선을 위해
+                    처리될 수 있습니다.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* 확인 버튼 */}
+            <button
+              type="button"
+              className="privacy-confirm-button"
+              onClick={() => setShowPrivacy(false)}
+            >
+              확인
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* 이용 가이드 모달 */}
       {showGuide && (
@@ -899,77 +1009,192 @@ function App() {
           onClick={() => setShowGuide(false)}
         >
           <div
-            className="guide-modal"
+            className="guide-modal figma-guide-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="figma-guide-title"
             onClick={(event) => event.stopPropagation()}
           >
-            <div className="guide-modal-header">
-              <h2>📖 이용 가이드</h2>
+            {/* 모달 헤더 */}
+            <div className="figma-guide-header">
+              <h2 id="figma-guide-title">
+                AI 상담사 이용 안내
+              </h2>
 
               <button
                 type="button"
-                className="guide-close-button"
+                className="figma-guide-close"
                 onClick={() => setShowGuide(false)}
+                aria-label="이용 가이드 닫기"
               >
                 ✕
               </button>
             </div>
 
-            <p className="guide-intro">
-              고우니 챗봇은 사하구 민원 정보를 쉽게 안내해주는
-              AI 상담사입니다.
+            {/* 질문 예시 / 사용 가능한 기능 탭 */}
+            <div className="figma-guide-tabs" role="tablist">
+              <button
+                type="button"
+                role="tab"
+                aria-selected={guideTab === "questions"}
+                className={`figma-guide-tab ${
+                  guideTab === "questions" ? "active" : ""
+                }`}
+                onClick={() => setGuideTab("questions")}
+              >
+                질문 예시
+              </button>
+
+              <button
+                type="button"
+                role="tab"
+                aria-selected={guideTab === "features"}
+                className={`figma-guide-tab ${
+                  guideTab === "features" ? "active" : ""
+                }`}
+                onClick={() => setGuideTab("features")}
+              >
+                사용 가능한 기능
+              </button>
+            </div>
+
+            {/* 모달 본문 */}
+            <div className="figma-guide-body">
+              {guideTab === "questions" ? (
+                <div className="figma-guide-question-list">
+                  {[
+                    "전입신고는 어떻게 하나요?",
+                    "가족관계 증명서 발급은 어떻게 해?",
+                    "대형 폐기물 배출 방법 알려줘",
+                    "여권 발급 준비물이 뭐야?",
+                  ].map((question, index) => (
+                    <div
+                      className="figma-guide-question"
+                      key={index}
+                    >
+                      <span className="figma-guide-number">
+                        {String(index + 1).padStart(2, "0")}
+                      </span>
+                      <span>{question}</span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="figma-guide-feature-list">
+                  {[
+                    {
+                      icon: "plus",
+                      title: "새 채팅",
+                      description: "새 상담 시작",
+                    },
+                    {
+                      icon: "history",
+                      title: "최근 문의",
+                      description: "이전 상담 확인",
+                    },
+                    {
+                      icon: "list",
+                      title: "자주 찾는 민원",
+                      description: "인기 질문 TOP 5",
+                    },
+                    {
+                      icon: "ordered",
+                      title: "현재 채팅 질문 목록",
+                      description: "질문·답변 바로 이동",
+                    },
+                    {
+                      icon: "font",
+                      title: "글자 크기 조절",
+                      description: "5단계 크기 조절",
+                    },
+                    {
+                      icon: "download",
+                      title: "첨부파일 다운로드",
+                      description: "민원 서식 다운로드",
+                    },
+                  ].map((feature) => (
+                    <div
+                      className="figma-guide-feature"
+                      key={feature.title}
+                    >
+                      <div className="figma-guide-feature-icon">
+                        <svg
+                          width="20"
+                          height="20"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="#525252"
+                          strokeWidth="1.8"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          aria-hidden="true"
+                        >
+                          {feature.icon === "plus" && (
+                            <>
+                              <path d="M20 11.5a8.4 8.4 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.4 8.4 0 0 1-3.8-.9L2 21l1.9-5.7a8.4 8.4 0 0 1-.9-3.8 8.5 8.5 0 0 1 8.5-8.5" />
+                              <path d="M18 2v8M14 6h8" />
+                            </>
+                          )}
+
+                          {feature.icon === "history" && (
+                            <>
+                              <path d="M3 12a9 9 0 1 0 3-6.7L3 8" />
+                              <path d="M3 3v5h5M12 7v5l3 2" />
+                            </>
+                          )}
+
+                          {feature.icon === "list" && (
+                            <>
+                              <path d="M8 6h13M8 12h13M8 18h13" />
+                              <path d="M3 6h.01M3 12h.01M3 18h.01" />
+                            </>
+                          )}
+
+                          {feature.icon === "ordered" && (
+                            <>
+                              <path d="M10 6h11M10 12h11M10 18h11" />
+                              <path d="M4 5h1v4M3 9h3M3 14c0-1 3-1 3 0s-3 2-3 4h3" />
+                            </>
+                          )}
+
+                          {feature.icon === "font" && (
+                            <>
+                              <path d="m3 18 5-12 5 12M5 14h6" />
+                              <path d="m15 18 3.5-9 3.5 9M16.5 15h4" />
+                            </>
+                          )}
+
+                          {feature.icon === "download" && (
+                            <>
+                              <path d="M12 3v12m-5-5 5 5 5-5" />
+                              <path d="M4 17v3h16v-3" />
+                            </>
+                          )}
+                        </svg>
+                      </div>
+
+                      <div className="figma-guide-feature-text">
+                        <span className="figma-guide-feature-title">
+                          {feature.title}
+                        </span>
+                        <span className="figma-guide-feature-description">
+                          {feature.description}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* 하단 안내 */}
+            <p className="figma-guide-notice">
+              AI 답변은 참고용입니다. 정확한 정보는 담당 부서 또는
+              공식 홈페이지에서 확인해 주세요.
             </p>
-
-            <section className="guide-section">
-              <h3>💬 이렇게 질문해보세요</h3>
-
-              <ul>
-                <li>전입신고는 어떻게 하나요?</li>
-                <li>여권 발급 준비물이 뭐야?</li>
-                <li>대형폐기물 배출 신청 방법 알려줘</li>
-                <li>가족관계증명서 발급은 어디서 해?</li>
-              </ul>
-            </section>
-
-            <section className="guide-section">
-              <h3>🔊 사용할 수 있는 기능</h3>
-
-              <ul>
-                <li>새 채팅으로 새로운 상담 시작하기</li>
-                <li>자주 묻는 질문 이용하기</li>
-                <li>이전 상담 내역 확인하기</li>
-                <li>
-                  이전 질문·답변으로 이동하기 (🖥️ PC: 현재 채팅 질문 / 📱 모바일: 우측 목록 아이콘)
-                </li>
-                <li>글자 크기 조절하기</li>
-                <li>관련 첨부파일 다운로드하기</li>
-              </ul>
-            </section>
-
-            <section className="guide-section">
-              <h3>⚠️ 안내사항</h3>
-
-              <ul>
-                <li>
-                  챗봇 답변은 민원 안내를 돕기 위한 참고용입니다.
-                </li>
-                <li>
-                  정확한 최신 정보는 담당 부서 또는 공식 홈페이지를
-                  확인해주세요.
-                </li>
-              </ul>
-            </section>
-
-            <button
-              type="button"
-              className="guide-confirm-button"
-              onClick={() => setShowGuide(false)}
-            >
-              확인했어요
-            </button>
           </div>
         </div>
       )}
-
       {/* 음성 입력, 음성 출력, 글자 크기 조절 영역 */}
       <div className="accessibility-bar">
         <div className="voice-accessibility-controls">
@@ -1020,203 +1245,26 @@ function App() {
           </div>
         </div>
       </div>
-
+      
       {/* 메인 화면 영역 */}
       <main className="main-layout">
-        <section className="left-section">
+        {/* 왼쪽 사이드바 */}
+        <aside
+          className={`left-section ${leftSidebarOpen ? "" : "collapsed"}`}
+        >
+        <div className="figma-pc-sidebar">
+          <div className="figma-sidebar-top">
+            <h1 className="figma-sidebar-title">
+              사하구 AI 상담사
+            </h1>
 
-          {/* 새로운 상담을 시작하는 버튼 */}
-          <button
-            type="button"
-            className="new-chat-button"
-            onClick={handleNewChat}
-            disabled={isLoading || isListening}
-          > 
-            {/* 새 채팅 아이콘 */}
-            <span className="new-chat-icon" aria-hidden="true">
-              ＋
-            </span>
-
-            {/* 버튼 이름 */}
-            <span className="new-chat-text">
-              새 채팅
-            </span> 
-          </button>
-
-          {/* 자주 묻는 질문 */}
-          <QuickMenu
-            /*
-             * App.tsx에서 계산한 최근 7일 질문 목록을
-             * QuickMenu 컴포넌트에 전달한다.
-             */
-            questions={weeklyQuestions}
-            // FAQ 버튼을 누르면 해당 질문을 바로 챗봇에 전송
-            onSelect={sendMessage}
-            // 답변 생성 중에는 FAQ 버튼 비활성화
-            disabled={isLoading}
-            isOpen={faqOpen}
-            onToggle={() => {
-              setFaqOpen((prev) => !prev);
-              // 모바일에서만 상담 내역 닫기
-              if (window.matchMedia("(max-width: 768px)").matches) {
-                setHistoryOpen(false);
-              }
-            }}
-          />
-          
-          {/* 현재 채팅 질문 - PC 사이드바 */}
-          <div className="current-questions-menu">
             <button
               type="button"
-              className="current-questions-toggle"
-              aria-expanded={questionListOpen}
-              aria-controls="current-questions-list"
-              onClick={() => {
-                setQuestionListOpen((prev) => !prev);
-                setFaqOpen(false);
-                setHistoryOpen(false);
-              }}
-            >
-              <svg
-                width="18"
-                height="18"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.8"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                aria-hidden="true"
-              >
-                <path d="M8 6h13" />
-                <path d="M8 12h13" />
-                <path d="M8 18h13" />
-                <path d="M3 6h.01" />
-                <path d="M3 12h.01" />
-                <path d="M3 18h.01" />
-              </svg>
-
-              <span className="current-questions-title">
-                현재 채팅 질문
-              </span>
-              
-              <span
-                className="current-questions-arrow"
-                aria-hidden="true"
-              />
-            </button>
-
-            {questionListOpen && (
-              <div
-                id="current-questions-list"
-                className="current-questions-list"
-              >
-                {currentQuestions.length === 0 ? (
-                  <p className="current-questions-empty">
-                    질문을 입력하면 여기에 표시됩니다.
-                  </p>
-                ) : (
-                  currentQuestions.map((question, index) => (
-                    <button
-                      key={index}
-                      type="button"
-                      className="current-question-item"
-                      title={question.content}
-                      disabled={isLoading}
-                      onClick={() => jumpToQuestion(index)}
-                    >
-                      {index + 1}. {question.title}
-                    </button>
-                  ))
-                )}
-              </div>
-            )}
-          </div>
-
-          {/* 상담 내역 - 현재 접속 중에만 임시 보관 */}
-          <div className="history-menu">
-            <button
-              type="button"
-              className="history-toggle"
-              onClick={() => {
-                setHistoryOpen((prev) => !prev);
-                // 모바일에서만 FAQ 닫기
-                if (window.matchMedia("(max-width: 768px)").matches) {
-                  setFaqOpen(false);
-                }
-              }}
-              aria-expanded={historyOpen}
-              aria-controls="saved-chat-history"
-            >
-      {/* 상담 내역 아이콘 */}
-      <svg
-        width="18"
-        height="18"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.8"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        aria-hidden="true"
-      >
-        <path d="M3 12a9 9 0 1 0 3-6.7" />
-        <path d="M3 3v5h5" />
-        <path d="M12 7v5l3 2" />
-      </svg>
-
-      <span className="history-title">
-        상담 내역
-      </span>
-
-      <span
-        className="history-arrow"
-        aria-hidden="true"
-      />
-    </button>
-
-    {historyOpen && (
-      <div
-        id="saved-chat-history"
-        className="history-list"
-      >
-        {savedChats.length === 0 ? (
-          <p className="history-empty">
-            아직 이전 상담이 없습니다.
-          </p>
-        ) : (
-          savedChats.map((chat) => (
-            <button
-              key={chat.id}
-              type="button"
-              className="history-item"
-              onClick={() => handleRestoreChat(chat)}
-              disabled={isLoading || isListening}
-              title={chat.title}
-            >
-              {chat.title}
-            </button>
-          ))
-        )}
-      </div>
-    )}
-  </div>
-
-        </section>
-
-        <section className="chat-section">
-          {/* 모바일 전용 질문 목록 아이콘 */}
-          <div className="current-questions-mobile">
-            <button
-              type="button"
-              className="current-questions-mobile-button"
-              onClick={() => {
-                setMobileQuestionListOpen(true);
-                setFaqOpen(false);
-                setHistoryOpen(false);
-              }}
-              aria-label="현재 채팅 질문 목록 열기"
-              title="질문 목록"
+              className="figma-sidebar-toggle"
+              onClick={() => setLeftSidebarOpen((prev) => !prev)}
+              aria-label={leftSidebarOpen ? "왼쪽 사이드바 접기" : "왼쪽 사이드바 펼치기"}
+              aria-expanded={leftSidebarOpen}
+              title={leftSidebarOpen ? "사이드바 접기" : "사이드바 펼치기"}
             >
               <svg
                 width="20"
@@ -1229,30 +1277,297 @@ function App() {
                 strokeLinejoin="round"
                 aria-hidden="true"
               >
-                <path d="M8 6h13" />
-                <path d="M8 12h13" />
-                <path d="M8 18h13" />
-                <path d="M3 6h.01" />
-                <path d="M3 12h.01" />
-                <path d="M3 18h.01" />
+                <path d="M4 6h16" />
+                <path d="M4 12h16" />
+                <path d="M4 18h16" />
               </svg>
             </button>
           </div>
 
-          <ChatWindow
-            messages={messages}
-            isLoading={isLoading}
-            similarityScore={similarityScore}
-          />
+            
 
-          <ChatInput
-            input={input}
-            setInput={setInput}
-            onSend={sendMessage}
-            isLoading={isLoading}
-          />
+            <button
+              type="button"
+              className="figma-new-chat-button"
+              onClick={handleNewChat}
+              disabled={isLoading || isListening}
+            >
+              + 새 채팅
+            </button>
+
+            <div className="figma-sidebar-sections">
+              {/* 최근 문의 */}
+              <section className="figma-recent-section">
+                <button
+                  className="figma-accordion-header"
+                  onClick={() => setHistoryOpen((prev) => !prev)}
+                  aria-expanded={historyOpen}
+                >
+                  최근 문의
+                  <span className={`figma-accordion-arrow ${historyOpen ? "open" : ""}`} />
+                </button>
+
+                {historyOpen && (
+                  <div className="figma-recent-list">
+                    {savedChats.length === 0 ? (
+                      <p className="figma-history-empty">
+                        아직 상담 내역이 없습니다.
+                      </p>
+                    ) : (
+                      savedChats.map((chat) => (
+                        <button
+                          key={chat.id}
+                          className={`figma-recent-item ${
+                            chat.id === activeChatIdRef.current ? "active" : ""
+                          }`}
+                          onClick={() => handleRestoreChat(chat)}
+                        >
+                          {chat.title}
+                        </button>
+                      ))
+                    )}
+                  </div>
+                )}
+              </section>
+
+              {/* 자주 찾는 민원 */}
+              <section className="figma-faq-section">
+                <button
+                  type="button"
+                  className="figma-accordion-header"
+                  onClick={() => setFaqOpen((prev) => !prev)}
+                  aria-expanded={faqOpen}
+                >
+                  <span>자주 찾는 민원</span>
+                  <span
+                    className={`figma-accordion-arrow ${
+                      faqOpen ? "open" : ""
+                    }`}
+                    aria-hidden="true"
+                  />
+                </button>
+
+                {faqOpen && (
+                  <div className="figma-faq-list">
+                    {weeklyQuestions.length === 0 ? (
+                      <p className="figma-history-empty">
+                        표시할 질문이 없습니다.
+                      </p>
+                    ) : (
+                      weeklyQuestions.map((question, index) => (
+                        <button
+                          key={`${question}-${index}`}
+                          type="button"
+                          className="figma-faq-item"
+                          onClick={() => sendMessage(question)}
+                          disabled={isLoading}
+                        >
+                          {question}
+                        </button>
+                      ))
+                    )}
+                  </div>
+                )}
+              </section>
+            </div>
+          </div>
+        </aside>
+
+        {/* Figma MainArea */}
+        <section className="chat-section">
+          {/* 상단 헤더 */}
+          <header className="figma-pc-toolbar">
+            {!leftSidebarOpen && (
+              <button
+                type="button"
+                className="figma-sidebar-toggle"
+                onClick={() => setLeftSidebarOpen(true)}
+                aria-label="왼쪽 사이드바 펼치기"
+                title="사이드바 펼치기"
+              >
+                <svg
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d="M4 6h16" />
+                  <path d="M4 12h16" />
+                  <path d="M4 18h16" />
+                </svg>
+              </button>
+            )}
+            
+            <div className="figma-toolbar-privacy">
+              <span>
+                주민등록번호, 연락처 등 개인정보는 입력하지 마세요.
+              </span>
+
+              <button
+                type="button"
+                className="figma-privacy-detail"
+                onClick={() => setShowPrivacy(true)}
+              >
+                상세보기
+              </button>
+            </div>
+
+            <div className="figma-toolbar-actions">
+              <span className="figma-font-caption">
+                글자 크기
+              </span>
+
+              <div className="figma-font-control">
+                <button
+                  type="button"
+                  onClick={decreaseFont}
+                  disabled={fontLevel === 0}
+                  aria-label="글자 크기 줄이기"
+                >
+                  A-
+                </button>
+
+                <span>{fontLabels[fontLevel]}</span>
+
+                <button
+                  type="button"
+                  onClick={increaseFont}
+                  disabled={fontLevel === 4}
+                  aria-label="글자 크기 키우기"
+                >
+                  A+
+                </button>
+              </div>
+
+              <button
+                type="button"
+                className="figma-guide-button"
+                onClick={() => setShowGuide(true)}
+                aria-label="이용 가이드 열기"
+                title="이용 가이드"
+              >
+                ?
+              </button>
+            </div>
+          </header>
+
+          {/* 환영 화면 / 상담 화면 */}
+          <div
+            className={`figma-chat-layout ${
+              hasUserMessage ? "has-chat" : "is-welcome"
+            }`}
+          >
+            <div className="figma-chat-main">
+              {!hasUserMessage ? (
+                <div className="figma-welcome">
+                  <div className="figma-welcome-content">
+                    <img
+                      src="/src/assets/gouni-first.png"
+                      alt="사하구 AI 민원 상담사 고우니"
+                      className="figma-welcome-mascot"
+                    />
+                    <h2>어떤 민원 정보를 찾으시나요?</h2>
+
+                    <p>
+                      필요한 민원 정보를 빠르게 확인해 보세요.
+                    </p>
+
+                    <div className="figma-welcome-input">
+                      <ChatInput
+                        input={input}
+                        setInput={setInput}
+                        onSend={sendMessage}
+                        isLoading={isLoading}
+                      />
+                    </div>
+                    {/* 안내 가능한 민원 분야 */}
+                    <div className="figma-welcome-categories">
+                      <h3>안내 가능한 민원 분야</h3>
+
+                      <div className="figma-welcome-category-grid">
+                        <div className="figma-welcome-category">
+                          <strong>주민등록·가족관계</strong>
+                          <span>신고 절차 및 증명서 발급 안내</span>
+                        </div>
+
+                        <div className="figma-welcome-category">
+                          <strong>여권·민원서식</strong>
+                          <span>구비서류와 발급 절차 안내</span>
+                        </div>
+
+                        <div className="figma-welcome-category">
+                          <strong>환경·폐기물</strong>
+                          <span>생활폐기물 배출 및 신고 안내</span>
+                        </div>
+
+                        <div className="figma-welcome-category">
+                          <strong>복지·생활지원</strong>
+                          <span>복지 혜택 및 지원 제도 안내</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <ChatWindow
+                    messages={messages}
+                    isLoading={isLoading}
+                    similarityScore={similarityScore}
+                  />
+
+                  <div className="figma-chat-input-bottom">
+                    <ChatInput
+                      input={input}
+                      setInput={setInput}
+                      onSend={sendMessage}
+                      isLoading={isLoading}
+                    />
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* 현재 채팅 질문 목록 */}
+            {hasUserMessage && (
+              <aside className="right-question-panel">
+                <h2 className="right-question-heading">
+                  현재 채팅 질문 목록
+                </h2>
+
+                <div className="right-question-list">
+                  {currentQuestions.map((question, index) => (
+                    <button
+                      key={index}
+                      type="button"
+                      className={`right-question-item ${
+                        index === activeQuestionIndex ? "active" : ""
+                      }`}
+                      title={question.content}
+                      disabled={isLoading}
+                      onClick={() => jumpToQuestion(index)}
+                    >
+                      <span className="right-question-number">
+                        {String(index + 1).padStart(2, "0")}
+                      </span>
+
+                      <span className="right-question-text">
+                        {question.title}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </aside>
+            )}
+          </div>
         </section>
       </main>
+
       
       {/* 모바일 질문 목록 팝업 */}
       {mobileQuestionListOpen && (

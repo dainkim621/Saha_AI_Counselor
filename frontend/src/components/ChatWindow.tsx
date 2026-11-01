@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import type { ReactNode } from "react";
 import ReactMarkdown from "react-markdown";
 import type { Message } from "../App";
 import gouni from "../assets/gouni-profile.png";
@@ -82,7 +83,6 @@ type FeedbackPayload = {
   rating: FeedbackRating;
   reason: FeedbackReason | null;
 };
-
 /*
  * 챗봇 답변의 특정 문장을 마크다운 제목 형태로 변환하는 함수
  *
@@ -93,30 +93,61 @@ type FeedbackPayload = {
  * 이렇게 변환하면 ReactMarkdown이 해당 문장을 제목으로 표시함
  */
 function formatMarkdown(content: string) {
+  let isSuggestedQuestions = false;
+
   return content
     .split("\n")
     .map((line) => {
       const trimmedLine = line.trim();
 
-      // 📍 1. 또는 📌 1. 형태의 문장을 제목으로 변환
-      if (/^[📍📌]\s*\d+\./.test(trimmedLine)) {
-        return `### ${trimmedLine}`;
-      }
+      const plainLine = trimmedLine
+        .replace(/^#{1,6}\s*/, "")
+        .replace(/\*\*/g, "")
+        .trim();
 
-      // 담당 부서 안내와 관련 정보 링크 문장을 제목으로 변환
+      // 하단 추천 질문 영역 시작
       if (
-        trimmedLine === "📞 담당 부서 안내" ||
-        trimmedLine === "🔗 관련 정보 링크"
+        /^(?:❓\s*)?(?:추천 파생 질문|이어서 궁금할 만한 질문)$/.test(plainLine)
       ) {
-        return `### ${trimmedLine}`;
+        isSuggestedQuestions = true;
+        return "### ❓ 추천 파생 질문";
       }
 
-      // 변환 조건에 해당하지 않으면 원래 문장을 그대로 반환
-      return line;
+      // 담당 부서 / 관련 링크
+      if (
+        plainLine === "📞 담당 부서 안내" ||
+        plainLine === "🔗 관련 정보 링크"
+      ) {
+        return `### ${plainLine}`;
+      }
+
+      // 추천 질문 영역에서는 번호형 제목을 적용하지 않음
+      if (isSuggestedQuestions) {
+        return line;
+      }
+
+      // 주요 민원 안내에만 번호형 제목 적용
+      const numberedHeading = trimmedLine.match(
+        /^(?:#{1,6}\s*)?(?:📍|📌)?\s*\*{0,2}(\d+)\.\s*(.+)$/
+      );
+
+      if (numberedHeading) {
+        const number = numberedHeading[1].padStart(2, "0");
+
+        const title = numberedHeading[2]
+          .replace(/^\*{1,2}|\*{1,2}$/g, "")
+          .trim();
+
+        return `### ${number}. ${title}`;
+      }
+
+      return line.replace(
+        /^(\s*(?:(?:[-*+]|\d+\.)\s+)?)\s*(?:\p{Extended_Pictographic}|\p{Emoji_Presentation})(?:\uFE0F|\u200D\p{Extended_Pictographic})*\s*/u,
+        "$1"
+      );
     })
     .join("\n");
 }
-
 /*
  * 사용자에게 표시할 불만족 사유 목록
  *
@@ -126,6 +157,105 @@ function formatMarkdown(content: string) {
  * label:
  * 화면에 표시할 한글 문구
  */
+
+// AI 답변을 본문과 추가 안내 영역으로 분리
+function splitAnswerContent(content: string) {
+  const lines = content.split("\n");
+
+  // '담당 부서 안내'가 시작되는 줄 찾기
+  const extraStartIndex = lines.findIndex((line) => {
+    const title = line
+      .trim()
+      .replace(/^#{1,6}\s*/, "")
+      .replace(/\*\*/g, "")
+      .replace(/^📞\s*/, "")
+      .trim();
+
+    return title === "담당 부서 안내";
+  });
+
+  // 담당 부서 안내가 없으면 기존 답변 전체 유지
+  if (extraStartIndex === -1) {
+    return {
+      mainContent: content,
+      extraContent: "",
+    };
+  }
+
+  return {
+    mainContent: lines.slice(0, extraStartIndex).join("\n").trim(),
+    extraContent: lines.slice(extraStartIndex).join("\n").trim(),
+  };
+}
+
+function SimilarityStatusIcon({ score }: { score: number }) {
+  const high = score >= 80;
+  const medium = score >= 60 && score < 80;
+
+  const color = high
+    ? "#166534"
+    : medium
+    ? "#92400E"
+    : "#991B1B";
+
+  const background = high
+    ? "#C5E8D0"
+    : medium
+    ? "#F8DFA6"
+    : "#F5C9C6";
+
+  return (
+    <span
+      className="similarity-status-icon"
+      style={{ color, backgroundColor: background }}
+      aria-hidden="true"
+    >
+      {high ? (
+        <svg viewBox="0 0 24 24" fill="none">
+          <path
+            d="m5 12 4 4L19 6"
+            stroke="currentColor"
+            strokeWidth="2.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+      ) : medium ? (
+        <svg viewBox="0 0 24 24" fill="none">
+          <circle
+            cx="12"
+            cy="12"
+            r="9"
+            stroke="currentColor"
+            strokeWidth="2"
+          />
+          <path
+            d="M12 11v5M12 8h.01"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+          />
+        </svg>
+      ) : (
+        <svg viewBox="0 0 24 24" fill="none">
+          <path
+            d="M10.3 4.2 2.6 18a2 2 0 0 0 1.7 3h15.4a2 2 0 0 0 1.7-3L13.7 4.2a2 2 0 0 0-3.4 0Z"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            strokeLinejoin="round"
+          />
+          <path
+            d="M12 9v5M12 17h.01"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+          />
+        </svg>
+      )}
+    </span>
+  );
+}
+
 const feedbackReasons: {
   value: FeedbackReason;
   label: string;
@@ -259,8 +389,9 @@ function ChatWindow({
    * 추후 POST /api/feedback 같은 API가 만들어지면
    * 이 함수 안에서 fetch를 사용하면 됨
    */
-  const submitFeedback = async (payload: FeedbackPayload) => {
+  const submitFeedback = async (payload: FeedbackPayload): Promise<boolean> => {
     console.log("만족도 평가 데이터:", payload);
+
     try {
       const response = await fetch(`${BACKEND_URL}/api/feedback`, {
         method: "POST",
@@ -269,13 +400,16 @@ function ChatWindow({
         },
         body: JSON.stringify(payload),
       });
-          if (!response.ok) {
+
+      if (!response.ok) {
         throw new Error("만족도 평가 저장에 실패했습니다.");
       }
+
+      return true;
     } catch (error) {
       console.error("만족도 평가 저장 오류:", error);
+      return false;
     }
-    
   };
 
   /*
@@ -285,24 +419,12 @@ function ChatWindow({
    * 2. 질문과 답변을 포함한 평가 데이터를 생성
    * 3. submitFeedback 함수로 전달
    */
-  const handlePositiveFeedback = (
+  const handlePositiveFeedback = async (
     messageIndex: number,
     answer: string
   ) => {
-    // 해당 답변의 평가 상태를 만족 및 제출 완료로 변경
-    setFeedbackStates((previousStates) => ({
-      ...previousStates,
-      [messageIndex]: {
-        rating: "positive",
-        showReasons: false,
-        submitted: true,
-      },
-    }));
-
-    // 해당 챗봇 답변 바로 앞의 사용자 질문 찾기
     const question = findPreviousUserQuestion(messageIndex);
 
-    // 백엔드로 전달할 평가 데이터 생성
     const payload: FeedbackPayload = {
       messageIndex,
       question,
@@ -311,8 +433,21 @@ function ChatWindow({
       reason: null,
     };
 
-    // 만족도 평가 제출
-    void submitFeedback(payload);
+    const success = await submitFeedback(payload);
+
+    if (!success) {
+      alert("만족도 평가 저장에 실패했습니다. 다시 시도해 주세요.");
+      return;
+    }
+
+    setFeedbackStates((previousStates) => ({
+      ...previousStates,
+      [messageIndex]: {
+        rating: "positive",
+        showReasons: false,
+        submitted: true,
+      },
+    }));
   };
 
   /*
@@ -321,6 +456,7 @@ function ChatWindow({
    * 바로 평가를 제출하지 않고,
    * 먼저 불만족 사유 선택 버튼을 화면에 표시함
    */
+
   const handleNegativeFeedbackClick = (messageIndex: number) => {
     setFeedbackStates((previousStates) => ({
       ...previousStates,
@@ -332,6 +468,42 @@ function ChatWindow({
     }));
   };
 
+  const handleNegativeFeedbackSubmit = async (
+    messageIndex: number,
+    answer: string
+  ) => {
+    const selectedReason = feedbackStates[messageIndex]?.reason;
+
+    if (!selectedReason) return;
+
+    const question = findPreviousUserQuestion(messageIndex);
+
+    const payload: FeedbackPayload = {
+      messageIndex,
+      question,
+      answer,
+      rating: "negative",
+      reason: selectedReason,
+    };
+
+    const success = await submitFeedback(payload);
+
+    if (!success) {
+      alert("의견 저장에 실패했습니다. 다시 시도해 주세요.");
+      return;
+    }
+
+    setFeedbackStates((previousStates) => ({
+      ...previousStates,
+      [messageIndex]: {
+        rating: "negative",
+        reason: selectedReason,
+        showReasons: false,
+        submitted: true,
+      },
+    }));
+  };
+
   /*
    * 사용자가 불만족 사유를 선택했을 때 실행되는 함수
    *
@@ -339,37 +511,23 @@ function ChatWindow({
    * 2. 평가 완료 상태로 변경
    * 3. 질문, 답변, 불만족 사유를 백엔드로 전달
    */
-  const handleReasonSelect = (
-    messageIndex: number,
-    answer: string,
-    reason: FeedbackReason
-  ) => {
-    // 선택한 불만족 사유와 평가 완료 상태 저장
-    setFeedbackStates((previousStates) => ({
-      ...previousStates,
-      [messageIndex]: {
-        rating: "negative",
-        reason,
-        showReasons: false,
-        submitted: true,
-      },
-    }));
-
-    // 해당 챗봇 답변 바로 앞의 사용자 질문 찾기
-    const question = findPreviousUserQuestion(messageIndex);
-
-    // 백엔드로 전달할 평가 데이터 생성
-    const payload: FeedbackPayload = {
-      messageIndex,
-      question,
-      answer,
-      rating: "negative",
-      reason,
+  
+    const handleReasonSelect = (
+      messageIndex: number,
+      reason: FeedbackReason
+    ) => {
+      // 사유 선택만 저장하고 아직 제출하지 않음
+      setFeedbackStates((previousStates) => ({
+        ...previousStates,
+        [messageIndex]: {
+          rating: "negative",
+          reason,
+          showReasons: true,
+          submitted: false,
+        },
+      }));
     };
-
-    // 만족도 평가 제출
-    void submitFeedback(payload);
-  };
+  
 
   return (
     <div className="chat-window"
@@ -435,6 +593,13 @@ function ChatWindow({
           message.content.trim() !== "" &&
           !isCurrentAnswerStreaming;
 
+        
+        // AI 답변을 본문과 추가 안내 영역으로 분리
+        const { mainContent, extraContent } =
+          message.role === "assistant"
+          ? splitAnswerContent(message.content)
+          : { mainContent: message.content, extraContent: "" };
+
         /*
          * 챗봇 메시지는 생성되었지만 아직 답변 내용이 없는 경우
          *
@@ -462,6 +627,10 @@ function ChatWindow({
                 <div className="loading-text">
                   답변 준비중...
                 </div>
+
+                <p className="loading-description">
+                  문의하신 내용과 관련된 정보를 확인하고 있습니다.
+                </p>
 
                 {/* 현재 계산 중인 참고 정보 매칭도 */}
                 <div className="similarity-card similarity-card-fixed">
@@ -498,13 +667,17 @@ function ChatWindow({
 
                   {/* 유사도 점수 구간에 따른 안내 문구 */}
                   <p className="similarity-desc">
+                    {similarityScore !== null && (
+                      <SimilarityStatusIcon score={similarityScore} />
+                    )}
+
                     {similarityScore === null
                       ? "유사도 계산 중입니다."
                       : similarityScore >= 80
-                      ? "✅ 신뢰할 수 있는 정보입니다."
+                      ? "신뢰할 수 있는 정보입니다."
                       : similarityScore >= 60
-                      ? "🟡 참고할 수 있는 정보입니다."
-                      : "⚠️ 참고 문서와의 유사도가 낮습니다."}
+                      ? "참고할 수 있는 정보입니다."
+                      : "참고 문서와의 유사도가 낮습니다."}
                   </p>
                 </div>
               </div>
@@ -584,11 +757,13 @@ function ChatWindow({
 
                       {/* 유사도 점수에 따른 신뢰도 안내 문구 */}
                       <p className="similarity-desc">
+                        <SimilarityStatusIcon score={message.similarityScore} />
+
                         {message.similarityScore >= 80
-                          ? "✅ 신뢰할 수 있는 정보입니다."
+                          ? "신뢰할 수 있는 정보입니다."
                           : message.similarityScore >= 60
-                          ? "🟡 참고할 수 있는 정보입니다."
-                          : "⚠️ 참고 문서와의 유사도가 낮습니다."}
+                          ? "참고할 수 있는 정보입니다."
+                          : "참고 문서와의 유사도가 낮습니다."}
                       </p>
                     </div>
                   )}
@@ -606,6 +781,27 @@ function ChatWindow({
                        * 굵은 글씨를 출력할 때 특정 제목이면
                        * 별도의 CSS 클래스를 적용
                        */
+                      h3: ({ children }) => {
+                        const headingText = String(children).trim();
+
+                        const match = headingText.match(/^(\d{2})\.\s*(.+)$/);
+
+                        if (match) {
+                          return (
+                            <h3 className="answer-numbered-heading">
+                              <span className="answer-heading-number">
+                                {match[1]}
+                              </span>
+
+                              <span className="answer-heading-title">
+                                {match[2]}
+                              </span>
+                            </h3>
+                          );
+                        }
+
+                        return <h3>{children}</h3>;
+                      },
                       strong: ({ children }) => {
                         const text =
                           children?.toString() ?? "";
@@ -653,8 +849,88 @@ function ChatWindow({
                       ),
                     }}
                   >
-                    {formatMarkdown(message.content)}
+                    {formatMarkdown(mainContent)}
                   </ReactMarkdown>
+
+                  {/* 추가 안내 및 자료 영역 */}
+                  {(extraContent || (message.files && message.files.length > 0)) && (
+                    <div className="answer-extra-panel">
+                      <h4>추가 안내 및 자료</h4>
+
+                      {extraContent && (
+                        <ReactMarkdown
+                          remarkPlugins={[remarkGfm]}
+                          components={{
+                            h3: ({ children }) => {
+                              const heading = String(children).trim();
+
+                              const config = [
+                                {
+                                  match: "담당 부서 안내",
+                                  label: "담당 부서",
+                                  icon: (
+                                    <svg viewBox="0 0 24 24" fill="none"
+                                      stroke="currentColor" strokeWidth="1.8"
+                                      strokeLinecap="round" strokeLinejoin="round">
+                                      <rect x="4" y="3" width="12" height="18" rx="1.5" />
+                                      <path d="M16 10h4v11M2 21h20M8 7h4M8 11h4M8 15h4" />
+                                    </svg>
+                                  ),
+                                },
+                                {
+                                  match: "관련 정보 링크",
+                                  label: "관련 정보",
+                                  icon: (
+                                    <svg viewBox="0 0 24 24" fill="none"
+                                      stroke="currentColor" strokeWidth="1.8"
+                                      strokeLinecap="round" strokeLinejoin="round">
+                                      <path d="M13 5H6a3 3 0 0 0-3 3v10a3 3 0 0 0 3 3h10a3 3 0 0 0 3-3v-7" />
+                                      <path d="M14 3h7v7M21 3l-10 10" />
+                                    </svg>
+                                  ),
+                                },
+                                {
+                                  match: "추천 파생 질문",
+                                  label: "이어서 물어볼 질문",
+                                  icon: (
+                                    <svg viewBox="0 0 24 24" fill="none"
+                                      stroke="currentColor" strokeWidth="1.8"
+                                      strokeLinecap="round" strokeLinejoin="round">
+                                      <path d="M20 11.5a7 7 0 0 1-7 7H7l-4 3v-6a7 7 0 0 1 7-7h3a7 7 0 0 1 7 3Z" />
+                                      <path d="M8 6a6 6 0 0 1 6-4h3a6 6 0 0 1 6 6v6l-3-2" />
+                                    </svg>
+                                  ),
+                                },
+                              ];
+
+                              const section = config.find((item) =>
+                                heading.includes(item.match)
+                              );
+
+                              if (!section) return <h3>{children}</h3>;
+
+                              return (
+                                <div className="answer-extra-section-heading">
+                                  <span className="answer-extra-section-icon">
+                                    {section.icon}
+                                  </span>
+                                  <span className="answer-extra-label">
+                                    {section.label}
+                                  </span>
+                                </div>
+                              );
+                            },
+
+                            a: ({ href, children }) => (
+                              <a href={href} target="_blank" rel="noreferrer">
+                                {children}
+                              </a>
+                            ),
+                          }}
+                        >
+                          {formatMarkdown(extraContent)}
+                        </ReactMarkdown>
+                      )}
 
                   {/*
                    * 챗봇 답변에 다운로드 파일이 포함된 경우
@@ -685,30 +961,58 @@ function ChatWindow({
                               className="download-card"
                             >
                               <div className="download-card-icon">
-                                📄
+                                <svg
+                                  width="24"
+                                  height="24"
+                                  viewBox="0 0 24 24"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  strokeWidth="1.8"
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  aria-hidden="true"
+                                >
+                                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z" />
+                                  <path d="M14 2v6h6" />
+                                  <path d="M8 13h8" />
+                                  <path d="M8 17h8" />
+                                </svg>
                               </div>
 
                               <div className="download-card-content">
                                 <div className="download-card-title">
                                   {file.file_name}
                                 </div>
-
-                                <div className="download-card-subtitle">
-                                  클릭하여 파일 다운로드
-                                </div>
                               </div>
 
                               <div className="download-card-arrow">
-                                →
+                                <svg
+                                  width="20"
+                                  height="20"
+                                  viewBox="0 0 24 24"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  strokeWidth="1.8"
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  aria-hidden="true"
+                                >
+                                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                                  <path d="m7 10 5 5 5-5" />
+                                  <path d="M12 15V3" />
+                                </svg>
                               </div>
                             </a>
-                          )
+                                                    )
                         )}
                       </div>
                     )}
 
+                  </div>
+                )}
+
                   {/*
-                   * 챗봇 답변 만족도 평가 영역
+                    챗봇 답변 만족도 평가 영역
                    *
                    * 처음 인사 메시지에는 표시되지 않음
                    *
@@ -721,12 +1025,14 @@ function ChatWindow({
                   {shouldShowFeedback && (
                     <div className="answer-feedback">
                       {!currentFeedback.submitted ? (
-                        <>
-                          <p className="feedback-question">
-                            이 답변이 도움이 되었나요?
-                          </p>
+                       <>
+                        {!currentFeedback.showReasons && (
+                          <>
+                            <p className="feedback-question">
+                              이 답변이 도움이 되었나요?
+                            </p>
 
-                          <div className="feedback-button-group">
+                            <div className="feedback-button-group">
                             {/* 만족 평가 버튼 */}
                             <button
                               type="button"
@@ -737,8 +1043,23 @@ function ChatWindow({
                                   message.content
                                 )
                               }
+                              aria-label="도움이 됐어요"
+                              title="도움이 됐어요"
                             >
-                              👍 도움이 됐어요
+                              <svg
+                                width="18"
+                                height="18"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                aria-hidden="true"
+                              >
+                                <path d="M7 10v12" />
+                                <path d="M15 5.88 14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H5a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h2.76a2 2 0 0 0 1.79-1.11L12.6 3a3.13 3.13 0 0 1 3 2.88Z" />
+                              </svg>
                             </button>
 
                             {/* 불만족 사유 선택 영역을 여는 버튼 */}
@@ -750,10 +1071,28 @@ function ChatWindow({
                                   index
                                 )
                               }
+
+                              aria-label="도움이 안 됐어요"
+                              title="도움이 안 됐어요"
                             >
-                              👎 도움이 안 됐어요
+                              <svg
+                                width="18"
+                                height="18"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                aria-hidden="true"
+                              >
+                                <path d="M17 14V2" />
+                                <path d="M9 18.12 10 14H4.17a2 2 0 0 1-1.92-2.56l2.33-8A2 2 0 0 1 6.5 2H19a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-2.76a2 2 0 0 0-1.79 1.11L11.4 21a3.13 3.13 0 0 1-3-2.88Z" />
+                              </svg>
                             </button>
                           </div>
+                        </>
+                      )}
 
                           {/*
                            * 사용자가 "도움이 안 됐어요"를 선택했을 때만
@@ -762,42 +1101,81 @@ function ChatWindow({
                           {currentFeedback.showReasons && (
                             <div className="feedback-reason-area">
                               <p className="feedback-reason-title">
-                                어떤 점이 아쉬웠나요?
+                                어떤 점이 아쉬우셨나요?
                               </p>
 
                               <div className="feedback-reason-list">
                                 {feedbackReasons.map(
                                   (reason) => (
+                                    
                                     <button
                                       key={reason.value}
                                       type="button"
-                                      className="feedback-reason-button"
+                                      className={`feedback-reason-button ${
+                                        currentFeedback.reason === reason.value ? "selected" : ""
+                                      }`}
+                                      aria-pressed={currentFeedback.reason === reason.value}
                                       onClick={() =>
-                                        handleReasonSelect(
-                                          index,
-                                          message.content,
-                                          reason.value
-                                        )
+                                        handleReasonSelect(index, reason.value)
                                       }
                                     >
-                                      {reason.label}
+                                      <span
+                                        className="feedback-reason-radio"
+                                        aria-hidden="true"
+                                      />
+                                      <span>{reason.label}</span>
                                     </button>
+
+                                  
                                   )
                                 )}
                               </div>
+
+                              <button
+                                type="button"
+                                className="feedback-submit-button"
+                                disabled={!currentFeedback.reason}
+                                onClick={() =>
+                                  handleNegativeFeedbackSubmit(
+                                    index,
+                                    message.content
+                                  )
+                                }
+                              >
+                                의견 제출
+                              </button>
                             </div>
                           )}
+
                         </>
                       ) : (
                         /*
                          * 사용자가 평가를 완료한 뒤 표시되는 문구
                          */
-                        <p className="feedback-complete-message">
-                          {currentFeedback.rating ===
-                          "positive"
-                            ? "👍 소중한 의견 감사합니다."
-                            : "의견이 전달되었습니다. 답변 개선에 참고하겠습니다."}
-                        </p>
+                        
+                        <div className="feedback-complete-message">
+                          <svg
+                            width="16"
+                            height="16"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            aria-hidden="true"
+                          >
+                            <circle cx="12" cy="12" r="10" />
+                            <path d="m8 12 2.5 2.5L16 9" />
+                          </svg>
+
+                          <span>
+                            {currentFeedback.rating === "positive"
+                              ? "소중한 평가 감사합니다."
+                              : "의견을 보내주셔서 감사합니다. 더 나은 답변을 제공하는 데 참고하겠습니다."}
+                          </span>
+                        </div>
+
                       )}
                     </div>
                   )}
