@@ -172,14 +172,14 @@ async def ask_saha_ai_stream(user_question: str, history: List[Dict[str, str]] =
     final_confidence_score = relevant_chunks[0].score if relevant_chunks else 0.0
         
     # 사용자가 안지루하게 유사도 먼저 보내기~~~~ 유사도를 먼저 보내서 답변이 도움이 되는지 판단하게끔 함
-    yield json.dumps({'type': 'score', 'content': float(final_confidence_score)}) + " "
+    # yield json.dumps({'type': 'score', 'content': float(final_confidence_score)}) + " "
     #테스트 
     for i, c in enumerate(relevant_chunks):
         p_type = getattr(c, 'page_type', '')
         p_type_str = str(p_type) if p_type is not None else ''
         chunk_title = getattr(c, 'title', '무제')
         score = getattr(c, 'score', '없음')
-        print(f"   [{i+1}등 문서] 제목: {chunk_title}, page_type: {p_type_str}, 유사도:{score}%")
+        print(f"   [{i+1}등 문서] id: {c.id}, url: {c.url}, 제목: {chunk_title}, page_type: {p_type_str}, 유사도:{score}%")
         
         
     # 디버깅 로그출력
@@ -480,13 +480,10 @@ async def ask_saha_ai_stream(user_question: str, history: List[Dict[str, str]] =
         ) + " "
 
         # 답변 생성 및 answer_success 판별 완료 후
-        if answer_success is False:
-            final_confidence_score = 0.0
-
-        yield json.dumps({
-            "type": "score",
-            "content": float(final_confidence_score)
-        }) + " "
+        if is_success is False:
+            final_confidence_score = 0.0 
+    
+        
         print(f"📊 [AI 검수 결과] 성공 여부: {is_success} / 사유: {failure_reason}")
         
         # DB에 저장할 텍스트 최종 검사
@@ -530,7 +527,8 @@ async def ask_saha_ai_stream(user_question: str, history: List[Dict[str, str]] =
 
     finally:
         log_db.close()
-    
+    yield json.dumps({'type': 'score', 'content': float(final_confidence_score)}) + " "
+
     #==================================================================
     # [2] 여권 pdf 파일 강제 첨부 로직 (rag로 수집되지 않는 여권 pdf 파일은 로컬에서 강제 첨부)
     #==================================================================
