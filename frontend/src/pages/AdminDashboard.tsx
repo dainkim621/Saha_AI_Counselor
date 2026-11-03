@@ -1,6 +1,5 @@
 
 import "../styles/AdminDashboard.css";
-// import { useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
 
 import SummaryCards from "../components/admin/SummaryCards";
@@ -22,7 +21,7 @@ const BACKEND_URL = "";
 
 // 관리자 질문 분석 대시보드
 function AdminDashboard() {
-  
+
   // 요약 통계 데이터
   const [summaryData, setSummaryData] = useState({
     totalQuestions: 0,
@@ -55,7 +54,7 @@ function AdminDashboard() {
   // 자주 묻는 질문 TOP5 실제 데이터
   const [popularQuestionsData, setPopularQuestionsData] =
     useState<PopularQuestion[]>([]);
-  
+
   // 요약 통계 조회
   useEffect(() => {
     const fetchSummaryData = async () => {
@@ -84,7 +83,7 @@ function AdminDashboard() {
         );
       }
     };
-    
+
     fetchSummaryData();
   }, []);
 
@@ -259,41 +258,41 @@ function AdminDashboard() {
   }, []);
 
   return (
-        <main className="admin-dashboard">
+    <main className="admin-dashboard">
 
-          {/* 관리자 대시보드 상단 헤더 */}
-          <header className="admin-dashboard-header">
-      
-            <div className="admin-dashboard-brand">
-              사하구 AI 민원 상담사
-              <span>관리자 시스템</span>
-            </div>
-        
-            <div className="admin-dashboard-header-row">
-          
-              <div className="admin-dashboard-title">
-                <h1>관리자 질문 분석 대시보드</h1>
+      {/* 관리자 대시보드 상단 헤더 */}
+      <header className="admin-dashboard-header">
+
+        <div className="admin-dashboard-brand">
+          사하구 AI 민원 상담사
+          <span>관리자 시스템</span>
+        </div>
+
+        <div className="admin-dashboard-header-row">
+
+          <div className="admin-dashboard-title">
+            <h1>관리자 질문 분석 대시보드</h1>
             <p>
               사용자 질문 통계와 답변 품질을 관리합니다.
             </p>
-              </div>
+          </div>
 
-            </div>
-          </header>
+        </div>
+      </header>
 
       {/* 통계 카드 영역 */}
-          <section className="dashboard-grid">
+      <section className="dashboard-grid">
 
-            <SummaryCards
-              totalQuestions={summaryData.totalQuestions ?? 0}
+        <SummaryCards
+          totalQuestions={summaryData.totalQuestions ?? 0}
           failedQuestionCount={
             summaryData.failedQuestionCount ?? 0
           }
           topLanguage={
             summaryData.topLanguage || "데이터 없음"
           }
-              peakHour={actualPeakHour}
-            />
+          peakHour={actualPeakHour}
+        />
 
         <FailedQuestions
           questions={failedQuestionsData}
@@ -315,9 +314,9 @@ function AdminDashboard() {
           areas={missingDocumentAreasData}
         />
 
-          </section>
+      </section>
 
-        </main>
+    </main>
   );
 }
 

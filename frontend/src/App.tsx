@@ -7,7 +7,8 @@ import ChatInput from "./components/ChatInput";
 import QuickMenu from "./components/QuickMenu";
 
 // FastAPI 백엔드 서버 주소
-const BACKEND_URL = ''; // 상대 경로로 변경하여 프록시 설정 사용
+//const BACKEND_URL = 'https://snack-sanded-passover.ngrok-free.dev'; // 상대 경로로 변경하여 프록시 설정 사용
+const BACKEND_URL = '';  // 다인 임시로 로컬 쓴거
 
 // 채팅 메시지 데이터 구조
 export type Message = {
@@ -154,7 +155,7 @@ function App() {
   const audioChunksRef = useRef<Blob[]>([]);
 
   // 페이지가 처음 열릴 때 백엔드에서 자주 묻는 질문 Top 5 조회
-  // 페이지가 열리면 자동으로 GET /frequent-questions가 호출됨.
+  // 페이지가 열리면 자동으로 GET http://localhost:8000/frequent-questions가 호출됨.
   useEffect(() => {
     const fetchFrequentQuestions = async () => {
       try {
@@ -613,17 +614,17 @@ function App() {
 
               // 첫 질문의 제목은 기존 상담 내역 제목에도 사용
               if (isFirstQuestion) {
-              activeChatTitleRef.current = title;
+                activeChatTitleRef.current = title;
 
-              const chatId = activeChatIdRef.current;
+                const chatId = activeChatIdRef.current;
 
-              setSavedChats((prev) =>
-                prev.map((chat) =>
-                  chat.id === chatId
-                    ? { ...chat, title }
-                    : chat
-                )
-              );
+                setSavedChats((prev) =>
+                  prev.map((chat) =>
+                    chat.id === chatId
+                      ? { ...chat, title }
+                      : chat
+                  )
+                );
               }
             }
           }
@@ -828,7 +829,7 @@ function App() {
       });
 
       setMobileQuestionListOpen(false);
-  };
+    };
 
   return (
     <div className={`app ${fontModes[fontLevel]}`}>
@@ -864,32 +865,32 @@ function App() {
             </svg>
           </button>
 
-    {/* 글자 크기 조절 */}
-    <div className="font-controls">
-      <span>글자 크기</span>
+      {/* 글자 크기 조절 */}
+      <div className="font-controls">
+        <span>글자 크기</span>
 
-      <button
-        type="button"
-        onClick={decreaseFont}
-        aria-label="글자 크기 줄이기"
-      >
-        －
-      </button>
+        <button
+          type="button"
+          onClick={decreaseFont}
+          aria-label="글자 크기 줄이기"
+        >
+          －
+        </button>
 
-      <div className="font-label">
-        {fontLabels[fontLevel]}
+        <div className="font-label">
+          {fontLabels[fontLevel]}
+        </div>
+
+        <button
+          type="button"
+          onClick={increaseFont}
+          aria-label="글자 크기 키우기"
+        >
+          ＋
+        </button>
       </div>
-
-      <button
-        type="button"
-        onClick={increaseFont}
-        aria-label="글자 크기 키우기"
-      >
-        ＋
-      </button>
     </div>
   </div>
-</div>
 
       {/* 이용 가이드 모달 */}
       {showGuide && (
@@ -1133,20 +1134,20 @@ function App() {
           </div>
 
           {/* 상담 내역 - 현재 접속 중에만 임시 보관 */}
-  <div className="history-menu">
-    <button
-      type="button"
-      className="history-toggle"
-      onClick={() => {
-        setHistoryOpen((prev) => !prev);
-        // 모바일에서만 FAQ 닫기
-        if (window.matchMedia("(max-width: 768px)").matches) {
-          setFaqOpen(false);
-        }
-      }}
-      aria-expanded={historyOpen}
-      aria-controls="saved-chat-history"
-    >
+          <div className="history-menu">
+            <button
+              type="button"
+              className="history-toggle"
+              onClick={() => {
+                setHistoryOpen((prev) => !prev);
+                // 모바일에서만 FAQ 닫기
+                if (window.matchMedia("(max-width: 768px)").matches) {
+                  setFaqOpen(false);
+                }
+              }}
+              aria-expanded={historyOpen}
+              aria-controls="saved-chat-history"
+            >
       {/* 상담 내역 아이콘 */}
       <svg
         width="18"

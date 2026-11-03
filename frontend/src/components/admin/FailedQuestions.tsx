@@ -50,6 +50,7 @@ function FailedQuestions({ questions }: FailedQuestionsProps) {
           );
         })}
       </div>
+
     </section>
   );
 }
