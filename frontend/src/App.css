@@ -1,10 +1,21 @@
+
+/* 챗봇 전체 화면 */
 .app {
-  min-height: 100vh;
-  background-color: #f5f7fb;
-  color: #222;
+  /* 브라우저 화면 높이에 맞춤 */
+  height: 100dvh;
+  min-height: 0;
+
+  display: flex;
+  flex-direction: column;
+
+  /* 웹페이지 바깥쪽 스크롤*/
+  overflow: hidden;
+
+  /* AI 답변의 흰색 카드가 자연스럽게 돋보이도록 연회색 배경 적용 */
+  background-color: #FFFFFF;
+  color: #171717;
   font-family: "Pretendard", "Noto Sans KR", sans-serif;
 }
-
 /* =========================
     Header
 ========================= */
@@ -14,45 +25,24 @@
   overflow: hidden;
 
   width: calc(100% - 20px);
-  min-height: 165px;
+  min-height: 108px;
 
-  margin: 0 auto 2px;
-  padding: 12px 40px;
+  margin: 0 auto 0px;
+  padding: 8px 24px;
 
   box-sizing: border-box;
 
-  background:
-    radial-gradient(circle at 6% 16%, rgba(147, 197, 253, 0.35) 0 44px, transparent 45px),
-    radial-gradient(circle at 96% 16%, rgba(147, 197, 253, 0.28) 0 75px, transparent 76px),
-    linear-gradient(135deg, #ffffff 0%, #eff6ff 42%, #d8ebff 100%);
+  background: #FFFFFF;
 
-  border: 1px solid #dbeafe;
-  border-radius: 26px;
+  border: 1px solid #E5E5E5;
+  border-radius: 10px;
 
-  box-shadow: 0 10px 24px rgba(37, 99, 235, 0.08);
+  box-shadow: none;
 }
 
-.header::before {
-  content: "";
-  position: absolute;
-  left: -70px;
-  bottom: -90px;
-  width: 680px;
-  height: 170px;
-  border-radius: 50%;
-  background: rgba(191, 219, 254, 0.38);
-  transform: rotate(4deg);
-}
-
+.header::before,
 .header::after {
-  content: "";
-  position: absolute;
-  right: -90px;
-  top: 0;
-  width: 600px;
-  height: 280px;
-  border-radius: 45% 0 0 55%;
-  background: rgba(147, 197, 253, 0.25);
+  content: none;
 }
 
 .header-content {
@@ -65,15 +55,15 @@
 
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: center;
 
-  gap: 20px;
+  min-height: 88px;
 }
 
 .header-text {
-  flex: 1;
-  min-width: 460px;
-  text-align: left;
+  flex: 0 1 auto;
+  min-width: 0;
+  text-align: center;
 }
 
 .header-kicker {
@@ -81,28 +71,39 @@
   font-size: 14px;
   font-weight: 800;
   letter-spacing: 3px;
-  color: #1677ff;
+  color: #171717;
 }
 
+/* 헤더의 서비스 제목 */
 .header-text h1 {
   margin: 0;
 
-  font-size: 44px;
-  font-weight: 900;
-  line-height: 1.08;
-  letter-spacing: -3px;
+  /* 제목 크기 및 굵기 */
+  font-size: 34px;
+  font-weight: 800;
+  line-height: 1.3;
 
-  color: #071228;
+  /* 한글 제목의 글자 간격 */
+  letter-spacing: -1px;
+
+  /* 차분한 차콜 색상 */
+  color: #171717;
 }
 
+/* 헤더 제목 아래 서비스 안내 문구 */
 .header-description {
-  margin: 12px 0 16px;
+  /* 제목과 설명 사이 여백 */
+  margin: 8px 0 0px;
 
-  color: #1f2937;
+  /* 본문에 사용하는 중간 회색 */
+  color: #666666;
 
-  font-size: 17px;
-  font-weight: 600;
-  line-height: 1.4;
+  font-size: 15px;
+  font-weight: 400;
+  line-height: 1.6;
+
+  /* 작은 화면에서도 자연스럽게 줄바꿈 */
+  word-break: keep-all;
 }
 
 .header-badge-list {
@@ -122,55 +123,42 @@
 
   border-radius: 999px;
   background-color: rgba(255, 255, 255, 0.92);
-  color: #1677ff;
+  color: #171717;
 
   font-size: 13px;
   font-weight: 800;
 
-  border: 1px solid rgba(191, 219, 254, 0.95);
-  box-shadow: 0 8px 18px rgba(37, 99, 235, 0.1);
+  border: 1px solid rgba(229, 229, 229, 0.95);
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.04);
   backdrop-filter: blur(10px);
 }
 
 .header-visual {
-  flex-shrink: 0;
+  position: absolute;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
 
-  width: 430px;
-  height: 180px;
+  width: 140px;
+  height: 88px;
+  flex-shrink: 0;
 
   display: flex;
   align-items: center;
   justify-content: center;
-
-  position: relative;
-  transform: translateX(-30px);
 }
 
 .header-visual::before {
-  content: "";
-  position: absolute;
-
-  width: 250px;
-  height: 190px;
-
-  border-radius: 48% 52% 44% 56%;
-  background: rgba(147, 197, 253, 0.3);
-
-  right: 0;
-  bottom: 0;
+  content: none;
 }
 
 .header-gouni {
-  position: relative;
-  z-index: 2;
-
-  width: 155px;
-
+  width: auto;
+  max-width: 84px;
+  max-height: 82px;
+  height: auto;
   object-fit: contain;
-
-  animation: header-gouni-wave 2.8s ease-in-out infinite;
-
-  transform-origin: bottom center;
+  animation: none;
 }
 
 .header-speech-bubble {
@@ -182,7 +170,7 @@
   border: 2px solid #ffffff;
   border-radius: 20px;
 
-  box-shadow: 0 12px 28px rgba(37, 99, 235, 0.06);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.04);
   backdrop-filter: blur(8px);
 
   text-align: center;
@@ -210,14 +198,14 @@
 .header-speech-bubble p {
   margin: 0;
   font-family: "Pretendard", sans-serif;
-  color: #374151;
+  color: #404040;
   word-break: keep-all;
 }
 
 .bubble-greet {
   font-size: 12px;
   font-weight: 800;
-  color: #1677ff !important;
+  color: #171717 !important;
   margin-bottom: 3px !important;
 }
 
@@ -225,20 +213,20 @@
   font-size: 14px;
   font-weight: 600;
   line-height: 1.35;
-  color: #1f2937;
+  color: #171717;
 }
 
 .bubble-highlight {
   font-size: 15px;
   font-weight: 800;
-  color: #071228;
+  color: #171717;
   margin-top: 2px !important;
 }
 
 .bubble-highlight span {
   font-size: 15px;
   font-weight: 500;
-  color: #4b5563;
+  color: #404040;
 }
 
 /* =========================
@@ -248,7 +236,7 @@
 .header-pattern {
   position: absolute;
   z-index: 1;
-  color: #1677ff;
+  color: #171717;
   opacity: 0.16;
   user-select: none;
 }
@@ -269,7 +257,7 @@
   top: 28px;
   right: 28%;
   font-size: 26px;
-  color: #f59e0b;
+  color: #404040;
   opacity: 0.35;
   animation: floatPatternA 5s ease-in-out infinite;
 }
@@ -306,7 +294,7 @@
   position: absolute;
   z-index: 1;
   border-radius: 50%;
-  background: rgba(147, 197, 253, 0.28);
+  background: rgba(0, 0, 0, 0.035);
 }
 
 .circle-left {
@@ -354,24 +342,30 @@
 ========================= */
 
 .accessibility-bar {
-  display: grid;
-  grid-template-columns: 240px 1fr auto;
-  align-items: center;
-
-  column-gap: 14px;
-
-  padding: 0 10px 2px;
-
-  width: calc(100% - 20px);
-  max-width: 1680px;
-  margin: 0 auto;
-}
-
-.voice-accessibility-controls {
-  grid-column: 2;
+  position: relative;
   display: flex;
   align-items: center;
+
+  width: 100%;
+  max-width: none;
+  min-height: 56px;
+  padding: 0 16px;
+  margin: 0;
+  box-sizing: border-box;
+}
+
+/* 개인정보 안내를 채팅 입력창과 같은 중앙에 정렬 */
+.voice-accessibility-controls {
+  position: absolute;
+  left: calc(50% + 120px);
+  top: 50%;
+  transform: translate(-50%, -50%);
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
   gap: 8px;
+  margin: 0;
 }
 
 .font-controls {
@@ -385,75 +379,99 @@
 .font-controls span {
   font-size: 14px;
   font-weight: 600;
-  color: #374151;
+  color: #404040;
 }
 
+/* 글자 크기 조절 - / + 버튼 */
 .font-controls button {
-  width: 32px;
-  height: 32px;
-
   display: flex;
-  justify-content: center;
   align-items: center;
+  justify-content: center;
 
-  border: 1px solid #d1d5db;
-  border-radius: 999px;
+  /* 음성 버튼과 통일된 크기 */
+  width: 34px;
+  height: 34px;
+  padding: 0;
 
+  /* 차분한 무채색 */
   background-color: #ffffff;
-  color: #2563eb;
+  color: #404040;
+
+  border: 1px solid #E5E5E5;
+  border-radius: 8px;
+
+  font-family: inherit;
+  font-size: 18px;
+  font-weight: 500;
 
   cursor: pointer;
-
-  font-size: 19px;
-  font-weight: 700;
-
-  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.08);
-
-  padding: 0;
+  box-shadow: none;
 }
 
+/* 글자 크기 버튼에 마우스를 올렸을 때 */
+.font-controls button:hover {
+  background-color: #EBEBEB;
+  border-color: #CCCCCC;
+}
+
+/* 현재 선택된 글자 크기 표시 */
 .font-label {
   min-width: 70px;
-
   padding: 6px 10px;
 
-  border-radius: 999px;
+  /* 불필요한 캡슐형 디자인 제거 */
+  background-color: #F5F5F5;
+  color: #404040;
 
-  background-color: #f1f5f9;
-  color: #1f2937;
+  border-radius: 8px;
 
   font-size: 13px;
-  font-weight: 700;
-
+  font-weight: 500;
   text-align: center;
 }
 
+/* 음성 입력·출력 및 다시 듣기 버튼 */
 .voice-button {
-  height: 32px;
-  padding: 0 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 
-  border: 1px solid #d1d5db;
-  border-radius: 999px;
+  /* 버튼 크기와 내부 여백 */
+  min-height: 36px;
+  padding: 7px 14px;
 
+  /* 단정한 무채색 디자인 */
   background-color: #ffffff;
-  color: #4b5563;
+  color: #404040;
+
+  border: 1px solid #E5E5E5;
+  border-radius: 7px;
+
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
 
   cursor: pointer;
+  box-shadow: none;
 
-  font-size: 13px;
-  font-weight: 700;
-
-  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.08);
+  transition:
+    background-color 0.2s ease,
+    border-color 0.2s ease;
 }
 
-.voice-button:hover {
-  background-color: #f8fafc;
+/* 음성 버튼에 마우스를 올렸을 때 */
+.voice-button:hover:not(:disabled) {
+  background-color: #F5F5F5;
+  border-color: #CCCCCC;
 }
 
+/* 음성 입력 또는 답변 음성이 활성화된 상태 */
 .voice-button.active {
-  background-color: #eff6ff;
-  color: #2563eb;
-  border-color: #93c5fd;
+  background-color: #F5F5F5;
+  color: #404040;
+
+  border-color: #CCCCCC;
+  font-weight: 600;
 }
 
 .voice-button:disabled {
@@ -461,35 +479,96 @@
   cursor: not-allowed;
 }
 
-.download-buttons-container {
-  margin-top: 12px;
+
+/* 개인정보 보호 안내 배지 */
+.privacy-warning {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 10px;
+
+  width: fit-content;
+  max-width: 100%;
+  box-sizing: border-box;
+  transform: translateX(135px);
+
+  margin-left: 0px;
+  padding: 10px 484px 10px 0px;
+
+  background-color: #F2F2F2;
+  border: none;
+  border-radius: 999px;
+
+  color: #171717;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.5;
+
+  white-space: normal;
+  word-break: keep-all;
 }
+
+/* 개인정보 보호 아이콘 */
+.privacy-warning-icon {
+  flex-shrink: 0;
+  font-size: 17px;
+  transform: translateX(242px);
+  position: relative;
+  top: -2px;
+
+}
+
+/* 개인정보 안내 문구 */
+.privacy-warning-text {
+  display: inline;
+  margin-left: 6px;
+  transform: translateX(242px);
+}
+
+
+.download-buttons-container {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+
+  margin-top: 12px;
+  width: 100%;
+  min-width: 0;
+}
+
 
 .download-card {
   display: flex;
   align-items: center;
   gap: 12px;
 
-  width: fit-content;
-  min-width: 280px;
+  width: 100%;
+  max-width: 650px;
+  min-width: 0;
+  min-height: 64px;
 
-  padding: 12px 16px;
+  margin-bottom: 0;
+  padding: 14px 16px;
+  box-sizing: border-box;
 
-  background: #ffffff;
+  background: #FAFAFA;
+  border: 1px solid #E5E5E5;
+  border-radius: 10px;
+  box-shadow: none;
 
-  border: 1px solid #e5e7eb;
-  border-radius: 14px;
-
+  color: #404040;
   text-decoration: none;
-  color: inherit;
 
-  transition: all 0.2s ease;
+  transition: background-color 0.2s ease;
 }
 
+
 .download-card:hover {
-  transform: translateY(-2px);
-  border-color: #93c5fd;
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
+  transform: none;
+  background: #F5F5F5;
+  border-color: #E5E5E5;
+  box-shadow: none;
+  text-decoration: none;
 }
 
 .download-card-icon {
@@ -502,94 +581,965 @@
 
   border-radius: 10px;
 
-  background: #eff6ff;
+  background: #F1F1F1;
 
   font-size: 20px;
 }
 
 .download-card-content {
   flex: 1;
+  min-width: 0;
 }
 
 .download-card-title {
-  font-size: 14px;
-  font-weight: 700;
-  color: #1e293b;
+  font-size: var(--ui-small-font, 15px);
+  font-weight: 500;
+  line-height: 1.5;
+  color: #404040;
+  text-decoration: none;
+  overflow-wrap: anywhere;
+  word-break: normal;
 }
 
 .download-card-subtitle {
   margin-top: 2px;
   font-size: 12px;
-  color: #64748b;
+  font-weight: 400;
+  line-height: 15px;
+  color: #767676;
 }
 
 .download-card-arrow {
   font-size: 18px;
-  color: #94a3b8;
+  color: #666666;
 }
 
 /* =========================
     Layout
 ========================= */
 
+
+/* =========================
+   Figma 전체 레이아웃
+========================= */
+
 .main-layout {
   display: flex;
+  flex: 1 1 auto;
 
-  gap: 14px;
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
 
-  padding: 2px 10px 8px;
+  margin: 0;
+  padding: 0;
+  gap: 0;
 
-  width: calc(100% - 20px);
-  max-width: 1680px;
-
-  margin: 0 auto;
-
-  align-items: flex-start;
+  align-items: stretch;
+  overflow: hidden;
 }
 
+
+/* 왼쪽 사이드바 - Figma */
 .left-section {
-  width: 240px;
-  flex-shrink: 0;
-}
-
-.chat-section {
-  flex: 1;
-  max-width: none;
+  width: 340px;
+  flex: 0 0 340px;
+  transition: width 0.25s ease, flex-basis 0.25s ease;
+  min-width: 0;
+  min-height: 0;
 
   display: flex;
   flex-direction: column;
 
-  height: calc(100vh - 285px);
-  min-height: 380px;
+  padding: 0 16px 24px;
+  box-sizing: border-box;
 
-  background-color: white;
+  background: #F7F7F7;
+  border-right: 1px solid #E5E5E5;
 
-  border-radius: 22px;
-  border: 1px solid #e5e7eb;
+  overflow-y: auto;
+}
+
+@media (min-width: 1025px) {
+  .left-section.collapsed {
+    width: 0;
+    flex-basis: 0;
+    padding-left: 0;
+    padding-right: 0;
+    border-right: none;
+    overflow: hidden;
+  }
+}
+
+
+/* =========================
+   Figma PC Top Toolbar
+========================= */
+
+.figma-pc-toolbar {
+  display: none;
+}
+
+@media (min-width: 1025px) {
+  .app > .header-top-row,
+  .app > .accessibility-bar {
+    display: none;
+  }
+
+  .figma-pc-toolbar {
+    display: flex;
+    flex: 0 0 72px;
+    align-items: center;
+    justify-content: flex-start;
+
+    width: 100%;
+    min-width: 0;
+    height: 72px;
+    padding: 0 48px;
+    box-sizing: border-box;
+
+    gap: 20px;
+    background: #FFFFFF;
+    font-family: "Inter", "Pretendard", sans-serif;
+  }
+
+  .figma-toolbar-privacy {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+
+    min-width: 0;
+
+    color: #767676;
+    font-size: var(--ui-small-font, 15px);
+    font-weight: 400;
+    white-space: nowrap;
+  }
+
+  .figma-toolbar-actions {
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+    gap: 16px;
+    margin-left: auto;
+  }
+
+  .figma-privacy-detail {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+
+    min-height: calc(var(--ui-small-font, 15px) + 18px);
+    height: auto;
+    padding: 6px 12px;
+    box-sizing: border-box;
+
+    border: 1px solid #E5E5E5;
+    border-radius: 8px;
+    background: #FFFFFF;
+    color: #404040;
+
+    font-size: calc(var(--ui-small-font, 15px) - 2px);
+    font-weight: 500;
+    line-height: 1;
+    white-space: nowrap;
+
+    cursor: pointer;
+  }
+
+  .message-row {
+   max-width: 900px;
+  }
+
+  .figma-font-caption {
+    color: #767676;
+    font-size: var(--ui-small-font, 15px);
+    font-weight: 500;
+    white-space: nowrap;
+  }
+
+  .figma-font-control {
+    display: flex;
+    align-items: center;
+    height: auto;
+    min-height: 35px;
+    border: 1px solid #E5E5E5;
+    border-radius: 10px;
+    overflow: hidden;
+  }
+
+  .figma-font-control button {
+    height: 100%;
+    min-height: 35px;    
+    width: clamp(41px, 2.5em, 54px);
+    padding: 0;
+    border: 0;
+    background: #FFFFFF;
+    color: #404040;
+    font-size: var(--ui-small-font, 15px);
+    font-weight: 500;
+    cursor: pointer;
+  }
+
+  .figma-font-control span {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 88px;
+    height: 100%;
+    color: #404040;
+    font-size: var(--ui-small-font, 15px);
+    font-weight: 500;
+  }
+
+  .figma-font-control button:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  .figma-guide-button {
+    width: calc(var(--ui-text-font, 18px) + 20px);
+    height: calc(var(--ui-text-font, 18px) + 20px);
+    flex-shrink: 0;
+    border: 1px solid #E5E5E5;
+    border-radius: 10px;
+    background: #FFFFFF;
+    color: #404040;
+    font-size: var(--ui-text-font, 18px);
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .figma-sidebar-toggle:hover {
+    background: #F5F5F5;
+  }
+}
+
+@media (max-width: 1024px) {
+  .figma-sidebar-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 38px;
+    height: 38px;
+    flex-shrink: 0;
+    padding: 0;
+    border: none;
+    background: transparent;
+    color: #404040;
+    cursor: pointer;
+    }
+}
+
+/* Figma PC 사이드바 */
+.figma-pc-sidebar {
+  display: none;
+}
+
+/* Figma PC 사이드바 */
+.figma-pc-sidebar {
+  display: none;
+}
+
+@media (min-width: 1025px) {
+  .legacy-sidebar-content {
+    display: none;
+  }
+
+  .figma-pc-sidebar {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    min-height: 100%;
+    font-family: "Inter", "Pretendard", sans-serif;
+  }
+
+  .figma-sidebar-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    width: 100%;
+    min-height: 72px;
+  }
+
+  .figma-sidebar-title {
+    margin: 0;
+    padding-left: 0;
+    width: auto;
+    box-sizing: border-box;
+    flex: 1;
+    text-align: center;
+
+    color: #171717;
+    font-family: "Inter", "Pretendard", sans-serif;
+    font-size: var(--ui-heading-font, 20px);
+    font-weight: 600;
+    line-height: 1.4;
+  }
+
+  .figma-new-chat-button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    width: 100%;
+    height: 48px;
+    min-height: 48px;
+    flex-shrink: 0;
+
+    padding: 0 16px;
+
+    background: #171717;
+    color: #FFFFFF;
+
+    border: none;
+    border-radius: 10px;
+
+    font-family: "Inter", "Pretendard", sans-serif;
+    font-size: var(--ui-text-font, 18px);
+    font-weight: 500;
+    line-height: 19px;
+
+    cursor: pointer;
+  }
+
+  .figma-new-chat-button:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
+  .figma-sidebar-sections {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+
+    width: calc(100% - 20px);
+    min-width: 0;
+    margin-top: 48px;
+    margin-left: 10px;
+  }
+
+  .figma-recent-section,
+  .figma-faq-section {
+    width: 100%;
+    margin-top: 0;
+  }
+
+  /* 아코디언 헤더 */
+  .figma-accordion-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    width: 100%;
+    min-height: 46px;
+    padding: 10px 12px;
+
+    border: 0;
+    border-bottom: 1px solid #E5E5E5;
+    border-radius: 0;
+    background: transparent;
+
+    color: #404040;
+    font-family: inherit;
+    font-size: var(--pc-sidebar-font-size, 17px);
+    font-weight: 600;
+    text-align: left;
+    cursor: pointer;
+  }
+
+  /* 접기·펼치기 화살표 */
+  .figma-accordion-arrow {
+    display: block;
+    flex-shrink: 0;
+
+    width: 8px;
+    height: 8px;
+
+    border-right: 2px solid #777777;
+    border-bottom: 2px solid #777777;
+
+    transform: rotate(-45deg);
+    transition: transform 0.2s ease;
+  }
+
+  .figma-accordion-arrow.open {
+    transform: rotate(-45deg);
+  }
+
+  /* 아코디언 목록 */
+  .figma-recent-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+
+    width: 100%;
+    max-height: 420px;
+    min-height: 0;
+
+    padding: 8px 0;
+    box-sizing: border-box;
+
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
+  
+  .figma-faq-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+
+    max-height: none;
+    margin-top: 8px;
+    padding-bottom: 8px;
+
+    border-bottom: 1px solid #DEDEDE;
+    overflow-y: visible;
+  }
+
+  /* 상담 내역이 없는 경우 */
+  .figma-history-empty {
+    margin: 12px 8px;
+    color: #737373;
+    font-size: 13px;
+    line-height: 20px;
+  }
+
+  /* 최근 문의 항목 */
+  .figma-recent-item {
+    display: block;
+    width: 100%;
+    min-height: 52px;
+
+    padding: 14px 12px;
+    box-sizing: border-box;
+    flex-shrink: 0;
+
+    border: none;
+    border-radius: 8px;
+    background: transparent;
+
+    color: #404040;
+    font-size: var(--pc-sidebar-font-size, 15px);
+    font-weight: 400;
+    line-height: 20px;
+    text-align: left;
+
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    cursor: pointer;
+  }
+
+  .figma-recent-item:hover {
+    background: #ECECEC;
+  }
+
+  .figma-recent-item.active {
+    background: #E5E5E5;
+    color: #171717;
+    font-weight: 500;
+  }
+
+  /* FAQ 질문 */
+  .figma-faq-item {
+    width: 100%;
+    min-height: 44px;
+    padding: 11px 12px;
+    box-sizing: border-box;
+    flex-shrink: 0;
+
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+
+    color: #737373;
+    font-family: inherit;
+    font-size: var(--pc-sidebar-font-size, 17px);
+    font-weight: 400;
+    text-align: left;
+    cursor: pointer;
+  }
+
+  /* 마우스 호버 */
+  .figma-recent-item:hover:not(:disabled),
+  .figma-faq-item:hover:not(:disabled) {
+    background: #EAEAEA;
+  }
+
+  .figma-recent-item:disabled,
+  .figma-faq-item:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+  }
+
+}
+
+
+/* =========================
+   새 채팅 버튼
+========================= */
+
+.new-chat-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+
+  width: 100%;
+  height: 40px;
+  min-height: 40px;
+  padding: 0 16px;
+
+  background-color: #171717;
+  color: #FFFFFF;
+
+  border: 1px solid #171717;
+  border-radius: 10px;
+
+  font-family: "Inter", "Pretendard", sans-serif;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 17px;
+
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+/* 새 채팅 버튼 오른쪽 + 아이콘 */
+.new-chat-icon {
+  position: static;
+
+  font-size: 1.2em;
+  font-weight: 400;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+/* 마우스를 올렸을 때 */
+.new-chat-button:hover:not(:disabled) {
+  background-color: #303030;
+}
+
+/* 키보드로 버튼에 접근했을 때 */
+.new-chat-button:focus-visible {
+  outline: 2px solid #404040;
+  outline-offset: 3px;
+}
+
+/* 답변 생성 또는 녹음 중 버튼 비활성화 */
+.new-chat-button:disabled {
+  background-color: #666666;
+  border-color: #666666;
+  cursor: not-allowed;
+}
+
+/* =========================
+   채팅 전체 영역
+========================= */
+
+/* 채팅 화면 전체 영역 */
+/* Figma MainArea */
+.chat-section {
+  display: flex;
+  flex-direction: column;
+
+  flex: 1 1 0;
+  width: 0;
+  min-width: 0;
+  min-height: 0;
+
+  background: #FFFFFF;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
 
   overflow: hidden;
-
-  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.04);
 }
+
+/* Figma ChatLayout */
+.figma-chat-layout {
+  display: flex;
+  flex: 1 1 auto;
+
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+
+  overflow: hidden;
+}
+
+/* 중앙 채팅 영역 */
+.figma-chat-main {
+  display: flex;
+  flex-direction: column;
+
+  position: relative;
+
+  flex: 1 1 0;
+  width: 0;
+  min-width: 0;
+  min-height: 0;
+
+  background: #FFFFFF;
+  overflow: hidden;
+}
+
+/* 채팅 시작 후 하단 입력창 */
+.figma-chat-input-bottom {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 12px;
+  z-index: 2;
+
+  width: auto;
+  min-width: 0;
+
+  padding: 12px clamp(24px, 4vw, 48px) 20px;
+  box-sizing: border-box;
+
+  background: #FFFFFF;
+}
+
+
+.figma-chat-input-bottom .chat-input-box {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+
+  width: 100%;
+  max-width: 1050px;
+  height: 64px;
+  min-height: 64px;
+
+  margin: 0;
+  padding: 10px 12px 10px 20px;
+  box-sizing: border-box;
+
+  background: #FFFFFF;
+  border: 1px solid #E5E5E5;
+  border-radius: 16px;
+  box-shadow: none;
+}
+
+.figma-chat-input-bottom .chat-input-box input {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  padding: 0;
+
+  border: none;
+  outline: none;
+  background: transparent;
+}
+
+.figma-chat-input-bottom .chat-input-box button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  flex: 0 0 48px;
+  width: 48px;
+  height: 44px;
+  min-width: 48px;
+  padding: 0;
+
+  border: none;
+  border-radius: 10px;
+  background: #171717;
+  color: #FFFFFF;
+}
+
+
+/* =========================
+   Figma Frame 0 - 최초 접속 화면
+========================= */
+
+
+/* =========================
+   Figma Frame 0 - Welcome
+========================= */
+
+.figma-welcome {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  justify-content: center;
+
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+
+  background: #FFFFFF;
+}
+
+.figma-welcome-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+
+  width: 100%;
+  max-width: 1050px;
+  padding: 0 16px;
+  box-sizing: border-box;
+
+  margin-block: auto;
+  transform: none;
+}
+
+/* 새 채팅 화면 - 고우니 마스코트 */
+.figma-welcome-mascot {
+  display: block;
+  width: 170px;
+  max-width: 100%;
+  height: auto;
+  object-fit: contain;
+
+  margin: 0 auto 24px;
+  flex-shrink: 0;
+}
+
+.figma-welcome-content h2 {
+  margin: 0;
+
+  font-family: "Inter", "Pretendard", sans-serif;
+  font-size: calc(var(--ui-heading-font, 20px) + 10px);
+  font-weight: 600;
+  line-height: 1.3;
+  text-align: center;
+  color: #171717;
+}
+
+.figma-welcome-content p {
+  margin: 14px 0 28px;
+
+  font-family: "Inter", "Pretendard", sans-serif;
+  font-size: var(--ui-text-font, 18px);
+  font-weight: 400;
+  line-height: 1.5;
+  text-align: center;
+  color: #767676;
+}
+
+.figma-welcome-input {
+  width: 100%;
+  max-width: 1050px;
+  min-width: 0;
+}
+
+/* =========================
+   새 채팅 화면 - 민원 분야 안내
+========================= */
+
+.figma-welcome-categories {
+  width: 100%;
+  max-width: 850px;
+  margin-top: 36px;
+}
+
+.figma-welcome-categories h3 {
+  margin: 0 0 16px;
+
+  color: #404040;
+  font-size: var(--ui-text-font, 18px);
+  font-weight: 600;
+  text-align: left;
+}
+
+.figma-welcome-category-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.figma-welcome-category {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+
+  min-width: 0;
+  padding: 18px 20px;
+  box-sizing: border-box;
+
+  background: #FAFAFA;
+  border: 1px solid #E5E5E5;
+  border-radius: 12px;
+
+  /* 처음 등장할 때만 부드러운 효과 */
+  animation: categoryFadeIn 0.6s ease both;
+}
+
+.figma-welcome-category:nth-child(1) {
+  animation-delay: 0.05s;
+}
+
+.figma-welcome-category:nth-child(2) {
+  animation-delay: 0.15s;
+}
+
+.figma-welcome-category:nth-child(3) {
+  animation-delay: 0.25s;
+}
+
+.figma-welcome-category:nth-child(4) {
+  animation-delay: 0.35s;
+}
+
+@keyframes categoryFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .figma-welcome-category {
+    animation: none;
+  }
+}
+
+.figma-welcome-category strong {
+  color: #171717;
+  font-size: var(--ui-text-font, 18px);
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.figma-welcome-category span {
+  color: #767676;
+  font-size: var(--ui-small-font, 15px);
+  line-height: 1.5;
+}
+
+
+/* =========================
+   PC 오른쪽 질문 목록 - Figma
+========================= */
+
+.right-question-panel {
+  display: flex;
+  flex-direction: column;
+
+  width: clamp(260px, 19vw, 320px);
+  flex: 0 0 clamp(260px, 19vw, 320px);
+  min-width: 0;
+  min-height: 0;
+
+  padding: 70px 20px 24px;
+  box-sizing: border-box;
+
+  background: #FFFFFF;
+  border-left: 1px solid #E5E5E5;
+
+  overflow-y: auto;
+}
+
+.right-question-heading {
+  margin: 0 0 20px;
+
+  color: #171717;
+  font-size: var(--ui-heading-font, 20px);
+  font-weight: 600;
+  line-height: 20px;
+}
+
+.right-question-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.right-question-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+
+  width: 100%;
+  min-height: 48px;
+  padding: 12px;
+
+  box-sizing: border-box;
+
+  border: none;
+  border-radius: 10px;
+  background: transparent;
+
+  color: #404040;
+  font-size: var(--pc-sidebar-font-size, 17px);
+  font-weight: 400;
+  line-height: 1.5;
+  text-align: left;
+
+  cursor: pointer;
+}
+
+.right-question-item:hover {
+  background: #F5F5F5;
+}
+
+.right-question-item.active {
+  background: #E5E5E5;
+  color: #171717;
+  font-weight: 500;
+}
+
+.right-question-number {
+  flex-shrink: 0;
+  font-family: "Inter", "Pretendard", sans-serif;
+  font-size: var(--ui-small-font, 15px);
+  font-weight: 500;
+  line-height: 1.5;
+  color: #767676;
+}
+
+.right-question-text {
+  min-width: 0;
+  font-family: "Inter", "Pretendard", sans-serif;
+  font-size: var(--pc-sidebar-font-size, 17px);
+  font-weight: 400;
+  line-height: 1.5;
+  color: #404040;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 1024px) {
+  .right-question-panel {
+    display: none;
+  }
+}
+
 
 /* =========================
     Mascot
 ========================= */
 
 .mascot-card {
-  background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+  background: #FFFFFF;
 
   border-radius: 22px;
 
   padding: 16px 12px;
 
-  border: 1px solid #e5e7eb;
+  border: 1px solid #E5E5E5;
 
   text-align: center;
 
   overflow: visible;
 
-  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.05);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.04);
 }
 
 .mascot-glow {
@@ -602,8 +1552,8 @@
 
   background: radial-gradient(
     circle,
-    #dbeafe 0%,
-    rgba(219, 234, 254, 0.35) 45%,
+    #F5F5F5 0%,
+    rgba(245, 245, 245, 0.35) 45%,
     transparent 72%
   );
 
@@ -639,8 +1589,8 @@
 
   border-radius: 999px;
 
-  background-color: #eff6ff;
-  color: #2563eb;
+  background-color: #F5F5F5;
+  color: #171717;
 
   font-size: 11px;
   font-weight: 800;
@@ -652,84 +1602,513 @@
   font-size: 20px;
   font-weight: 900;
 
-  color: #111827;
+  color: #171717;
 }
 
 .mascot-card p {
   margin: 0;
 
-  color: #4b5563;
+  color: #404040;
 
   font-size: 13px;
   line-height: 1.6;
 }
 
 /* =========================
-    Quick Menu
+   Quick Menu - 접이식 FAQ
 ========================= */
 
+/* 자주 묻는 질문 전체 영역 */
 .quick-menu {
-  background-color: white;
-  border-radius: 20px;
-  padding: 18px;
-  border: 1px solid #e5e7eb;
+  width: 100%;
+  box-sizing: border-box;
+
+  /* 차분한 흰색 카드 */
+  background-color: #ffffff;
+  border: 1px solid #E5E5E5;
+  border-radius: 8px;
+
+  /* 불필요한 그림자 제거 */
+  box-shadow: none;
+  overflow: hidden;
 }
 
-.quick-menu h3 {
-  margin: 8px 0;
+/* FAQ 접기·펼치기 버튼 */
+.quick-menu-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  font-size: inherit;
+
+  /* 아이콘과 글자 사이 간격 */
+  gap: 10px;
+
+  width: 100%;
+  min-height: 52px;
+  padding: 12px 16px;
+  box-sizing: border-box;
+
+  /* 단정한 무채색 디자인 */
+  background-color: #ffffff;
+  border: none;
+  color: #171717;
+
+  font-family: inherit;
+  cursor: pointer;
+  text-align: left;
 }
 
+/* FAQ 제목 왼쪽의 질문 아이콘 */
+.quick-menu-leading-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  /* 새 채팅 + 아이콘과 크기 통일 */
+  width: 1.2em;
+  height: 1.2em;
+  flex-shrink: 0;
+
+  color: #404040;
+}
+
+.quick-menu-leading-icon svg {
+  width: 100%;
+  height: 100%;
+}
+
+/* FAQ 메뉴 제목 */
+.quick-menu-title {
+  /* 남는 공간을 제목 영역이 차지하도록 설정 */
+  flex: 1;
+  min-width: 0;
+
+  font-size: inherit;
+  font-weight: 600;
+  text-align: left;
+}
+
+/* FAQ 접기·펼치기 화살표 */
+.quick-menu-arrow {
+  display: inline-block;
+  flex-shrink: 0;
+
+  /* 화살표 크기 */
+  width: 8px;
+  height: 8px;
+
+  /* 회색 선으로 화살표 구현 */
+  border-right: 2px solid #666666;
+  border-bottom: 2px solid #666666;
+
+  /* 기본 상태: 아래쪽 화살표 */
+  transform: rotate(45deg);
+
+  margin-right: 4px;
+  transition: transform 0.2s ease;
+}
+
+/* FAQ가 펼쳐졌을 때: 위쪽 화살표 */
+.quick-menu-toggle[aria-expanded="true"] .quick-menu-arrow {
+  transform: rotate(225deg);
+}
+
+/* FAQ 제목에 마우스를 올렸을 때 */
+.quick-menu-toggle:hover {
+  background-color: #F5F5F5;
+}
+
+/* 키보드로 FAQ 버튼을 선택했을 때 */
+.quick-menu-toggle:focus-visible {
+  outline: 2px solid #404040;
+  outline-offset: -2px;
+}
+
+/* 펼쳐진 FAQ 질문 목록 */
 .quick-button-list {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
+
+  padding: 10px;
+
+  /* 제목과 질문 목록 구분선 */
+  border-top: 1px solid #E5E5E5;
 }
 
+/* 개별 FAQ 질문 버튼 */
+
 .quick-button-list button {
-  padding: 12px 14px;
+  width: 100%;
+  padding: 10px 12px;
 
-  border: 1px solid #d1d5db;
-  background-color: #f9fafb;
+  background-color: #FFFFFF;
+  border: 1px solid #CDCDCD;
+  border-radius: 6px;
 
-  border-radius: 12px;
+  color: #404040;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 1.5;
+
+  text-align: left;
+  cursor: pointer;
+
+  transition:
+    background-color 0.2s ease,
+    border-color 0.2s ease;
+}
+
+/* 질문 버튼에 마우스를 올렸을 때 */
+.quick-button-list button:hover:not(:disabled) {
+  background-color: #F7F7F7;
+  border-color: #D6D6D6;
+}
+
+/* 답변 생성 중에는 FAQ 질문 버튼 비활성화 */
+.quick-button-list button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* 질문이 길어질 경우 자연스럽게 줄바꿈 */
+.quick-question-text {
+  word-break: keep-all;
+  overflow-wrap: break-word;
+}
+
+/* 집계된 FAQ 질문이 없을 때 */
+.quick-menu-empty {
+  margin: 0;
+  padding: 12px 6px;
+
+  font-size: 13px;
+  line-height: 1.5;
+  color: #666666;
+}
+
+
+/* =========================
+   상담 내역 - 접이식 메뉴
+========================= */
+
+/* 현재 채팅 질문 메뉴 */
+.current-questions-menu {
+  width: 100%;
+  box-sizing: border-box;
+  background: #FFFFFF;
+  border: 1px solid #E5E5E5;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+/* 현재 채팅 질문 접기/펼치기 */
+.current-questions-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 10px;
+
+  width: 100%;
+  min-height: 52px;
+  padding: 12px 16px;
+
+  background: #FFFFFF;
+  border: none;
+  color: #171717;
+
+  font-family: inherit;
+  font-size: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+/* 현재 채팅 질문 아이콘도 글자 크기에 맞춰 확대 */
+.current-questions-toggle svg {
+  width: 1.2em;
+  height: 1.2em;
+  flex-shrink: 0;
+}
+
+.current-questions-toggle:hover {
+  background: #F5F5F5;
+}
+
+/* 메뉴 제목 */
+.current-questions-title {
+  flex: 1;
+  min-width: 0;
+  text-align: left;
+}
+
+/* 현재 채팅 질문 접기/펼치기 화살표 */
+.current-questions-arrow {
+  width: 8px;
+  height: 8px;
+  flex-shrink: 0;
+
+  margin-right: 4px;
+
+  border-right: 2px solid #666666;
+  border-bottom: 2px solid #666666;
+
+  transform: rotate(45deg);
+  transition: transform 0.2s ease;
+}
+
+/* 메뉴가 펼쳐졌을 때 */
+.current-questions-toggle[aria-expanded="true"]
+.current-questions-arrow {
+  transform: rotate(225deg);
+}
+
+/* 펼쳐진 질문 목록 */
+.current-questions-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+
+  max-height: 240px;
+  overflow-y: auto;
+  padding: 10px;
+  border-top: 1px solid #E5E5E5;
+}
+
+/* 개별 질문 */
+.current-question-item {
+  width: 100%;
+  padding: 10px 12px;
+
+  background: #FFFFFF;
+  border: 1px solid #CDCDCD;
+  border-radius: 6px;
+
+  color: #404040;
+  font-family: inherit;
+  font-size: inherit;
+  text-align: left;
+
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+
+.current-question-item:hover:not(:disabled) {
+  background: #F7F7F7;
+}
+
+.current-question-item:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.current-questions-empty {
+  margin: 0;
+  padding: 10px 6px;
+  color: #666666;
+  font-size: 13px;
+}
+
+/* PC에서는 모바일 질문 이동 버튼 숨김 */
+.current-questions-mobile {
+  display: none;
+}
+
+/* PC에서는 모바일 질문 목록 팝업 숨김 */
+.mobile-questions-backdrop {
+  display: none;
+}
+
+.history-menu {
+  width: 100%;
+  box-sizing: border-box;
+  background: #FFFFFF;
+  border: 1px solid #E5E5E5;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.history-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 10px;
+
+  width: 100%;
+  min-height: 52px;
+  padding: 12px 16px;
+
+  box-sizing: border-box;
+  background: #FFFFFF;
+  border: none;
+
+  color: #171717;
+  font-family: inherit;
+  font-size: inherit;
+  font-weight: 600;
 
   cursor: pointer;
   text-align: left;
-
-  font-size: 14px;
-  line-height: 1.5;
-
-  transition: 0.2s;
 }
 
-.quick-button-list button:hover {
-  background-color: #eef2ff;
-  border-color: #93c5fd;
+.history-toggle:hover {
+  background: #F5F5F5;
+}
+
+.history-toggle:focus-visible {
+  outline: 2px solid #404040;
+  outline-offset: -2px;
+}
+
+.history-toggle svg {
+  flex-shrink: 0;
+  color: #404040;
+  width: 1.2em;
+  height: 1.2em;
+}
+
+.history-title {
+  flex: 1;
+  min-width: 0;
+}
+
+.history-arrow {
+  width: 8px;
+  height: 8px;
+  margin-right: 4px;
+  flex-shrink: 0;
+
+  border-right: 2px solid #666666;
+  border-bottom: 2px solid #666666;
+
+  transform: rotate(45deg);
+  transition: transform 0.2s ease;
+}
+
+.history-toggle[aria-expanded="true"] .history-arrow {
+  transform: rotate(225deg);
+}
+
+.history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+
+  max-height: 280px;
+  overflow-y: auto;
+
+  padding: 10px;
+  border-top: 1px solid #E5E5E5;
+  background: #FFFFFF;
+}
+
+.history-item {
+  width: 100%;
+  padding: 10px 12px;
+
+  background: #FFFFFF;
+  border: 1px solid #CDCDCD;
+  border-radius: 6px;
+
+  color: #404040;
+  font-family: inherit;
+  font-size: inherit;
+  line-height: 1.5;
+  text-align: left;
+
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: normal;
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+
+  cursor: pointer;
+}
+
+.history-item:hover:not(:disabled) {
+  background: #F7F7F7;
+}
+
+.history-item:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.history-empty {
+  margin: 0;
+  padding: 10px 6px;
+  color: #666666;
+  font-size: 13px;
+  line-height: 1.5;
 }
 
 /* =========================
     Chat
 ========================= */
+/* 채팅 메시지 영역: ChatGPT와 유사한 스크롤 방식 */
 
 .chat-window {
-  flex: 1;
+  flex: 1 1 auto;
+  min-height: 0;
+  min-width: 0;
 
-  padding: 16px;
+  padding: 24px 32px 120px;
+  box-sizing: border-box;
+
+  background: #FFFFFF;
 
   overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
 
-  background: #ffffff;
-
-  min-height: 0;
+  scrollbar-width: thin;
+  scrollbar-color: #CCCCCC transparent;
 }
 
+
+/* Chrome, Edge, Safari 스크롤바 */
+.chat-window::-webkit-scrollbar {
+  width: 5px;
+}
+
+.chat-window::-webkit-scrollbar-thumb {
+  background: #D4D4D4;
+  border-radius: 999px;
+}
+
+.chat-window::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* =========================
+   채팅 메시지 정렬 및 너비
+========================= */
+
+/* 사용자 질문과 AI 답변의 공통 영역 */
 .message-row {
   display: flex;
-  margin-bottom: 14px;
+  align-items: flex-start;
+  gap: 16px;
+
+  /* 긴 답변도 읽기 편한 최대 너비 */
+  width: 100%;
+  max-width: 1050px;
+
+  /* 대화 영역 안에서 가운데 정렬 */
+  margin-left: auto;
+  margin-right: auto;
+
+  /* 메시지 사이 간격 */
+  margin-bottom: 24px;
+
+  box-sizing: border-box;
 }
 
 .user-row {
   justify-content: flex-end;
+  margin-bottom: 45px;
 }
 
 .assistant-row {
@@ -737,22 +2116,20 @@
 }
 
 .chat-avatar {
-  width: 42px;
-  height: 42px;
+  width: 45px;
+  height: 45px;
+  flex: 0 0 45px;
 
-  object-fit: cover;
-  object-position: center 18%;
+  margin: 0;
+  object-fit: contain;
+  object-position: center;
 
-  border-radius: 50%;
+  background: #FFFFFF;
+  border: 1px solid #E5E5E5;
+  border-radius: 20px;
 
-  background: #ffffff;
-  border: 2px solid #e0edff;
-
-  margin-right: 10px;
-
-  align-self: flex-end;
-
-  box-shadow: 0 6px 16px rgba(37, 99, 235, 0.12);
+  align-self: flex-start;
+  box-shadow: none;
 }
 
 .chat-avatar-active {
@@ -760,7 +2137,8 @@
 }
 
 .message-bubble {
-  max-width: 70%;
+  max-width: 100%;
+  min-width: 0;
 
   padding: 13px 16px;
 
@@ -768,68 +2146,207 @@
 
   font-size: 16px;
   line-height: 1.6;
-
-  white-space: pre-wrap;
   word-break: keep-all;
-}
-
+}/* 주민 질문 말풍선 - AI 답변보다 차분하게 표시 */
 .user-bubble {
-  background-color: #2563eb;
-  color: white;
+  background: #F5F5F5;
+  color: #171717;
 
-  border-bottom-right-radius: 6px;
-}
+  padding: 14px 24px;
+  border: none;
+  border-radius: 16px;
 
-.assistant-bubble {
-  background-color: #f1f5f9;
-  color: #222;
-
-  border-bottom-left-radius: 6px;
+  font-size: inherit;
+  font-weight: 400;
+  line-height: 1.5;
+  white-space: pre-wrap;
 }
 
 /* =========================
     Input
 ========================= */
 
+
+/* 채팅 입력창 전체 영역 */
 .chat-input-box {
+  position: static;
+  flex-shrink: 0;
+  z-index: 100;
+
   display: flex;
+  align-items: center;
   gap: 10px;
 
-  padding: 14px 18px;
+  width: min(1050px, 100%);
+  max-width: 1050px;
+  margin: 0 auto;
 
-  border-top: 1px solid #e5e7eb;
-  background: white;
+  padding: 12px 16px;
+  box-sizing: border-box;
+
+  background-color: #FFFFFF;
+  border: none;
+  border-top: 1px solid #E5E5E5;
+
+  box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.04);
 }
+
 
 .chat-input-box input {
   flex: 1;
+  /* 입력창이 좁은 화면에서도 부모 영역을 넘지 않도록 설정 */
+  min-width: 0;
+  height: 48px;
+  box-sizing: border-box;
 
   padding: 12px 16px;
 
-  border: 1px solid #d1d5db;
+  border: 1px solid #E5E5E5;
   border-radius: 14px;
 
-  font-size: 16px;
+  font-size: var(--ui-text-font, 18px);
 }
 
+
+/* 채팅 전송 버튼 */
 .chat-input-box button {
-  padding: 12px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: inherit;
+
+  flex-shrink: 0;
+  width: clamp(42px, 3.5em, 72px);
+  height: clamp(38px, 3em, 60px);
+  min-width: 0;
+  font-size: inherit;
+  padding: 0;
+  box-sizing: border-box;
 
   border: none;
-  border-radius: 14px;
+  border-radius: 12px;
 
-  background-color: #2563eb;
-  color: white;
+  background-color: #171717;
+  color: #FFFFFF;
 
   cursor: pointer;
-
-  font-size: 15px;
-  font-weight: 700;
+  transition: background-color 0.2s ease;
 }
 
 .chat-input-box button:hover {
-  background-color: #1d4ed8;
+  background-color: #303030;
 }
+
+/* 전송 버튼 아이콘 */
+.chat-input-box button svg {
+  width: clamp(16px, 1.375em, 30px);
+  height: clamp(16px, 1.375em, 30px);
+  flex-shrink: 0;
+}
+
+/* 답변 생성 중 로딩 회전 */
+.send-loading-icon {
+  animation: sendSpin 1s linear infinite;
+}
+
+@keyframes sendSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* 전송 불가능 상태 */
+.chat-input-box button:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .send-loading-icon {
+    animation: none;
+  }
+}
+
+
+/* =========================
+   Figma Frame 0 - Welcome Input
+========================= */
+
+
+/* =========================
+   Figma Frame 0 - Welcome Input
+========================= */
+
+.figma-welcome-input .chat-input-box {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+
+  width: 100%;
+  max-width: 1050px;
+  height: 64px;
+  min-height: 64px;
+
+  margin: 0;
+  padding: 10px 12px 10px 20px;
+  box-sizing: border-box;
+
+  background: #FFFFFF;
+  border: 1px solid #E5E5E5;
+  border-radius: 16px;
+  box-shadow: none;
+}
+
+.figma-welcome-input .chat-input-box input {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+
+  padding: 0;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  outline: none;
+
+  font-family: "Inter", "Pretendard", sans-serif;
+  font-size: var(--ui-text-font, 18px);
+  font-weight: 400;
+  color: #404040;
+}
+
+.figma-welcome-input .chat-input-box input::placeholder {
+  color: #A3A3A3;
+  opacity: 1;
+}
+
+.figma-welcome-input .chat-input-box button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  flex: 0 0 48px;
+  width: 48px;
+  height: 44px;
+  min-width: 48px;
+
+  padding: 0;
+  border: none;
+  border-radius: 10px;
+
+  background: #171717;
+  color: #FFFFFF;
+  box-shadow: none;
+}
+
+.figma-welcome-input .chat-input-box button svg {
+  width: 20px;
+  height: 20px;
+}
+
+.figma-welcome-input .chat-input-box:focus-within {
+  border-color: #A3A3A3;
+}
+
 
 /* =========================
     Mobile / Tablet
@@ -837,13 +2354,16 @@
 
 @media (max-width: 1024px) {
   .header {
-    padding: 24px 28px;
+    padding: 10px 20px;
+    min-height: 108px;
   }
 
+  /* 제목과 고우니를 가로로 배치 */
   .header-content {
-    gap: 18px;
+    gap: 16px;
   }
 
+  /* 제목 영역이 화면 폭에 맞게 줄어들도록 설정 */
   .header-text {
     min-width: 0;
   }
@@ -856,13 +2376,15 @@
     font-size: 16px;
   }
 
+  /* 고우니를 담는 영역 */
   .header-visual {
-    width: 330px;
-    height: 180px;
+    width: 100px;
+    height: 90px;
   }
 
+  /* 고우니 이미지 크기 */
   .header-gouni {
-    width: 145px;
+    width: 85px;
   }
 
   .header-speech-bubble {
@@ -874,22 +2396,24 @@
   }
 }
 
+/* 모바일 화면: 헤더를 작고 단정하게 배치 */
 @media (max-width: 768px) {
   .header {
     width: calc(100% - 20px);
-    padding: 36px 20px 42px;
-    border-radius: 24px;
+
+    /* 모바일에서 헤더 여백 축소 */
+    min-height: 100px;
+    padding: 14px 16px;
+
+    /* 모서리 형태 통일 */
+    border-radius: 10px;
   }
 
-  .header-content {
-    flex-direction: column;
-    gap: 18px;
-    text-align: center;
-  }
-
+  /* 제목 영역 */
   .header-text {
-    min-width: auto;
-    text-align: center;
+    flex: 1;
+    min-width: 0;
+    text-align: left;
   }
 
   .header-text h1 {
@@ -909,9 +2433,11 @@
     font-size: 14px;
   }
 
+    /* 고우니 이미지 영역 */
   .header-visual {
-    width: auto;
-    height: auto;
+    width: 75px;
+    height: 75px;
+    flex-shrink: 0;
   }
 
   .header-visual::before {
@@ -919,10 +2445,13 @@
     height: 150px;
   }
 
+   /* 모바일 고우니 이미지 크기 */
   .header-gouni {
-    width: 150px;
+    width: 70px;
+    height: auto;
   }
 
+  /* 기존에 사용한 장식 요소 숨김 */
   .header-pattern,
   .header-bg-circle,
   .header-speech-bubble {
@@ -937,11 +2466,6 @@
 
   .left-section {
     width: 100%;
-  }
-
-  .chat-section {
-    width: 100%;
-    height: 70vh;
   }
 
   .message-bubble {
@@ -960,6 +2484,148 @@
   .chat-avatar {
     width: 40px;
     height: 40px;
+  }
+  
+  /* 모바일에서는 현재 채팅 질문 메뉴 숨김 */
+  .current-questions-menu {
+    display: none;
+  }
+
+  /* 모바일 채팅창 오른쪽 위 질문 목록 아이콘 */
+  .current-questions-mobile {
+    display: block;
+    position: absolute;
+    top: 8px;
+    right: 12px;
+    z-index: 20;
+
+    width: auto;
+    padding: 0;
+  }
+
+  /* 질문 목록 아이콘 버튼 */
+  .current-questions-mobile-button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    width: 36px;
+    height: 36px;
+    padding: 0;
+
+    background: #FFFFFF;
+    border: 1px solid #DADADA;
+    border-radius: 9px;
+
+    color: #404040;
+    cursor: pointer;
+  }
+  
+  /* 모바일 질문 목록 팝업 배경 */
+  .mobile-questions-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    padding: 16px;
+    background: rgba(0, 0, 0, 0.3);
+    box-sizing: border-box;
+  }
+
+  /* 질문 목록 팝업 */
+  .mobile-questions-dialog {
+    display: flex;
+    flex-direction: column;
+
+    width: min(440px, 100%);
+    max-height: min(70dvh, 560px);
+
+    padding: 20px;
+    background: #FFFFFF;
+    border-radius: 16px;
+
+    box-shadow: 0 12px 36px rgba(0, 0, 0, 0.16);
+    box-sizing: border-box;
+  }
+
+  /* 팝업 제목 영역 */
+  .mobile-questions-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+
+    margin-bottom: 16px;
+  }
+
+  .mobile-questions-header h2 {
+    margin: 0;
+    color: #171717;
+    font-size: 18px;
+    font-weight: 700;
+  }
+
+  /* 닫기 버튼 */
+  .mobile-questions-close {
+    width: 32px;
+    height: 32px;
+
+    background: #F5F5F5;
+    border: none;
+    border-radius: 8px;
+
+    color: #404040;
+    cursor: pointer;
+  }
+
+  /* 스크롤 가능한 질문 목록 */
+  .mobile-questions-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+
+    min-height: 0;
+    overflow-y: auto;
+  }
+
+  /* 팝업 내 질문 버튼 */
+  .mobile-questions-list .current-question-item {
+    flex-shrink: 0;
+    width: 100%;
+    min-width: 0;
+
+    padding: 12px 14px;
+    border-radius: 8px;
+
+    white-space: normal;
+    overflow-wrap: anywhere;
+    text-align: left;
+    line-height: 1.5;
+  }
+
+  /* 질문이 없을 때 */
+  .mobile-questions-empty {
+    margin: 0;
+    padding: 14px 0;
+
+    color: #666666;
+    font-size: 14px;
+    text-align: center;
+  }
+
+
+  /* 질문 목록 아이콘의 위치 기준 */
+  .chat-section {
+    position: relative;
+  }
+
+  /* 아이콘과 첫 메시지가 겹치지 않도록 상단 공간 확보 */
+  .chat-section > .chat-window {
+    padding-top: 52px;
   }
 
   .accessibility-bar {
@@ -980,38 +2646,79 @@
 ========================= */
 
 .app.font-xsmall {
-  font-size: 12px;
+  font-size: 15px;
+  --mobile-menu-font-size: 12px;
+  --pc-sidebar-font-size: 14px;
+  --answer-font-size: 17px;
+
+  --ui-small-font: 13px;
+  --ui-text-font: 15px;
+  --ui-heading-font: 17px;
+  --input-font-size: 17px;
 }
 
 .app.font-small {
-  font-size: 14px;
+  font-size: 16px;
+  --mobile-menu-font-size: 13px;
+  --pc-sidebar-font-size: 15px;
+  --answer-font-size: 18px;
+
+  --ui-small-font: 14px;
+  --ui-text-font: 16px;
+  --ui-heading-font: 18px;
+  --input-font-size: 18px;
+
 }
 
 .app.font-normal {
-  font-size: 16px;
+  font-size: 18px;
+  --mobile-menu-font-size: 15px;
+  --pc-sidebar-font-size: 17px;
+  --answer-font-size: 20px;
+
+  --ui-small-font: 15px;
+  --ui-text-font: 18px;
+  --ui-heading-font: 20px;
+  --input-font-size: 20px;
 }
 
 .app.font-large {
-  font-size: 20px;
+  font-size: 21px;
+  --mobile-menu-font-size: 17px;
+  --pc-sidebar-font-size: 19px;
+  --answer-font-size: 23px;
+
+  --ui-small-font: 17px;
+  --ui-text-font: 21px;
+  --ui-heading-font: 23px;
+  --input-font-size: 23px;
 }
 
 .app.font-xlarge {
-  font-size: 26px;
+  font-size: 24px;
+  --mobile-menu-font-size: 19px;
+  --pc-sidebar-font-size: 21px;
+  --answer-font-size: 26px;
+
+  --ui-small-font: 19px;
+  --ui-text-font: 24px;
+  --ui-heading-font: 26px;
+  --input-font-size: 26px;
 }
 
-/* Header Title */
-.app.font-xsmall .header-text h1 { font-size: 34px; }
-.app.font-small .header-text h1 { font-size: 40px; }
-.app.font-normal .header-text h1 { font-size: 44px; }
-.app.font-large .header-text h1 { font-size: 54px; }
-.app.font-xlarge .header-text h1 { font-size: 62px; }
+/* 헤더 제목 - 글자 크기 5단계 조절 */
+.app.font-xsmall .header-text h1 { font-size: 25px; }
+.app.font-small .header-text h1 { font-size: 27px; }
+.app.font-normal .header-text h1 { font-size: 30px; }
+.app.font-large .header-text h1 { font-size: 33px; }
+.app.font-xlarge .header-text h1 { font-size: 36px; }
 
-/* Header Description */
+/* 헤더 설명 - 글자 크기 5단계 조절 */
 .app.font-xsmall .header-description { font-size: 12px; }
-.app.font-small .header-description { font-size: 14px; }
-.app.font-normal .header-description { font-size: 17px; }
-.app.font-large .header-description { font-size: 20px; }
-.app.font-xlarge .header-description { font-size: 23px; }
+.app.font-small .header-description { font-size: 13px; }
+.app.font-normal .header-description { font-size: 14px; }
+.app.font-large .header-description { font-size: 16px; }
+.app.font-xlarge .header-description { font-size: 18px; }
 
 /* Header Badge */
 .app.font-xsmall .header-badge {
@@ -1030,13 +2737,34 @@
 }
 
 .app.font-large .header-badge {
-  font-size: 16px;
-  height: 46px;
+  font-size: 14px;
+  height: 42px;
 }
 
 .app.font-xlarge .header-badge {
-  font-size: 18px;
-  height: 52px;
+  font-size: 15px;
+  height: 44px;
+}
+
+/* Guide Modal Font Size */
+.app.font-xsmall .guide-modal {
+  font-size: 13px;
+}
+
+.app.font-small .guide-modal {
+  font-size: 14px;
+}
+
+.app.font-normal .guide-modal {
+  font-size: 16px;
+}
+
+.app.font-large .guide-modal {
+  font-size: 19px;
+}
+
+.app.font-xlarge .guide-modal {
+  font-size: 22px;
 }
 
 /* Mascot */
@@ -1053,33 +2781,169 @@
 .app.font-xlarge .mascot-card p { font-size: 20px; }
 
 /* Quick Menu */
-.app.font-xsmall .quick-button-list button { font-size: 12px; }
-.app.font-small .quick-button-list button { font-size: 13px; }
-.app.font-normal .quick-button-list button { font-size: 14px; }
-.app.font-large .quick-button-list button { font-size: 18px; }
-.app.font-xlarge .quick-button-list button { font-size: 22px; }
+/* FAQ, 상담 내역, 현재 채팅 질문 목록 글자 크기 통일 */
+.app.font-xsmall .quick-button-list button,
+.app.font-xsmall .history-item,
+.app.font-xsmall .current-question-item { font-size: 12px; }
 
-/* Chat */
-.app.font-xsmall .message-bubble { font-size: 13px; }
-.app.font-small .message-bubble { font-size: 14px; }
-.app.font-normal .message-bubble { font-size: 16px; }
-.app.font-large .message-bubble { font-size: 20px; }
-.app.font-xlarge .message-bubble { font-size: 24px; }
+.app.font-small .quick-button-list button,
+.app.font-small .history-item,
+.app.font-small .current-question-item { font-size: 13px; }
+
+.app.font-normal .quick-button-list button,
+.app.font-normal .history-item,
+.app.font-normal .current-question-item { font-size: 14px; }
+
+.app.font-large .quick-button-list button,
+.app.font-large .history-item,
+.app.font-large .current-question-item { font-size: 18px; }
+
+.app.font-xlarge .quick-button-list button,
+.app.font-xlarge .history-item,
+.app.font-xlarge .current-question-item { font-size: 22px; }
+
+/* 모바일 질문 이동 버튼 글자 크기 5단계 */
+.app.font-xsmall .current-questions-mobile-button { font-size: 12px; }
+.app.font-small .current-questions-mobile-button { font-size: 13px; }
+.app.font-normal .current-questions-mobile-button { font-size: 14px; }
+.app.font-large .current-questions-mobile-button { font-size: 16px; }
+.app.font-xlarge .current-questions-mobile-button { font-size: 18px; }
+
+/* 모바일 현재 채팅 질문 - 글자 크기 5단계 */
+@media (max-width: 768px) {
+
+  /* 아주 작게 */
+  .app.font-xsmall .mobile-questions-header h2 { font-size: 15px; }
+  .app.font-xsmall .mobile-questions-list .current-question-item { font-size: 12px; }
+  .app.font-xsmall .mobile-questions-empty { font-size: 12px; }
+
+  /* 작게 */
+  .app.font-small .mobile-questions-header h2 { font-size: 16px; }
+  .app.font-small .mobile-questions-list .current-question-item { font-size: 14px; }
+  .app.font-small .mobile-questions-empty { font-size: 13px; }
+
+  /* 기본 */
+  .app.font-normal .mobile-questions-header h2 { font-size: 18px; }
+  .app.font-normal .mobile-questions-list .current-question-item { font-size: 16px; }
+  .app.font-normal .mobile-questions-empty { font-size: 14px; }
+
+  /* 크게 */
+  .app.font-large .mobile-questions-header h2 { font-size: 21px; }
+  .app.font-large .mobile-questions-list .current-question-item { font-size: 19px; }
+  .app.font-large .mobile-questions-empty { font-size: 17px; }
+
+  /* 아주 크게 */
+  .app.font-xlarge .mobile-questions-header h2 { font-size: 24px; }
+  .app.font-xlarge .mobile-questions-list .current-question-item { font-size: 22px; }
+  .app.font-xlarge .mobile-questions-empty { font-size: 20px; }
+
+  /* 모바일 질문 목록 아이콘 크기도 연동 */
+  .current-questions-mobile-button svg {
+    width: 1.4em;
+    height: 1.4em;
+  }
+}
+
+/* Message */
+.app.font-xsmall .user-bubble { font-size: 17px; }
+.app.font-small .user-bubble { font-size: 18px; }
+.app.font-normal .user-bubble { font-size: 20px; }
+.app.font-large .user-bubble { font-size: 24px; }
+.app.font-xlarge .user-bubble { font-size: 28px; }
+
+/* =========================
+    Feedback Font Size
+========================= */
+
+/* 만족도 질문 */
+.app.font-xsmall .feedback-question {
+  font-size: 13px;
+}
+
+.app.font-small .feedback-question {
+  font-size: 14px;
+}
+
+.app.font-normal .feedback-question {
+  font-size: 16px;
+}
+
+.app.font-large .feedback-question {
+  font-size: 20px;
+}
+
+.app.font-xlarge .feedback-question {
+  font-size: 24px;
+}
+
+/* 만족 / 불만족 버튼 */
+.app.font-xsmall .feedback-button {
+  font-size: 13px;
+}
+
+.app.font-small .feedback-button {
+  font-size: 14px;
+}
+
+.app.font-normal .feedback-button {
+  font-size: 16px;
+}
+
+.app.font-large .feedback-button {
+  font-size: 20px;
+}
+
+.app.font-xlarge .feedback-button {
+  font-size: 24px;
+}
+
+/* 불만족 사유 */
+.app.font-xsmall .feedback-reason-title,
+.app.font-xsmall .feedback-reason-button,
+.app.font-xsmall .feedback-complete-message {
+  font-size: 13px;
+}
+
+.app.font-small .feedback-reason-title,
+.app.font-small .feedback-reason-button,
+.app.font-small .feedback-complete-message {
+  font-size: 14px;
+}
+
+.app.font-normal .feedback-reason-title,
+.app.font-normal .feedback-reason-button,
+.app.font-normal .feedback-complete-message {
+  font-size: 16px;
+}
+
+.app.font-large .feedback-reason-title,
+.app.font-large .feedback-reason-button,
+.app.font-large .feedback-complete-message {
+  font-size: 20px;
+}
+
+.app.font-xlarge .feedback-reason-title,
+.app.font-xlarge .feedback-reason-button,
+.app.font-xlarge .feedback-complete-message {
+  font-size: 24px;
+}
+
+.app.font-large .feedback-button,
+.app.font-large .feedback-reason-button {
+  min-height: 46px;
+}
+
+.app.font-xlarge .feedback-button,
+.app.font-xlarge .feedback-reason-button {
+  min-height: 52px;
+}
 
 /* Input */
-.app.font-xsmall .chat-input-box input { font-size: 13px; }
-.app.font-small .chat-input-box input { font-size: 14px; }
-.app.font-normal .chat-input-box input { font-size: 16px; }
-.app.font-large .chat-input-box input { font-size: 20px; }
-.app.font-xlarge .chat-input-box input { font-size: 24px; }
-
-.app.font-large .chat-input-box button {
-  font-size: 18px;
-}
-
-.app.font-xlarge .chat-input-box button {
-  font-size: 22px;
-}
+.app.font-xsmall .chat-input-box input { font-size: 16px; }
+.app.font-small .chat-input-box input { font-size: 18px; }
+.app.font-normal .chat-input-box input { font-size: 20px; }
+.app.font-large .chat-input-box input { font-size: 24px; }
+.app.font-xlarge .chat-input-box input { font-size: 28px; }
 
 /* Accessibility */
 .app.font-xsmall .font-controls span { font-size: 12px; }
@@ -1088,10 +2952,2257 @@
 .app.font-large .font-controls span { font-size: 18px; }
 .app.font-xlarge .font-controls span { font-size: 22px; }
 
+/* 개인정보 보호 안내 글자 크기 */
+.app.font-xsmall .privacy-warning { font-size: 12px; }
+.app.font-small .privacy-warning { font-size: 13px; }
+.app.font-normal .privacy-warning { font-size: 14px; }
+.app.font-large .privacy-warning { font-size: 17px; }
+.app.font-xlarge .privacy-warning { font-size: 20px; }
+
 .app.font-large .font-label {
   font-size: 18px;
 }
 
 .app.font-xlarge .font-label {
   font-size: 22px;
+}
+
+.markdown-content p {
+  margin: 8px 0;
+  font-size: var(--answer-font-size, 18px);
+  line-height: 1.7;
+}
+
+/* 담당 부서 안내 */
+/* 📍 1. / 📌 2. / 📍 3. 같은 큰 섹션 제목 */
+.markdown-content .section-title {
+  margin-top: clamp(14px, 2.5vw, 22px);
+  margin-bottom: clamp(6px, 1.5vw, 10px);
+  font-weight: 700;
+}
+
+/* 첫 번째 섹션 제목은 위쪽 여백 제거 */
+.markdown-content .section-title:first-child {
+  margin-top: 0;
+}
+
+.markdown-content ol{
+  margin: 8px 0 12px 0;
+  padding-left: 22px;
+}
+
+.markdown-content ul {
+  margin: 6px 0;
+  padding-left: 22px;
+}
+
+.markdown-content li {
+  margin: 4px 0;
+  line-height: 1.7;
+}
+
+.markdown-content strong {
+  font-weight: 700;
+}
+
+.markdown-content h1,
+.markdown-content h2,
+.markdown-content h3 {
+  margin: 18px 0 10px;
+  line-height: 1.5;
+  margin-top: clamp(22px, 3vw, 28px);
+  margin-bottom: 6px;
+  font-size: 1.05em;
+  font-weight: 800;
+  color: #404040;
+}
+
+.markdown-content h3:first-child {
+  margin-top: 0;
+}
+
+.markdown-content > p:first-child {
+  margin-top: 0;
+}
+
+.similarity-card + p {
+  margin-top: 0;
+}
+
+.markdown-content > *:first-child {
+  margin-top: 0;
+}
+
+.markdown-content > *:last-child {
+  margin-bottom: 0;
+}
+
+/* 제목 굵은 번호로 구분하기*/
+.answer-numbered-heading {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  margin: 22px 0 8px;
+}
+
+.answer-heading-number {
+  flex-shrink: 0;
+  color: #737373;
+  font-size: calc(var(--answer-font-size, 18px) + 2px);
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.answer-heading-title {
+  color: #171717;
+  font-size: var(--answer-font-size, 18px);
+  font-weight: 800;
+  line-height: 1.5;
+}
+
+/* =========================
+   추가 안내 및 자료
+========================= */
+
+.answer-extra-panel {
+  margin-top: 32px;
+  padding: 26px 30px;
+  background: #FFFFFF;
+  border: 1px solid #E5E5E5;
+  border-radius: 20px;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.answer-extra-panel > h4 {
+  margin: 0 0 24px;
+  color: #171717;
+  font-size: var(--ui-heading-font, 20px);
+  font-weight: 800;
+  line-height: 1.5;
+}
+
+.answer-extra-panel .answer-extra-label {
+  margin: 24px 0 8px;
+  color: #737373;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.5;
+}
+
+.answer-extra-panel h4 + h5.answer-extra-label {
+  margin-top: 0;
+}
+
+.answer-extra-panel p {
+  margin: 0 0 8px;
+  color: #404040;
+  font-size: var(--answer-font-size, 18px);
+  line-height: 1.6;
+}
+
+.answer-extra-panel a:not(.download-card) {
+  color: #404040;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.answer-extra-panel .download-buttons-container {
+  margin-top: 24px;
+}
+
+
+/* 추가 안내 항목 제목: 아이콘 + 라벨 */
+.answer-extra-section-heading {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin: 22px 0 6px;
+}
+
+/* SVG 아이콘 영역 */
+.answer-extra-section-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  color: #737373;
+}
+
+/* 실제 SVG 크기 */
+.answer-extra-section-icon svg {
+  display: block;
+  width: 22px;
+  height: 22px;
+}
+
+/* 아이콘 오른쪽 라벨과 실제 내용의 시작 위치 통일 */
+.answer-extra-panel .answer-extra-section-heading + p,
+.answer-extra-panel .answer-extra-section-heading + ul,
+.answer-extra-panel .answer-extra-section-heading + ol {
+  margin: 0 0 8px 36px;
+}
+
+/* 추천 질문 목록 간격 */
+.answer-extra-panel ul,
+.answer-extra-panel ol {
+  padding-left: 20px;
+  margin-top: 8px;
+  margin-bottom: 0;
+}
+
+/* 추가 안내 제목 라벨 */
+.answer-extra-section-heading .answer-extra-label {
+  margin: 0;
+  color: #737373;
+  font-size: var(--ui-small-font, 15px);
+  font-weight: 700;
+  line-height: 1.5;
+}
+
+/* 번호형 제목 바로 뒤의 본문 정렬 */
+.markdown-content .answer-numbered-heading + p,
+.markdown-content .answer-numbered-heading + ul,
+.markdown-content .answer-numbered-heading + ol {
+  margin-left: 36px;
+}
+
+/* AI 답변 말풍선 */
+.assistant-bubble {
+  flex: 1 1 auto;
+  width: auto;
+  min-width: 0;
+  max-width: none;
+
+  padding: 20px;
+  box-sizing: border-box;
+
+  background: #FFFFFF;
+  border: 1px solid #E5E5E5;
+  border-radius: 14px;
+
+  color: #171717;
+  line-height: 1.6;
+  white-space: normal;
+  box-shadow: none;
+}
+
+/* =========================
+   Figma PC - AI 답변 디자인
+========================= */
+@media (min-width: 1025px) {
+  .chat-avatar {
+    width: 45px;
+    height: 45px;
+    margin-top: 0;
+    margin-right: 12px;
+    border: none;
+    box-shadow: none;
+  }
+
+  .assistant-bubble .markdown-content {
+    width: 100%;
+    min-width: 0;
+    font-size: var(--answer-font-size, 18px);
+    line-height: 1.6;
+  }
+
+  .assistant-bubble .markdown-content h1,
+  .assistant-bubble .markdown-content h2,
+  .assistant-bubble .markdown-content h3 {
+    color: #171717;
+    font-weight: 600;
+    line-height: 1.4;
+  }
+
+  .assistant-bubble .markdown-content p {
+    margin: 0 0 14px;
+  }
+}
+
+/* =========================
+    Similarity Score Card
+========================= */
+
+.loading-bubble {
+  width: 400px;
+  max-width: 100%;
+  min-height: 234px;
+  box-sizing: border-box;
+
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+
+  padding: 20px;
+  background: #FFFFFF;
+  border: 1px solid #E5E5E5;
+  border-radius: 14px;
+}
+
+.loading-text {
+  margin: 0;
+  color: #171717;
+  font-size: var(--ui-text-font, 18px);
+  font-weight: 600;
+  line-height: 19px;
+}
+
+
+/* 참고 정보 매칭도 카드 */
+
+.similarity-card {
+  width: 100%;
+  min-width: 0;
+  min-height: 135px;
+
+  margin: 0 0 24px;
+  padding: 16px;
+  box-sizing: border-box;
+
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+
+  background: #FAFAFA;
+  border: 1px solid #E5E5E5;
+  border-radius: 14px;
+  box-shadow: none;
+  animation: none;
+}
+
+.loading-description {
+  margin: 0;
+  color: #737373;
+  font-size: var(--ui-small-font, 15px);
+  font-weight: 400;
+  line-height: 16px;
+}
+
+.loading-bubble .similarity-card {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+/* 움직임 최소화 설정을 사용하는 경우 */
+@media (prefers-reduced-motion: reduce) {
+  .similarity-card {
+    animation: none;
+  }
+}
+
+
+
+.similarity-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  min-height: 39px;
+  gap: 10px;
+}
+
+.similarity-label {
+  color: #171717;
+  font-size: var(--ui-text-font, 18px);
+  font-weight: 600;
+  line-height: 22px;
+}
+
+.similarity-score {
+  color: #000000;
+  font-size: calc(var(--ui-heading-font, 20px) + 6px);
+  font-weight: 700;
+  line-height: 22px;
+}
+
+.similarity-bar {
+  width: 100%;
+  height: 14px;
+  flex-shrink: 0;
+  margin: 0;
+
+  background: #E5E5E5;
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.similarity-bar-fill {
+  height: 100%;
+  background: #171717;
+  border-radius: 999px;
+  transition: width 0.3s ease;
+}
+
+.similarity-desc {
+  margin: 0;
+  color: #525252;
+  font-size: var(--ui-small-font, 15px);
+  font-weight: 500;
+  line-height: 18px;
+}
+
+.similarity-status-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  border-radius: 8px;
+  vertical-align: middle;
+  margin-right: 8px;
+}
+
+.similarity-status-icon svg {
+  display: block;
+  width: 17px;
+  height: 17px;
+}
+
+
+/* =========================
+    Guide Modal
+========================= */
+
+/* 헤더 이용 가이드 버튼 */
+.header-guide-button {
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+
+  width: 180px;
+  height: 56px;
+  padding: 10px 16px;
+
+  background-color: #F5F5F5;
+  color: #171717;
+
+  border: 1px solid #E5E5E5;
+  border-radius: 10px;
+
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 600;
+
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+/* 이용 가이드 안내 아이콘 */
+.header-guide-button::before {
+  content: "?";
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+
+  border: 1.5px solid #666666;
+  border-radius: 50%;
+
+  color: #404040;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+/* 이용 가이드 버튼에 마우스를 올렸을 때 */
+.header-guide-button:hover {
+  background-color: #F5F5F5;
+}
+
+/* 키보드로 이용 가이드 버튼을 선택했을 때 */
+.header-guide-button:focus-visible {
+  outline: 2px solid #404040;
+  outline-offset: 2px;
+}
+
+.guide-open-button {
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  background: #171717;
+  color: #ffffff;
+  cursor: pointer;
+}
+
+.guide-open-button:hover {
+  background: #303030;
+  transform: translateY(-1px);
+}
+
+.guide-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  padding: 20px;
+
+  background: rgba(0, 0, 0, 0.45);
+}
+
+.guide-modal {
+  width: 720px;
+  max-width: 92%;
+  max-height: 82vh;
+  overflow-y: auto;
+
+  padding: 28px;
+
+  border-radius: 26px;
+  background:#ffffff;
+  color: #404040;
+
+  border: 1px solid #E5E5E5;
+  box-shadow: 0 28px 70px rgba(0, 0, 0, 0.20);
+}
+
+.guide-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  gap: 12px;
+
+  margin-bottom: 12px;
+}
+
+.guide-modal-header h2 {
+  margin: 0;
+
+  font-size: 1.7em;
+  font-weight: 900;
+
+  color: #404040;
+}
+
+.guide-close-button {
+  width: 34px;
+  height: 34px;
+
+  border: none;
+  border-radius: 999px;
+
+  background: #EBEBEB;
+  color: #404040;
+
+
+  cursor: pointer;
+
+  font-size: 18px;
+  font-weight: 900;
+}
+
+.guide-close-button:hover {
+  background: #E5E5E5;
+}
+
+.guide-intro {
+  margin: 0 0 18px;
+
+  font-size: 1em;
+  font-weight: 600;
+  line-height: 1.7;
+
+  color: #404040;
+}
+
+.guide-section {
+  margin-top: 18px;
+  padding: 18px 20px;
+
+  border: 1px solid #E5E5E5;
+  border-radius: 20px;
+
+  background: #F5F5F5;
+}
+
+.guide-section h3 {
+  margin: 0 0 10px;
+
+  font-size: 16px;
+  font-weight: 900;
+
+  color: #171717;
+}
+
+.guide-section ul {
+  margin: 0;
+  padding-left: 22px;
+
+  list-style: none;
+}
+
+.guide-section li {
+  position: relative;
+
+  margin: 8px 0;
+  padding-left: 18px;
+
+  font-size: 0.95em;
+  line-height: 1.7;
+}
+
+.guide-section li::before {
+  content: "•";
+
+  position: absolute;
+  left: 0;
+
+  color: #404040;
+  font-weight: 900;
+}
+
+.guide-confirm-button {
+  width: 100%;
+
+  margin-top: 20px;
+  padding: 13px 16px;
+
+  border: none;
+  border-radius: 14px;
+
+  background: #171717;
+  color: #ffffff;
+
+  cursor: pointer;
+
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.guide-confirm-button:hover {
+  background: #303030;
+}
+
+/* =========================
+   Privacy Modal - Figma
+========================= */
+
+/* 개인정보 보호 모달 */
+.guide-modal.privacy-modal {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+
+  width: clamp(460px, calc(var(--ui-text-font, 18px) * 26), 640px);
+  max-width: calc(100vw - 32px);
+  height: auto;
+  max-height: 85dvh;
+
+  padding: 24px;
+  box-sizing: border-box;
+
+  background: #FFFFFF;
+  border-radius: 16px;
+  overflow-y: auto;
+
+  font-family: "Inter", "Pretendard", sans-serif;
+}
+
+/* 헤더 */
+.privacy-modal-header {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+
+  width: 100%;
+  min-height: 32px;
+  flex-shrink: 0;
+}
+
+.privacy-modal-header h2 {
+  margin: 0;
+
+  color: #171717;
+  font-size: var(--ui-heading-font, 20px);
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+/* 닫기 버튼 */
+.privacy-modal-close {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+
+  padding: 0;
+  border: none;
+  background: transparent;
+
+  color: #555555;
+  font-size: 22px;
+  cursor: pointer;
+}
+
+/* 개인정보 안내 본문 */
+.privacy-modal-body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+
+  width: 100%;
+  min-width: 0;
+}
+
+/* 개별 안내 항목 */
+.privacy-info-item {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 12px;
+
+  width: 100%;
+  min-width: 0;
+  padding: 0;
+}
+
+/* SVG 아이콘 */
+.privacy-info-icon {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+
+  width: 20px;
+  height: 20px;
+  flex: 0 0 20px;
+
+  color: #525252;
+}
+
+.privacy-info-icon svg {
+  width: 20px;
+  height: 20px;
+}
+
+/* 제목 및 설명 */
+.privacy-info-text {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+
+  flex: 1;
+  min-width: 0;
+}
+
+/* 소제목 */
+.privacy-info-text h3 {
+  margin: 0;
+
+  color: #171717;
+  font-size: var(--ui-text-font, 18px);
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+/* 설명 */
+.privacy-info-text p {
+  width: 100%;
+  margin: 0;
+
+  color: #767676;
+  font-size: var(--ui-small-font, 15px);
+  font-weight: 400;
+  line-height: 1.6;
+
+  white-space: normal;
+  word-break: keep-all;
+  overflow-wrap: break-word;
+}
+
+/* 구분선 - 양쪽 20px 여백 */
+.privacy-divider {
+  width: calc(100% - 40px);
+  height: 0;
+  flex-shrink: 0;
+
+  border: none;
+  border-top: 1px solid #E5E5E5;
+}
+
+/* 확인 버튼 */
+.privacy-confirm-button {
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+  align-items: center;
+  align-self: center;
+
+  width: 100px;
+  height: auto;
+  min-height: calc(var(--ui-text-font, 18px) + 24px);
+  flex-shrink: 0;
+
+  margin: 0;
+  padding: 10px 24px;
+  box-sizing: border-box;
+  gap: 10px;
+
+  border: none;
+  border-radius: 8px;
+  background: #171717;
+
+  color: #FFFFFF;
+  font-size: var(--ui-text-font, 18px);
+  font-weight: 500;
+  line-height: 1.4;
+  text-align: center;
+
+  cursor: pointer;
+}
+
+.privacy-confirm-button:hover {
+  background: #303030;
+}
+
+/* =========================
+   Figma Guide Modal
+========================= */
+
+/* 이용 가이드 모달만 변경 */
+.guide-modal.figma-guide-modal {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+
+  width: clamp(460px, calc(var(--ui-text-font, 18px) * 26), 640px);
+  max-width: calc(100vw - 32px);
+  height: auto;
+  max-height: 85dvh;
+
+  padding: 24px;
+  box-sizing: border-box;
+
+  background: #FFFFFF;
+  border: none;
+  border-radius: 16px;
+
+  overflow-y: auto;
+  font-family: "Inter", "Pretendard", sans-serif;
+}
+
+/* 헤더 */
+.figma-guide-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+
+  width: 100%;
+  min-height: 32px;
+  flex-shrink: 0;
+}
+
+.figma-guide-header h2 {
+  margin: 0;
+
+  font-size: var(--ui-heading-font, 20px);
+  font-weight: 600;
+  line-height: 1.4;
+
+  color: #171717;
+}
+
+/* 닫기 버튼 */
+.figma-guide-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+
+  padding: 0;
+  border: none;
+  background: transparent;
+
+  color: #555555;
+  font-size: 22px;
+  font-weight: 400;
+
+  cursor: pointer;
+}
+
+/* 탭 전체 영역 */
+.figma-guide-tabs {
+  display: flex;
+  align-items: stretch;
+
+  width: 100%;
+  height: auto;
+  min-height: 44px;
+  flex-shrink: 0;
+
+  padding: 4px;
+  gap: 4px;
+  box-sizing: border-box;
+
+  background: #FFFFFF;
+  border-radius: 10px;
+}
+
+/* 탭 버튼 */
+.figma-guide-tab {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 36px;
+  height: auto;
+
+  padding: 10px 12px;
+  box-sizing: border-box;
+
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+
+  color: #767676;
+  font-size: var(--ui-small-font, 15px);
+  font-weight: 500;
+  line-height: 1.4;
+
+  text-align: center;
+  white-space: normal;
+  cursor: pointer;
+
+  transition: background-color 0.2s ease,
+              color 0.2s ease;
+}
+
+/* 선택된 탭만 회색 */
+.figma-guide-tab.active {
+  background: #E5E5E5;
+  color: #171717;
+}
+
+/* 본문 */
+.figma-guide-body {
+  width: 100%;
+  min-height: 0;
+}
+
+/* =========================
+   질문 예시 탭
+========================= */
+
+.figma-guide-question-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+
+  width: 100%;
+  padding: 10px;
+  box-sizing: border-box;
+}
+
+.figma-guide-question {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+
+  width: 100%;
+  min-height: 52px;
+
+  padding: 12px 8px;
+  box-sizing: border-box;
+
+  background: #FFFFFF;
+
+  color: #171717;
+  font-size: var(--ui-text-font, 18px);
+  font-weight: 500;
+  line-height: 1.5;
+}
+
+/* 질문 번호 */
+.figma-guide-number {
+  width: 2em;
+  flex-shrink: 0;
+
+  color: #767676;
+  font-size: var(--ui-small-font, 15px);
+  font-weight: 500;
+  line-height: 1.5;
+  text-align: center;
+}
+
+/* =========================
+   사용 가능한 기능 탭
+========================= */
+
+.figma-guide-feature-list {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+
+  width: 100%;
+}
+
+/* 기능별 한 줄 영역 */
+.figma-guide-feature {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+
+  width: 100%;
+  min-height: 48px;
+  padding: 4px 0;
+}
+
+/* 아이콘 영역 */
+.figma-guide-feature-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+
+  background: #F5F5F5;
+  border-radius: 10px;
+}
+
+/* 기능명 + 설명 */
+.figma-guide-feature-text {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
+
+  flex: 1;
+  min-width: 0;
+}
+
+/* 기능명 */
+.figma-guide-feature-title {
+  font-size: var(--ui-text-font, 18px);
+  font-weight: 600;
+  line-height: 1.4;
+  color: #171717;
+}
+
+/* 짧은 설명 */
+.figma-guide-feature-description {
+  font-size: var(--ui-small-font, 15px);
+  font-weight: 400;
+  line-height: 1.5;
+  color: #767676;
+}
+
+/* 하단 안내 */
+.figma-guide-notice {
+  margin: 24px 0 0;
+
+  font-size: var(--ui-small-font, 15px);
+  font-weight: 400;
+  line-height: 1.5;
+
+  color: #767676;
+}
+
+/* 모바일 */
+@media (max-width: 480px) {
+  .guide-modal.figma-guide-modal {
+    width: 100%;
+    max-width: 100%;
+    padding: 20px;
+    gap: 16px;
+  }
+
+  .figma-guide-question-list {
+    padding: 4px 0;
+  }
+
+  .figma-guide-question {
+    padding: 0 4px;
+  }
+}
+
+/* ========================================
+   챗봇 답변 만족도 평가 영역
+======================================== */
+
+/* 답변 아래에 표시되는 만족도 평가 전체 영역 */
+.answer-feedback {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  flex-wrap: wrap;
+  gap: 12px;
+
+  margin-top: 24px;
+  padding: 18px 0 0;
+
+  border-top: 1px solid #E5E5E5;
+  border-left: none;
+  border-right: none;
+  border-bottom: none;
+  border-radius: 0;
+
+  background-color: transparent;
+}
+
+/* "이 답변이 도움이 되었나요?" 문구 */
+.feedback-question {
+  margin: 0;
+  color: #767676;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 18px;
+}
+
+/* 만족·불만족 버튼을 나란히 배치하는 영역 */
+.feedback-button-group {
+  display: flex;
+  align-items: center;
+  flex-wrap: nowrap;
+  gap: 8px;
+}
+
+/* 만족·불만족 버튼 공통 디자인 */
+.feedback-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  width: 36px;
+  height: 36px;
+  min-width: 36px;
+  min-height: 36px;
+  padding: 0;
+
+  background: #FFFFFF;
+  border: 1px solid #E5E5E5;
+  border-radius: 8px;
+
+  color: #171717;
+  cursor: pointer;
+  box-shadow: none;
+}
+
+/* 버튼 위에 마우스를 올렸을 때 */
+.feedback-button:hover {
+  background-color: #F5F5F5;
+  border-color: #CCCCCC;
+  transform: translateY(-1px);
+}
+
+/* 키보드로 버튼을 선택했을 때 */
+.feedback-button:focus-visible {
+  outline: 3px solid #666666;
+  outline-offset: 2px;
+}
+
+/* "도움이 됐어요" 버튼에 마우스를 올렸을 때 */
+.positive-feedback-button:hover {
+  background-color: #F5F5F5;
+  border-color: #CCCCCC;
+  color: #404040;
+}
+
+/* "도움이 안 됐어요" 버튼에 마우스를 올렸을 때 */
+.negative-feedback-button:hover {
+  background-color: #F5F5F5;
+  border-color: #CCCCCC;
+  color: #404040;
+}
+
+/* ========================================
+   불만족 사유 선택 영역
+======================================== */
+
+/* 불만족 버튼을 누른 뒤 나타나는 사유 선택 영역 */
+.feedback-reason-area {
+  flex: 0 0 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 16px;
+
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+
+  margin: 0;
+  padding: 0;
+
+  background: transparent;
+  border: none;
+  border-radius: 0;
+}
+
+/* "어떤 점이 아쉬웠나요?" 문구 */
+.feedback-reason-title {
+  margin: 0;
+  font-size: var(--ui-text-font, 18px);
+  font-weight: 700;
+  color: #404040;
+}
+
+/* 불만족 사유 버튼 목록 */
+.feedback-reason-list {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 18px;
+
+  width: 100%;
+  min-width: 0;
+}
+
+/* 불만족 사유 선택 버튼 */
+
+.feedback-reason-button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+
+  width: fit-content;
+  min-height: 16px;
+  padding: 0;
+
+  background: transparent;
+  border: none;
+  border-radius: 0;
+
+  color: #404040;
+  font-family: inherit;
+  font-size: var(--ui-small-font, 15px);
+  font-weight: 400;
+  line-height: 16px;
+  text-align: left;
+
+  cursor: pointer;
+}
+
+.feedback-reason-radio {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+
+  border: 1px solid #A3A3A3;
+  border-radius: 50%;
+  box-sizing: border-box;
+}
+
+.feedback-reason-button.selected .feedback-reason-radio {
+  border-color: #171717;
+}
+
+.feedback-reason-button.selected .feedback-reason-radio::after {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #171717;
+}
+
+.feedback-submit-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  width: 100px;
+  height: 36px;
+  padding: 0;
+
+  background: #171717;
+  color: #FFFFFF;
+  border: none;
+  border-radius: 8px;
+
+  font-family: inherit;
+  font-size: var(--ui-small-font, 15px);
+  font-weight: 500;
+
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.feedback-submit-button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* 불만족 사유 버튼 위에 마우스를 올렸을 때 */
+.feedback-reason-button:hover {
+  background: transparent;
+  border-color: transparent;
+}
+
+/* 키보드로 불만족 사유 버튼을 선택했을 때 */
+.feedback-reason-button:focus-visible {
+  outline: 3px solid #666666;
+  outline-offset: 2px;
+}
+
+/* ========================================
+   평가 완료 메시지
+======================================== */
+
+/* 만족도 평가가 끝난 뒤 표시되는 안내 문구 */
+
+.feedback-complete-message {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+
+  width: fit-content;
+  max-width: 100%;
+  margin: 0;
+  padding: 0;
+
+  background: transparent;
+  border: none;
+  border-radius: 0;
+
+  color: #666666;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 16px;
+}
+
+.feedback-complete-message svg {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  color: #666666;
+}
+
+
+/* ========================================
+   모바일 화면 대응
+======================================== */
+
+@media (max-width: 600px) {
+  /* 모바일에서는 만족·불만족 버튼을 세로로 배치 */
+  .feedback-button-group {
+    flex-direction: column;
+  }
+
+  /* 고령자 및 모바일 사용자가 누르기 쉽도록 버튼 확대 */
+  .feedback-button {
+    width: 100%;
+    min-height: 46px;
+    font-size: 15px;
+  }
+
+  /* 불만족 사유 버튼도 터치하기 쉽도록 높이 확대 */
+  .feedback-reason-button {
+    min-height: 46px;
+    font-size: 15px;
+  }
+}
+
+/* 모바일에서 글자 크기 단계별 헤더 제목 크기 제한 */
+@media (max-width: 768px) {
+  .app.font-xsmall .header-text h1 { font-size: 20px; }
+  .app.font-small .header-text h1 { font-size: 22px; }
+  .app.font-normal .header-text h1 { font-size: 24px; }
+  .app.font-large .header-text h1 { font-size: 27px; }
+  .app.font-xlarge .header-text h1 { font-size: 30px; }
+}
+
+/* 개인정보 보호 안내를 상단 바 중앙에 배치 */
+.accessibility-bar {
+  position: relative;
+}
+
+/* 글자 크기 조절은 오른쪽 유지 */
+.font-controls {
+  margin-left: auto;
+}
+
+/* =========================
+   헤더 및 이용 가이드 위치 수정
+========================= */
+
+/* 기존 헤더 이용 가이드 버튼 숨기기 */
+.header-guide-button {
+  display: none;
+}
+
+
+
+/* =========================================
+   헤더 전체 배치
+========================================= */
+
+.header-top-row {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+
+  min-height: 80px;
+  padding: 8px 48px 8px 24px;
+
+  background: #FFFFFF;
+  border-bottom: 1px solid #E5E5E5;
+  box-sizing: border-box;
+}
+
+/* 기존 헤더 외곽 카드 제거 */
+.header-top-row .header {
+  flex: 1 1 auto;
+  min-width: 0;
+
+  width: auto;
+  height: auto;
+  min-height: 0;
+
+  margin: 0;
+  padding: 0;
+
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+/* 고우니와 서비스 제목 가로 정렬 */
+.header-top-row .header-content {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 14px;
+
+  width: 100%;
+  max-width: none;
+  height: auto;
+  min-height: 64px;
+}
+
+/* 고우니를 제목 왼쪽에 배치 */
+.header-top-row .header-visual {
+  position: static;
+  transform: none;
+  order: -1;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  flex-shrink: 0;
+  width: auto;
+  height: auto;
+  margin: 0;
+}
+
+/* 고우니 크기 */
+.header-top-row .header-gouni {
+  width: 58px;
+  max-width: 58px;
+  height: auto;
+  max-height: none;
+
+  object-fit: contain;
+  animation: none;
+}
+
+.header-top-row .header-visual::before {
+  content: none;
+}
+
+.header-top-row .header-speech-bubble {
+  display: none;
+}
+
+/* 서비스 제목 왼쪽 정렬 */
+.header-top-row .header-text {
+  flex: 0 1 auto;
+  min-width: 0;
+  text-align: left;
+}
+
+/* 헤더 오른쪽 도구 영역 */
+.header-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0;
+
+  flex-shrink: 0;
+  margin-left: auto;
+  margin-right: 48px;
+}
+
+
+/* 상단 이용 가이드 아이콘 버튼 */
+.header-actions .guide-toolbar-button {
+  order: 2;
+
+  position: static;
+  transform: none;
+
+  flex-shrink: 0;
+  width: clamp(38px, 3.43em, 68px);
+  height: clamp(34px, 2.86em, 56px);;
+  min-height: 0;
+  box-sizing: border-box;
+  margin: 0 0 0 26px;
+  padding: 0;
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  background-color: #303030;
+  color: #FFFFFF;
+  border: 1px solid #303030;
+  border-radius: 8px;
+
+  cursor: pointer;
+  transition:
+    background-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+/* 마우스를 올렸을 때 */
+.header-actions .guide-toolbar-button:hover {
+  background-color: #505050;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.14);
+}
+
+/* 키보드 접근 시 */
+.header-actions .guide-toolbar-button:focus-visible {
+  outline: 2px solid #171717;
+  outline-offset: 3px;
+}
+
+/* 아이콘 크기 */
+.header-actions .guide-toolbar-button svg {
+  width: 1.375em;
+  height: 1.375em;
+}
+
+
+/* 글자 크기 조절 위치 */
+.header-actions .font-controls {
+  order: 1;
+
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: nowrap;
+  gap: 8px;
+
+  grid-column: auto;
+  justify-self: auto;
+  margin: 0;
+}
+
+/* 태블릿 및 모바일 */
+@media (max-width: 900px) {
+  .header-top-row {
+    flex-wrap: wrap;
+    gap: 8px 16px;
+    padding: 10px 16px;
+  }
+
+  .header-top-row .header {
+    flex-basis: 100%;
+  }
+
+  .header-actions {
+    width: 100%;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+    margin-right: 0;
+  }
+}
+
+/* 작은 모바일 */
+@media (max-width: 480px) {
+  .header-top-row {
+    padding: 8px 10px;
+  }
+
+  .header-top-row .header-gouni {
+    width: 46px;
+    max-width: 46px;
+  }
+
+  .header-actions {
+    justify-content: center;
+    gap: 8px;
+  }
+}
+
+
+/* 글자 크기 5단계에 따라 고우니 크기 변경 */
+.app.font-xsmall { --header-gouni-size: 70px; }
+.app.font-small  { --header-gouni-size: 80px; }
+.app.font-normal { --header-gouni-size: 90px; }
+.app.font-large  { --header-gouni-size: 100px; }
+.app.font-xlarge { --header-gouni-size: 110px; }
+
+/* =========================
+   개인정보 안내 옆 이용 가이드
+========================= */
+
+.guide-toolbar-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+
+  flex-shrink: 0;
+  min-height: 38px;
+  padding: 8px 14px;
+
+  background-color: #FFFFFF;
+  border: 1px solid #E5E5E5;
+  border-radius: 8px;
+
+  color: #404040;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.guide-toolbar-button:hover {
+  background-color: #EBEBEB;
+}
+
+.guide-toolbar-button:focus-visible {
+  outline: 2px solid #404040;
+  outline-offset: 2px;
+}
+
+/* 글자 크기 조절 적용 */
+.app.font-xsmall .guide-toolbar-button { font-size: 12px; }
+.app.font-small .guide-toolbar-button  { font-size: 13px; }
+.app.font-normal .guide-toolbar-button { font-size: 14px; }
+.app.font-large .guide-toolbar-button  { font-size: 17px; }
+.app.font-xlarge .guide-toolbar-button { font-size: 20px; }
+
+
+/* =========================================
+   개인정보 보호 안내 중앙 정렬
+========================================= */
+
+.accessibility-bar {
+  position: relative;
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+
+  width: 100%;
+  min-height: 48px;
+  padding: 6px 12px;
+  gap: 0;
+
+  box-sizing: border-box;
+}
+
+/* 개인정보 안내 문구 */
+.voice-accessibility-controls {
+  position: static;
+  left: auto;
+  top: auto;
+  transform: none;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+
+  width: auto;
+  max-width: 100%;
+  margin: 0;
+}
+
+
+/* 상단 도구 영역 높이 및 세로 정렬 통일 */
+@media (min-width: 1200px) {
+  .accessibility-bar {
+    min-height: 48px;
+    align-items: center;
+  }
+
+  .guide-toolbar-button,
+  .privacy-warning,
+  .font-controls button,
+  .font-label {
+    height: 40px;
+    min-height: 40px;
+    box-sizing: border-box;
+
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .guide-toolbar-button,
+  .privacy-warning {
+    padding-top: 0;
+    padding-bottom: 0;
+  }
+
+  .font-controls {
+    align-items: center;
+  }
+
+  .font-controls button {
+    width: 40px;
+    padding: 0;
+  }
+
+  .font-label {
+    padding: 0 12px;
+  }
+}
+
+/* =========================================
+   PC / 모바일 공통 페이지 스크롤
+========================================= */
+
+html,
+body,
+#root {
+  width: 100%;
+  min-height: 100%;
+  margin: 0;
+  overflow-x: clip;
+}
+
+/* =========================================
+   모바일 화면
+========================================= */
+
+@media (max-width: 768px) {
+
+  .app {
+    min-width: 0;
+  }
+
+  .main-layout {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+
+    width: 100%;
+    min-width: 0;
+    padding: 10px;
+    box-sizing: border-box;
+  }
+
+  .left-section {
+    width: 100%;
+    min-width: 0;
+    flex: none;
+    box-sizing: border-box;
+  }
+
+.chat-input-box {
+  width: 100%;
+  max-width: 100%;
+}
+
+
+  .chat-window {
+    flex: 1 1 auto;
+    min-height: 0;
+    height: auto;
+    padding: 16px 12px;
+    overflow-y: auto;
+  }
+
+  .accessibility-bar {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 10px;
+
+    height: auto;
+    padding: 12px;
+  }
+
+  .voice-accessibility-controls {
+    position: static;
+    left: auto;
+    top: auto;
+    transform: none;
+    width: 100%;
+    order: 3;
+  }
+
+  .privacy-warning {
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+
+  .font-controls {
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+}
+
+/* =========================================
+   2단계: 모바일 반응형 디자인 최적화
+========================================= */
+
+/* 태블릿 및 모바일 공통 */
+@media (max-width: 1024px) {
+  .header-text {
+    min-width: 0;
+  }
+
+  .header-content {
+    min-width: 0;
+  }
+
+  .main-layout,
+  .left-section,
+  .chat-section {
+    min-width: 0;
+    box-sizing: border-box;
+  }
+
+  .message-row {
+    min-width: 0;
+  }
+
+  .message-bubble,
+  .assistant-bubble {
+    overflow-wrap: anywhere;
+  }
+
+  .download-card {
+    max-width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+  }
+
+  /* 태블릿과 모바일에서 개인정보 안내 카드 위치 초기화 */
+  .privacy-warning {
+    width: min(760px, 100%);
+    max-width: 100%;
+    transform: none;
+
+    padding: 10px 16px;
+    justify-content: center;
+    gap: 10px;
+    box-sizing: border-box;
+  }
+
+  /* 자물쇠의 PC용 가로 이동값 제거 */
+  .privacy-warning-icon {
+    transform: none;
+    top: -2px;
+  }
+
+  /* 개인정보 안내 문구의 PC용 이동값 제거 */
+  .privacy-warning-text {
+    display: block;
+    margin-left: 0;
+    transform: none;
+    min-width: 0;
+    overflow-wrap: break-word;
+  }
+
+  .download-card-content {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+}
+
+/* 일반 모바일 */
+@media (max-width: 767px) {
+  /* 헤더 */
+  .header {
+    width: calc(100% - 20px);
+    height: auto;
+    min-height: 0;
+    padding: 14px 12px;
+  }
+
+  .header-content {
+    min-height: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  .header-text {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  /* 기존 글자 크기 5단계 기능을 유지하면서
+     모바일에서 제목 크기 상한 조절 */
+  .app.font-xsmall .header-text h1 {
+    font-size: clamp(19px, 5vw, 25px);
+  }
+
+  .app.font-small .header-text h1 {
+    font-size: clamp(20px, 5.3vw, 27px);
+  }
+
+  .app.font-normal .header-text h1 {
+    font-size: clamp(21px, 5.6vw, 30px);
+  }
+
+  .app.font-large .header-text h1 {
+    font-size: clamp(23px, 6vw, 33px);
+  }
+
+  .app.font-xlarge .header-text h1 {
+    font-size: clamp(25px, 6.5vw, 36px);
+  }
+
+  .header-description {
+    line-height: 1.5;
+    overflow-wrap: anywhere;
+  }
+
+  /* 고우니 */
+  .header-visual {
+    position: static;
+    transform: none;
+    flex: 0 0 auto;
+    width: clamp(48px, 15vw, 70px);
+    height: auto;
+  }
+
+  .header-gouni {
+    width: 100%;
+    max-width: 70px;
+    max-height: none;
+    height: auto;
+  }
+
+  /* 상단 도구 영역 */
+  .accessibility-bar {
+    width: 100%;
+    min-height: 0;
+    padding: 10px;
+    gap: 8px;
+    box-sizing: border-box;
+  }
+
+  .voice-accessibility-controls {
+    position: static;
+    left: auto;
+    top: auto;
+    transform: none;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    margin: 0;
+    order: 3;
+  }
+
+  .privacy-warning {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+
+    padding: 10px 14px;
+
+    justify-content: center;
+    align-items: center;
+    gap: 10px;
+
+    border-radius: 999px;
+    white-space: normal;
+    word-break: keep-all;
+    overflow-wrap: break-word;
+    box-sizing: border-box;
+  }
+
+  .font-controls {
+    max-width: 100%;
+    min-width: 0;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 6px;
+  }
+
+  /* 사이드바 */
+  .left-section {
+    width: 100%;
+    padding: 10px;
+    gap: 10px;
+  }
+
+  /* 채팅 */
+  .chat-section {
+    width: 100%;
+    min-width: 0;
+    height: auto;
+    overflow: hidden;
+  }
+
+  .chat-window {
+    width: 100%;
+    min-width: 0;
+    padding: 16px 12px;
+    box-sizing: border-box;
+  }
+
+  .message-row {
+    width: 100%;
+    max-width: 100%;
+    gap: 6px;
+  }
+
+  .message-bubble {
+    min-width: 0;
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+
+  .chat-avatar {
+    width: 34px;
+    height: 34px;
+    margin-right: 4px;
+  }
+
+  
+  /* 질문 입력창 */
+  .chat-input-box {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    padding: 10px;
+    gap: 8px;
+  }
+
+
+  .chat-input-box input {
+    min-width: 0;
+    width: 0;
+    flex: 1 1 auto;
+    box-sizing: border-box;
+    font-size: var(--input-font-size, 20px);
+  }
+
+  .chat-input-box button {
+    flex-shrink: 0;
+    padding: 0
+  }
+
+  /* 이용 가이드 팝업 */
+  .guide-overlay {
+    box-sizing: border-box;
+    padding: 12px;
+  }
+
+  .guide-modal {
+    width: 100%;
+    max-width: 100%;
+    max-height: 85dvh;
+    padding: 18px;
+    box-sizing: border-box;
+    overflow-y: auto;
+  }
+}
+
+/* 작은 모바일 */
+@media (max-width: 359px) {
+  .header {
+    padding: 12px 10px;
+  }
+
+  .header-content {
+    gap: 6px;
+  }
+
+  .header-visual {
+    width: 44px;
+  }
+
+  .header-description {
+    line-height: 1.4;
+  }
+
+  .accessibility-bar {
+    padding: 8px 6px;
+  }
+
+  .font-controls {
+    gap: 4px;
+  }
+
+  .left-section {
+    padding: 8px;
+  }
+
+  .chat-window {
+    padding: 12px 8px;
+  }
+
+  .message-bubble {
+    padding: 12px;
+  }
+
+  .assistant-bubble {
+    padding: 12px;
+  }
+
+  .chat-input-box {
+    padding: 8px;
+    gap: 6px;
+  }
+
+  .chat-input-box input {
+    padding: 10px;
+  }
+
+  .chat-input-box button {
+    padding: 0
+  }
+}
+
+
+/* =========================================
+   모바일 사이드 메뉴 간소화
+========================================= */
+
+@media (max-width: 768px) {
+
+  /* 새 채팅 / FAQ / 상담 내역 가로 정렬 */
+  .main-layout .left-section {
+    position: relative;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    align-items: start;
+
+    width: 100%;
+    min-width: 0;
+    gap: 8px;
+    padding: 10px;
+
+    background: #FFFFFF;
+    border-right: none;
+    box-sizing: border-box;
+    overflow: visible;
+  }
+
+  .left-section > .new-chat-button,
+  .left-section > .quick-menu,
+  .left-section > .history-menu {
+    width: 100%;
+    min-width: 0;
+    min-height: 44px;
+    height: 44px;
+    box-sizing: border-box;
+  }
+
+  /* 메뉴 버튼 높이 통일 */
+  .left-section .new-chat-button,
+  .left-section .quick-menu-toggle,
+  .left-section .history-toggle {
+    min-height: 44px;
+    height: 44px;
+    padding: 8px 6px;
+
+    justify-content: center;
+    gap: 5px;
+
+    font-size: var(--mobile-menu-font-size);
+    white-space: nowrap;
+  }
+
+  .left-section .new-chat-icon {
+    font-size: 1.2em;
+  }
+
+  .left-section .new-chat-text,
+  .left-section .history-title {
+    flex: 0 1 auto;
+    font-size: inherit;
+    white-space: nowrap;
+  }
+
+  /* 모바일에서 FAQ 제목 짧게 표시 */
+  .left-section .quick-menu-title {
+    flex: 0 1 auto;
+    font-size: 0;
+  }
+
+  .left-section .quick-menu-title::after {
+    content: "FAQ";
+    font-size: var(--mobile-menu-font-size);
+    font-weight: 600;
+  }
+
+  /* 좁은 화면에서는 화살표 생략 */
+  .left-section .quick-menu-arrow,
+  .left-section .history-arrow {
+    display: none;
+  }
+
+  /* FAQ와 상담 내역이 채팅창을 밀지 않도록 */
+  .left-section .quick-menu,
+  .left-section .history-menu {
+    position: static;
+    overflow: visible;
+  }
+
+  /* 펼쳐진 목록을 메뉴 바로 아래에 띄움 */
+  .left-section .quick-button-list,
+  .left-section .history-list {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 10px;
+    right: 10px;
+
+    width: auto;
+    max-height: min(42dvh, 300px);
+    overflow-y: auto;
+
+    z-index: 40;
+
+    padding: 10px;
+    background: #FFFFFF;
+    border: 1px solid #E5E5E5;
+    border-radius: 10px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.10);
+    box-sizing: border-box;
+  }
+
+  .left-section .history-list {
+    z-index: 41;
+  }
 }

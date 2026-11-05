@@ -3,9 +3,11 @@ import re
 import json
 import time
 import hashlib
+import difflib
 from collections import deque
 from datetime import datetime, timedelta
 from urllib.parse import urljoin, urlparse, urldefrag, parse_qs
+from datetime import datetime
 
 import requests
 from bs4 import BeautifulSoup, NavigableString, Tag
@@ -16,7 +18,14 @@ from bs4 import BeautifulSoup, NavigableString, Tag
 OUTPUT_DIR = "data/raw"
 OUTPUT_JSONL = os.path.join(OUTPUT_DIR, "saha_docs.jsonl")
 
-MAX_PAGES = 100
+DELTA_DIR = os.path.join(OUTPUT_DIR, "delta")
+HISTORY_DIR = os.path.join(OUTPUT_DIR, "history")
+# 오늘 수정된 파일 저장용
+OUTPUT_DELTA_JSONL = os.path.join(DELTA_DIR, "saha_docs_delta.jsonl")
+# 변경 이력 누적 기록
+OUTPUT_CHANGE_HISTORY_JSONL = os.path.join(HISTORY_DIR, "change_history.jsonl")
+
+MAX_PAGES = 10000
 MAX_BOARD_PAGES_PER_LIST = 10
 REQUEST_DELAY = 0.7
 TIMEOUT = 15
@@ -31,6 +40,9 @@ YEAR_MENU_LIMIT = 5
 CURRENT_YEAR = 2026
 MIN_YEAR_MENU = CURRENT_YEAR - YEAR_MENU_LIMIT + 1
 
+# 변경 감지 기록 파일
+STATE_FILE = "data/state/crawl_state.json"
+
 ALLOWED_DOMAINS = {"www.saha.go.kr", "m.saha.go.kr"}
 
 HEADERS = {
@@ -40,6 +52,12 @@ HEADERS = {
         "Chrome/124.0.0.0 Safari/537.36"
     )
 }
+# 제외 URL
+EXCLUDED_URL_KEYWORDS = [
+    "mId=0203000000",  # 신고센터 시작 페이지에서 친절공무원 추천으로 연결되는 경우
+    "mId=0203010000",  # 친절공무원 추천 메뉴 및 게시판 전체
+]
+
 # 제외 키워드
 SHORTCUT_DENY_TEXTS = [
     "블로그", "인스타그램", "페이스북", "카카오",
@@ -68,6 +86,7 @@ SHORTCUT_ALLOW_TEXTS = [
 # 시작 URL
 # ---------------------------------------------------------
 START_URLS = [
+
     # 전자민원: 예시 페이지가 전자민원이라 일단 포함
     {
         "url": "https://www.saha.go.kr/portal/contents.do?mId=0100000000",
@@ -94,9 +113,9 @@ START_URLS = [
         "scope": "정보공개/행정정보공개",
     },
 
-    # 사하소개: 청사안내만
+    # 사하소개: 청사안내 및 하위 메뉴 전체 탐색
     {
-        "url": "https://www.saha.go.kr/portal/contents.do?mId=0605000000",
+        "url": "https://www.saha.go.kr/portal/contents.do?mId=0604000000",
         "menu_path": ["사하소개", "청사안내"],
         "scope": "사하소개/청사안내",
     },
@@ -114,6 +133,12 @@ START_URLS = [
         "menu_path": ["사하복지"],
         "scope": "사하복지",
     },
+    # 사하구 보건소: 보건소 안내 페이지 및 하위 메뉴 탐색
+    {
+        "url": "https://www.saha.go.kr/health/contents.do?mId=0400000000",
+        "menu_path": ["보건소"],
+        "scope": "보건소",
+    },
 ]
 
 # 허용할 큰 메뉴 prefix
@@ -129,17 +154,22 @@ ALLOWED_MID_PREFIXES = {
 # 제외할 메뉴 prefix
 # 정확한 mId는 사이트 메뉴를 보고 다르면 여기만 수정하면 됨
 EXCLUDE_MID_PREFIXES = [
+
+    # 민원편람/서식안내
+    "010308",  # form_crawler.py에서 별도 수집
+    
     # 분야별정보 제외: 체육시설, 구민교육
     # 예시값이므로 실제 mId가 다르면 수정
-    "0407",  # 체육시설 후보
-    "0408",  # 구민교육 후보
+    #"0407",  # 체육시설 후보        # 사하구에서 자전거를 무료로 빌릴 수 있는 곳이 있나요?
+    #"0408",  # 구민교육 후보        # 사하구 평생학습관 프로그램 수강료는 얼마인가요?
+    #"0405", # 환경 / 청소 메뉴 
 
     # 사하복지 제외: 관련정보, 희망복지지원단, 사하구장학회, 후원 및 기부
     # 예시값이므로 실제 mId가 다르면 수정
-    "0503",
-    "0505",
-    "0507",
-    "0508"
+    #"0503",                         # 아이돌봄 지원사업은 몇 살까지 이용할 수 있나요?
+    #"0505",
+    #"0507",
+    #"0508"
 ]
 
 # 반드시 허용하고 싶은 개별 URL이나 mId가 있으면 여기에 추가
@@ -153,6 +183,10 @@ ALLOWED_PATH_KEYWORDS = [
     "/portal/bbs/view.do",
     "/portal/civil/list.do",
     "/portal/civil/view.do",
+    "/portal/bbs/inRealName.do",
+    "/portal/passportbooking/",
+    "/portal/staff/list.do",  # 직원업무안내 추가
+    "/health/contents.do",  # 보건소 일반 안내 페이지
 ]
 
 DENY_URL_KEYWORDS = [
@@ -434,8 +468,53 @@ def get_mid(url):
     except Exception:
         return ""
 
+# 부모 URL 계산 함수
+def get_parent_menu_url(url):
+    mid = get_mid(url)
+
+    if not mid or len(mid) != 10 or not mid.isdigit():
+        return ""
+
+    # mId를 두 자리씩 메뉴 단계로 나눔
+    # 예: 0104080100 -> ["01", "04", "08", "01", "00"]
+    levels = [mid[i:i + 2] for i in range(0, 10, 2)]
+
+    # 마지막으로 값이 있는 메뉴 단계를 찾음
+    last_non_zero = -1
+
+    for i, level in enumerate(levels):
+        if level != "00":
+            last_non_zero = i
+
+    # 01 00 00 00 00 같은 최상위 메뉴는 부모 없음
+    if last_non_zero <= 0:
+        return ""
+
+    # 현재 단계부터 뒤를 전부 00으로 만들어 부모 mId 생성
+    parent_levels = levels[:]
+
+    for i in range(last_non_zero, len(parent_levels)):
+        parent_levels[i] = "00"
+
+    parent_mid = "".join(parent_levels)
+
+    return (
+        "https://www.saha.go.kr/portal/contents.do"
+        f"?mId={parent_mid}"
+    )
+
 def classify_page_type(url):
     lower = url.lower()
+
+    # 본인인증 안내 페이지
+    if "/portal/bbs/inrealname.do" in lower:
+        return "bbs_view"
+    # 여권접수예약 목록
+    if "/portal/passportbooking/list.do" in lower:
+        return "passport_booking_list"
+    # 직원업무안내: POST 페이지네이션 대상
+    if "/portal/staff/list.do" in lower:
+        return "staff_list"
     if "/portal/bbs/list.do" in lower:
         return "bbs_list"
     if "/portal/bbs/view.do" in lower:
@@ -444,15 +523,23 @@ def classify_page_type(url):
         return "civil_list"
     if "/portal/civil/view.do" in lower:
         return "civil_view"
-    if "/portal/contents.do" in lower:
+    if "/portal/contents.do" in lower or "/health/contents.do" in lower:
         return "contents"
     return "other"
 
-
+# 보건소 메뉴 분류 
 def get_top_menu_name(url):
+    parsed = urlparse(url)
+
+    # 보건소 홈페이지
+    if parsed.path.startswith("/health/"):
+        return "보건소"
+
+    # 기존 사하구청 홈페이지
     mid = get_mid(url)
     if len(mid) >= 2:
         return ALLOWED_MID_PREFIXES.get(mid[:2], "기타")
+
     return "기타"
 
 # =========================================================
@@ -460,20 +547,40 @@ def get_top_menu_name(url):
 # =========================================================
 def is_portal_url(url):
     parsed = urlparse(url)
-    return parsed.netloc in ALLOWED_DOMAINS and parsed.path.startswith("/portal/")
 
+    return (
+        parsed.netloc in ALLOWED_DOMAINS
+        and (
+            parsed.path.startswith("/portal/")
+            or parsed.path.startswith("/health/")
+        )
+    )
 
 def has_allowed_mid(url):
+    parsed = urlparse(url)
     mid = get_mid(url)
+
+    # 보건소 홈페이지는 포털과 별도로 판단
+    if parsed.path.startswith("/health/"):
+        return (
+            parsed.path == "/health/contents.do"
+            and bool(mid)
+        )
+
+    # 기존 사하구청 홈페이지 처리
     if mid in FORCE_ALLOW_MIDS:
         return True
+
     if not mid or len(mid) < 2:
         return False
+
     if mid[:2] not in ALLOWED_MID_PREFIXES:
         return False
+
     for prefix in EXCLUDE_MID_PREFIXES:
         if mid.startswith(prefix):
             return False
+
     return True
 
 def extract_year_from_text(text):
@@ -500,12 +607,19 @@ def is_recent_year_menu(anchor_text, url):
 
 def is_allowed_url(url):
     lower = url.lower()
-    if any(x in lower for x in DENY_URL_KEYWORDS):
+
+    if any(x.lower() in lower for x in DENY_URL_KEYWORDS):
         return False
+
     if not is_portal_url(url):
         return False
-    if not any(x in lower for x in ALLOWED_PATH_KEYWORDS):
+
+    if not any(
+        keyword.lower() in lower
+        for keyword in ALLOWED_PATH_KEYWORDS
+    ):
         return False
+
     return has_allowed_mid(url)
 
 
@@ -515,7 +629,13 @@ def should_save(url, anchor_text=""):
     if not is_recent_year_menu(anchor_text, url):
         return False
 
-    return page_type in ("contents", "bbs_view", "civil_view") and has_allowed_mid(url)
+    return page_type in (
+        "contents",
+        "bbs_view",
+        "civil_view",
+        "passport_booking_list",
+        "staff_list",  # 직원업무안내 추가
+    ) and has_allowed_mid(url)
 
 # =========================================================
 # HTML 전처리 / 제목 / 메타데이터
@@ -559,24 +679,59 @@ def extract_title(soup):
                 return candidate
     return ""
 
-
 def extract_metadata(soup):
     full_text = soup.get_text("\n", strip=True)
 
     department = ""
+    phone = ""
     date = ""
     views = None
 
-    dept_patterns = [
-        r"담당부서\s*[:：]?\s*([^\n|]+)",
-        r"콘텐츠\s*관리부서\s*[:：]?\s*([^\n|]+)",
-        r"작성자\s*[:：]?\s*([^\n|]+)",
-    ]
-    for pattern in dept_patterns:
-        m = re.search(pattern, full_text)
-        if m:
-            department = clean_inline(m.group(1))
-            break
+    # contents.do 페이지 하단 형식:
+    # 담당자
+    # 민원여권과 (051-220-4815)
+    manager_match = re.search(
+        r"담당자\s*\n?\s*"
+        r"([가-힣A-Za-z0-9·ㆍ\s]+?)"
+        r"\s*\(\s*(0\d{1,2}-\d{3,4}-\d{4})\s*\)",
+        full_text
+    )
+
+    if manager_match:
+        department = clean_inline(manager_match.group(1))
+        phone = clean_inline(manager_match.group(2))
+
+    # 위 형식으로 찾지 못했을 때 기존 패턴 사용
+    if not department:
+        dept_patterns = [
+            r"담당부서\s*[:：]?\s*([^\n|()]+)",
+            r"콘텐츠\s*관리부서\s*[:：]?\s*([^\n|()]+)",
+            r"작성자\s*[:：]?\s*([^\n|()]+)",
+        ]
+
+        for pattern in dept_patterns:
+            match = re.search(pattern, full_text)
+
+            if match:
+                department = clean_inline(match.group(1))
+                break
+
+    # 부서와 함께 전화번호를 찾지 못한 경우에만 담당자 영역에서 재검색
+    if not phone:
+        manager_area_match = re.search(
+            r"담당자\s*(.{0,150}?)최근업데이트",
+            full_text,
+            re.DOTALL
+        )
+
+        if manager_area_match:
+            phone_match = re.search(
+                r"(0\d{1,2}-\d{3,4}-\d{4})",
+                manager_area_match.group(1)
+            )
+
+            if phone_match:
+                phone = phone_match.group(1)
 
     date_patterns = [
         r"최근업데이트\s*[:：]?\s*((?:20\d{2})[./-]\s*\d{1,2}[./-]\s*\d{1,2})",
@@ -585,24 +740,29 @@ def extract_metadata(soup):
         r"작성일\s*[:：]?\s*((?:20\d{2})[./-]\s*\d{1,2}[./-]\s*\d{1,2})",
         r"게시일\s*[:：]?\s*((?:20\d{2})[./-]\s*\d{1,2}[./-]\s*\d{1,2})",
     ]
+
     for pattern in date_patterns:
-        m = re.search(pattern, full_text)
-        if m:
-            date = normalize_date(m.group(1))
+        match = re.search(pattern, full_text)
+
+        if match:
+            date = normalize_date(match.group(1))
             break
 
     view_patterns = [
         r"조회수\s*[:：]?\s*([\d,]+)",
         r"조회\s*[:：]?\s*([\d,]+)",
     ]
+
     for pattern in view_patterns:
-        m = re.search(pattern, full_text)
-        if m:
-            views = normalize_views(m.group(1))
+        match = re.search(pattern, full_text)
+
+        if match:
+            views = normalize_views(match.group(1))
             break
 
     return {
         "department": department,
+        "phone": phone,
         "date": date,
         "views": views,
     }
@@ -1178,6 +1338,14 @@ def extract_shortcut_links(main_node, base_url):
             .replace("새창", "")
             .strip()
         )
+        # 유효하지 않은 링크는 제외
+        if href.startswith(("javascript:", "mailto:", "tel:", "#")):
+            continue
+
+        # fallback에서 사용하기 전에 URL 생성
+        full_url = urljoin(base_url, href)
+        full_url, _ = urldefrag(full_url)
+
         # fallback
         if not text or re.fullmatch(r"https?://[^ ]+", text):
             parsed = urlparse(full_url)
@@ -1194,12 +1362,6 @@ def extract_shortcut_links(main_node, base_url):
                 if k in domain:
                     text = v
                     break
-
-        if href.startswith(("javascript:", "mailto:", "tel:", "#")):
-            continue
-
-        full_url = urljoin(base_url, href)
-        full_url, _ = urldefrag(full_url)
 
         # 파일 다운로드 링크는 shortcut_links가 아니라 attachments에서만 관리
         if (
@@ -1227,13 +1389,7 @@ def extract_shortcut_links(main_node, base_url):
 
 # URL주소만 있는 목록 거르기
 # source_url = 원본페이지, shorcut_url = 바로가기 링크
-def make_shortcut_doc(
-    source_url,
-    link,
-    menu_path,
-    parent_title="",
-    page_type="shortcut_link",
-):
+def make_shortcut_doc(source_url, link,menu_path, parent_title="", page_type="shortcut_link"):
     text = clean_text(f"""
     제목: {link['text']}
     상위문서: {parent_title}
@@ -1261,15 +1417,29 @@ def make_shortcut_doc(
         "source": "saha.go.kr",
     }
 
-
 # 새창/바로가기 링크는 하위 탐색 X, 대신 shortcut_link 문서로 JSONL 저장 O
 def is_shortcut_only_link(a, href, text):
     href = href or ""
     text = clean_inline(text)
 
-    # 내부 contents 메뉴는 바로가기가 아니라 크롤링 탐색 대상
-    if "/portal/contents.do" in href and "mId=" in href:
+    lower_href = href.lower()
+
+    # 본인인증 페이지는 바로가기 문서로만 저장하지 않고
+    # 실제 크롤링 탐색 대상으로 처리한다.
+    if "/portal/bbs/inrealname.do" in lower_href:
         return False
+
+    # 내부 contents 메뉴는 바로가기가 아니라 크롤링 탐색 대상
+    if "/portal/contents.do" in lower_href and "mid=" in lower_href:
+        return False
+
+    if href.startswith(("javascript:", "mailto:", "tel:", "#")):
+        return False
+
+    full_url = urljoin("https://www.saha.go.kr", href)
+    full_url, _ = urldefrag(full_url)
+
+    return is_valid_shortcut_link(text, href, full_url)
 
     if href.startswith(("javascript:", "mailto:", "tel:", "#")):
         return False
@@ -1285,6 +1455,11 @@ def extract_links_from_raw_html(html, current_url, parent_menu_path=None):
 
     soup = BeautifulSoup(html, "html.parser")
     links = []
+
+    # 본인인증 페이지는 현재 공개 안내 본문만 저장하고
+    # 인증 이후 backUrl은 하위 탐색하지 않는다.
+    if "/portal/bbs/inrealname.do" in current_url.lower():
+        return []
 
     for a in soup.find_all("a"):
         href = a.get("href", "").strip()
@@ -1321,15 +1496,27 @@ def extract_links_from_raw_html(html, current_url, parent_menu_path=None):
                 hidden_mid = m.group(1)
                 break
 
-        if hidden_mid:
-            href = f"/portal/contents.do?mId={hidden_mid}"
+        # 실제 href가 없거나 자바스크립트 링크일 때만
+        # 속성에서 추출한 mId로 contents.do 주소를 복원한다.
+        if hidden_mid and (
+            not href
+            or href.startswith("javascript:")
+            or href == "#"
+        ):
+            if "/health/" in current_url.lower():
+                href = f"/health/contents.do?mId={hidden_mid}"
+            else:
+                href = f"/portal/contents.do?mId={hidden_mid}"
 
         if not href:
             continue
 
         # 내부 contents.do 메뉴는 shortcut 검사 제외
         is_internal_contents_menu = (
-            "/portal/contents.do" in href
+            (
+                "/portal/contents.do" in href
+                or "/health/contents.do" in href
+            )
             and "mId=" in href
         )
 
@@ -1362,7 +1549,7 @@ def extract_links_from_raw_html(html, current_url, parent_menu_path=None):
 
         links.append({
             "url": normalized,
-            "parent_url": current_url,
+            "parent_url": get_parent_menu_url(normalized),
             "anchor_text": anchor_text,
             "menu_path": menu_path,
         })
@@ -1379,6 +1566,304 @@ def extract_links_from_raw_html(html, current_url, parent_menu_path=None):
             dedup[url] = item
 
     return list(dedup.values())
+
+# 변경 감지 기록 파일 
+def load_crawl_state():
+    if not os.path.exists(STATE_FILE):
+        return {}
+
+    try:
+        with open(STATE_FILE, "r", encoding="utf-8") as f:
+            content = f.read().strip()
+
+            if not content:
+                return {}
+
+            return json.loads(content)
+
+    except json.JSONDecodeError:
+        print("crawl_state.json 파싱 실패 → 빈 상태로 시작")
+        return {}
+
+# 기존파일 유지
+def load_existing_docs(path):
+    docs = {}
+
+    if not os.path.exists(path):
+        return docs
+
+    with open(path, "r", encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+
+            try:
+                doc = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+
+            doc_id = doc.get("doc_id")
+            if doc_id:
+                docs[doc_id] = doc
+    # 디버그용            
+    print(f"[LOAD EXISTING DOCS] {len(docs)}개 읽음")
+    return docs
+
+# 수정내용 요약
+def make_change_summary(old_text, new_text, max_changes=20):
+    def normalize_for_compare(text):
+        text = text or ""
+        text = re.sub(r"(?m)^\s*\d+\s*$", "", text)
+        text = re.sub(
+            r"(\d+\s*\|\s*.+?\|\s*.+?\|\s*\d{4}\.\d{2}\.\d{2})\s*\|\s*\d+",
+            r"\1",
+            text
+        )
+        # 목록 번호(No.)는 변경 비교 대상에서 제외
+        text = re.sub(
+            r"(?m)^\s*\d+\s*\|\s*(.+?\|\s*.+?\|\s*\d{4}\.\d{2}\.\d{2})\s*$",
+            r"\1",
+            text
+        )
+        text = re.sub(r"조회수\s*[:：]?\s*\d+", "", text)
+        text = re.sub(r"조회\s*[:：]?\s*\d+", "", text)
+        return text
+
+    def extract_board_rows(text):
+        rows = []
+
+        pattern = re.compile(
+            r"(?m)^\s*(\d+)\s*\|\s*(.+?)\s*\|\s*(.+?)\s*\|\s*(\d{4}\.\d{2}\.\d{2})(?:\s*\|\s*\d+)?\s*$"
+        )
+
+        for m in pattern.finditer(text or ""):
+            rows.append({
+                "number": m.group(1),
+                "title": clean_inline(m.group(2)),
+                "department": clean_inline(m.group(3)),
+                "date": m.group(4),
+            })
+
+        return rows
+
+    # Total 개수가 줄었거나 특정 제목이 사라진 경우 “삭제 가능성”으로 알려줌
+    def make_board_change_summary(old_text, new_text):
+        old_rows = extract_board_rows(old_text)
+        new_rows = extract_board_rows(new_text)
+
+        if not old_rows or not new_rows:
+            return []
+
+        old_keys = {
+            (r["title"], r["department"], r["date"]): r
+            for r in old_rows
+        }
+
+        new_keys = {
+            (r["title"], r["department"], r["date"]): r
+            for r in new_rows
+        }
+
+        changes = []
+
+        for key, old_row in old_keys.items():
+            if key not in new_keys:
+                changes.append({
+                    "type": "removed",
+                    "field": "게시판 목록",
+                    "message": "게시글이 목록에서 사라졌습니다. 삭제, 비공개, 이동 처리되었을 가능성이 있습니다.",
+                    "old": f"{old_row['number']} | {old_row['title']} | {old_row['department']} | {old_row['date']}",
+                })
+
+        for key, new_row in new_keys.items():
+            if key not in old_keys:
+                changes.append({
+                    "type": "added",
+                    "field": "게시판 목록",
+                    "message": "게시글이 목록에 새로 추가되었습니다.",
+                    "new": f"{new_row['number']} | {new_row['title']} | {new_row['department']} | {new_row['date']}",
+                })
+
+        return changes
+
+    board_changes = make_board_change_summary(old_text, new_text)
+
+    if board_changes:
+        return board_changes
+
+    old_text = normalize_for_compare(old_text)
+    new_text = normalize_for_compare(new_text)
+
+    old_lines = [line.strip() for line in (old_text or "").splitlines() if line.strip()]
+    new_lines = [line.strip() for line in (new_text or "").splitlines() if line.strip()]
+
+    diff = list(difflib.ndiff(old_lines, new_lines))
+
+    changes = []
+    removed_buffer = []
+
+    for line in diff:
+        if line.startswith("- "):
+            removed_buffer.append(line[2:].strip())
+
+        elif line.startswith("+ "):
+            new_value = line[2:].strip()
+
+            if removed_buffer:
+                old_value = removed_buffer.pop(0)
+                changes.append({
+                    "type": "modified",
+                    "old": old_value,
+                    "new": new_value,
+                })
+            else:
+                changes.append({
+                    "type": "added",
+                    "new": new_value,
+                })
+
+        if len(changes) >= max_changes:
+            changes.append({
+                "type": "omitted",
+                "message": "변경 내용이 많아 일부만 표시합니다."
+            })
+            break
+
+    for old_value in removed_buffer:
+        if len(changes) >= max_changes:
+            break
+
+        changes.append({
+            "type": "removed",
+            "old": old_value,
+        })
+
+    if not changes:
+        return [{
+            "type": "system",
+            "message": "본문의 의미 있는 문장 변경은 확인되지 않았습니다. 공백, 조회수, 만족도조사, HTML 구조 변화 등 비본문 요소 변경일 가능성이 있습니다."
+        }]
+
+    return changes
+
+def attach_change_metadata(doc, old_doc, new_hash):
+    detected_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    if old_doc:
+        doc["change_type"] = "UPDATED_DOCUMENT"
+        doc["change_reason"] = "기존 문서의 본문 내용이 변경됨"
+        doc["change_summary"] = make_change_summary(
+            old_doc.get("text", ""),
+            doc.get("text", "")
+        )
+    else:
+        doc["change_type"] = "NEW_DOCUMENT"
+        doc["change_reason"] = "신규 수집 문서"
+        doc["change_summary"] = [
+            {
+                "type": "new",
+                "field": "document",
+                "message": "새로운 문서가 추가되었습니다."
+            }
+        ]
+
+    doc["detected_at"] = detected_at
+    doc["content_hash"] = new_hash
+
+    return doc
+
+# 어떤 내용이 수정됐는지 ( 터미널 용)
+def print_diff(old_text, new_text):
+    diff = difflib.unified_diff(
+        old_text.splitlines(),
+        new_text.splitlines(),
+        lineterm=""
+    )
+
+    print("----- 변경 내용 -----")
+    count = 0
+
+    for line in diff:
+        if line.startswith(("+++", "---", "@@")):
+            continue
+
+        print(line)
+        count += 1
+
+        if count >= 30:
+            print("...(생략)")
+            break
+
+    print("--------------------")
+
+def save_existing_docs(path, docs):
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+
+    print(f"[SAVE EXISTING DOCS] 저장 대상 문서 수: {len(docs)}")
+    print(f"[SAVE EXISTING DOCS] 저장 경로: {path}")
+
+    with open(path, "w", encoding="utf-8") as f:
+        for doc in docs.values():
+            f.write(json.dumps(doc, ensure_ascii=False) + "\n")
+
+def append_change_history(doc):
+    os.makedirs(os.path.dirname(OUTPUT_CHANGE_HISTORY_JSONL), exist_ok=True)
+
+    history_item = {
+        "detected_at": doc.get("detected_at", ""),
+        "change_type": doc.get("change_type", ""),
+        "change_reason": doc.get("change_reason", ""),
+        "title": doc.get("title", ""),
+        "url": doc.get("url", ""),
+        "doc_id": doc.get("doc_id", ""),
+        "page_type": doc.get("page_type", ""),
+        "menu_path": doc.get("menu_path", []),
+        "change_summary": doc.get("change_summary", []),
+    }
+
+    with open(OUTPUT_CHANGE_HISTORY_JSONL, "a", encoding="utf-8") as f:
+        f.write(json.dumps(history_item, ensure_ascii=False) + "\n")
+
+def save_crawl_state(state):
+    os.makedirs(os.path.dirname(STATE_FILE), exist_ok=True)
+    with open(STATE_FILE, "w", encoding="utf-8") as f:
+        json.dump(state, f, ensure_ascii=False, indent=2)
+
+# 공백, 조회수, 만족도조사는 실행할때 마다 달라지므로 수정사항이 아님.
+def make_content_hash(text):
+    if not text:
+        text = ""
+
+    text = text.replace("\xa0", " ")
+    text = re.sub(r"\s+", " ", text)
+
+    # 단독 숫자 줄 제거: 조회수만 따로 추출된 경우
+    text = re.sub(r"(?m)^\s*\d+\s*$", "", text)
+    
+
+
+    # 게시판 목록형 행의 마지막 조회수 제거
+    # 예: 3154 | 제목 | 환경과 | 2026.06.24 | 37
+    text = re.sub(
+        r"(\d+\s*\|\s*.+?\|\s*.+?\|\s*\d{4}\.\d{2}\.\d{2})\s*\|\s*\d+",
+        r"\1",
+        text
+    )
+    # 목록 번호(No.)는 변경 비교 대상에서 제외
+    text = re.sub(
+        r"(?m)^\s*\d+\s*\|\s*(.+?\|\s*.+?\|\s*\d{4}\.\d{2}\.\d{2})\s*$",
+        r"\1",
+        text
+    )   
+
+    text = re.sub(r"조회수\s*[:：]?\s*\d+", "", text)
+    text = re.sub(r"조회\s*[:：]?\s*\d+", "", text)
+    text = re.sub(r"만족도조사.*", "", text)
+
+    text = text.strip()
+
+    return hashlib.md5(text.encode("utf-8")).hexdigest()
 
 # =========================================================
 # 목록형 게시판 처리
@@ -1464,7 +1949,7 @@ def extract_document(html, url, menu_path=None):
     title = extract_title(soup)
     main_node = select_main_content(soup)
     if not main_node:
-        return title, "", [], [], []
+        return title, "", [], [], [], []
 
     sections = extract_structured_sections(main_node)
     shortcut_links = extract_shortcut_links(main_node, url)
@@ -1507,11 +1992,70 @@ def document_score(url, title, text, sections):
         score -= 5
     return score
 
+# 공통 리다이렉트 기능 페이지 함수 (ex. 여권접수예약 페이지)
+def make_redirect_feature_doc(
+    original_url,
+    final_url,
+    anchor_text,
+    menu_path=None,
+):
+    menu_path = menu_path or []
+
+    title = clean_inline(anchor_text)
+
+    if not title:
+        return None
+
+    text = clean_text(
+        "\n".join([
+            title,
+            f"서비스 바로가기: {final_url}",
+        ])
+    )
+
+    doc_id_source = f"{original_url}|{final_url}|{title}"
+    doc_id = hashlib.md5(
+        doc_id_source.encode("utf-8")
+    ).hexdigest()
+
+    return {
+        "doc_id": doc_id,
+        "url": original_url,
+        "target_url": final_url,
+        "parent_url": "",
+        "title": title,
+        "author": "",
+        "department": "",
+        "phone": "",
+        "date": "",
+        "views": None,
+        "menu_path": menu_path,
+        "page_type": "redirect_feature",
+        "category": "",
+        "text": text,
+        "paragraphs": [
+            f"서비스 바로가기: {final_url}",
+        ],
+        "sections": [],
+        "shortcut_links": [
+            {
+                "anchor_text": title,
+                "shortcut_url": final_url,
+                "raw_href": final_url,
+            }
+        ],
+        "attachments": [],
+    }
+
 # =========================================================
 # 저장 문서 생성
 # =========================================================
 def make_doc(url, parent_url, anchor_text, menu_path, html, extra_meta=None):
-    title, text, paragraphs, sections, shortcut_links, attachments = extract_document(html, url, menu_path)
+    title, text, paragraphs, sections, shortcut_links, attachments = extract_document(
+    html,
+    url,
+    menu_path
+)
     soup_meta = BeautifulSoup(html, "html.parser")
     metadata = extract_metadata(soup_meta)
 
@@ -1528,8 +2072,14 @@ def make_doc(url, parent_url, anchor_text, menu_path, html, extra_meta=None):
         "page_type": page_type,
         "title": extra_meta.get("title") or title,
         "department": extra_meta.get("department") or metadata.get("department", ""),
+        "author": extra_meta.get("department") or metadata.get("department", ""),
+        "phone": extra_meta.get("phone") or metadata.get("phone", ""),
         "date": extra_meta.get("date") or metadata.get("date", ""),
-        "views": extra_meta.get("views") if extra_meta.get("views") is not None else metadata.get("views"),
+        "views": (
+            extra_meta.get("views")
+            if extra_meta.get("views") is not None
+            else metadata.get("views")
+        ),
         "sections": sections,
         "shortcut_links": shortcut_links,
         "attachments": attachments,
@@ -1544,25 +2094,201 @@ def make_doc(url, parent_url, anchor_text, menu_path, html, extra_meta=None):
 
     return doc
 
+
+def make_staff_doc(staff, url, menu_path):
+    """
+    직원 한 명의 업무안내 정보를 RAG 문서로 변환한다.
+    """
+    department = staff.get("department", "").strip()
+    position = staff.get("position", "").strip()
+    phone = staff.get("phone", "").strip()
+    duties = staff.get("duties", "").strip()
+
+    # 직원별 문서 ID 생성
+    # 부서, 직위, 전화번호, 업무내용을 조합하여 구분
+    staff_key = f"{department}|{position}|{phone}|{duties}"
+
+    doc_id = url_to_id(f"{url}|staff|{staff_key}")
+
+    title = f"{department} {position} 직원업무안내".strip()
+
+    text = (
+        f"부서: {department}\n"
+        f"직위: {position}\n"
+        f"전화번호: {phone}\n"
+        f"업무내용: {duties}"
+    )
+
+    return {
+        "doc_id": doc_id,
+        "url": url,
+        "parent_url": "",
+        "anchor_text": "직원업무안내",
+        "menu_path": menu_path,
+        "top_menu": get_top_menu_name(url),
+        "page_type": "staff",
+        "title": title,
+        "department": department,
+        "position": position,
+        "phone": phone,
+        "duties": duties,
+        "author": department,
+        "date": "",
+        "views": None,
+        "sections": [],
+        "shortcut_links": [],
+        "attachments": [],
+        "attachment_count": 0,
+        "text": text,
+        "paragraphs": [text],
+        "source": "saha.go.kr",
+    }
+
+
+# 직원업무안내 추가
+def extract_staff_rows(html):
+    """
+    직원업무안내 HTML에서 직원별 정보를 추출한다.
+    """
+    soup = BeautifulSoup(html, "html.parser")
+    staff_rows = []
+
+    for table in soup.find_all("table"):
+        headers = [
+            clean_inline(th.get_text(" ", strip=True))
+            for th in table.select("thead th")
+        ]
+
+        required = ["부서", "직위", "전화번호", "업무내용"]
+
+        if not all(h in headers for h in required):
+            continue
+
+        for tr in table.select("tbody tr"):
+            cells = tr.find_all("td")
+
+            if len(cells) != len(headers):
+                continue
+
+            values = [
+                clean_inline(td.get_text(" ", strip=True))
+                for td in cells
+            ]
+
+            row = dict(zip(headers, values))
+
+            if not row.get("부서") and not row.get("업무내용"):
+                continue
+
+            staff_rows.append({
+                "department": row.get("부서", ""),
+                "position": row.get("직위", ""),
+                "phone": row.get("전화번호", ""),
+                "duties": row.get("업무내용", ""),
+            })
+
+    return staff_rows
+
+
+def collect_all_staff(session, url, first_html):
+    """
+    직원업무안내 전체 페이지를 POST 요청으로 순회한다.
+    """
+    all_staff = []
+    seen = set()
+
+    page = 1
+    max_pages = 500
+
+    while page <= max_pages:
+        if page == 1:
+            html = first_html
+        else:
+            try:
+                response = session.post(
+                    url,
+                    data={
+                        "page": str(page),
+                        "deptCode": "",
+                        "searchType": "",
+                        "searchTxt": "",
+                    },
+                    timeout=TIMEOUT,
+                )
+                response.raise_for_status()
+                html = response.text
+            except Exception as e:
+                print(f"  직원안내 {page}페이지 요청 실패: {e}")
+                break
+
+        rows = extract_staff_rows(html)
+
+        if not rows:
+            print(f"  직원안내 {page}페이지: 직원 정보 없음")
+            break
+
+        new_count = 0
+
+        for row in rows:
+            key = (
+                row["department"],
+                row["position"],
+                row["phone"],
+                row["duties"],
+            )
+
+            if key in seen:
+                continue
+
+            seen.add(key)
+            all_staff.append(row)
+            new_count += 1
+
+        print(
+            f"  직원안내 {page}페이지: "
+            f"{len(rows)}건 추출, 신규 {new_count}건"
+        )
+
+        # 동일한 페이지가 반복되면 중단
+        if new_count == 0:
+            print("  직원안내 페이지 반복 감지, 수집 중단")
+            break
+
+        page += 1
+        time.sleep(REQUEST_DELAY)
+
+    if page > max_pages:
+        print(f"  직원안내 최대 페이지 제한({max_pages}) 도달")
+
+    print(f"  직원안내 총 수집 건수: {len(all_staff)}")
+
+    return all_staff
+
 # =========================================================
 # 크롤링 메인
 # =========================================================
 def crawl():
     ensure_dir(OUTPUT_DIR)
+    ensure_dir(DELTA_DIR)
+    ensure_dir(HISTORY_DIR)
+    crawl_state = load_crawl_state()
 
     session = requests.Session()
     session.headers.update(HEADERS)
-
     visited = set()
     queued = set()
     queue = deque()
-    START_URL_SET = {item["url"] for item in START_URLS}
-    saved_doc_ids = set()
-    saved_count = 0
-    saved_shortcut_urls = set()
 
+    START_URL_SET = {item["url"] for item in START_URLS}
+    saved_shortcut_urls = set()
+    existing_docs = load_existing_docs(OUTPUT_JSONL)
+    saved_doc_ids = set(existing_docs.keys())
+    saved_count = len(existing_docs)
+
+    # 기존 시작 URL을 큐에 추가
     for seed in START_URLS:
         url = seed["url"]
+
         queue.append({
             "url": url,
             "parent_url": "",
@@ -1571,239 +2297,408 @@ def crawl():
         })
         queued.add(url)
 
-    with open(OUTPUT_JSONL, "w", encoding="utf-8") as out:
-        while queue and len(visited) < MAX_PAGES:
-            item = queue.popleft()
-            url = item["url"]
-            parent_url = item.get("parent_url", "")
-            anchor_text = item.get("anchor_text", "")
-            menu_path = item.get("menu_path", [])
+    with open(OUTPUT_DELTA_JSONL, "w", encoding="utf-8") as delta_out:
+            while queue and len(visited) < MAX_PAGES:
+                item = queue.popleft()
+                url = item["url"]
+                parent_url = item.get("parent_url", "")
+                anchor_text = item.get("anchor_text", "")
+                menu_path = item.get("menu_path", [])
 
-            if url in visited:
-                continue
-            visited.add(url)
-
-            print(f"[VISIT] {url}")
-
-            try:
-                response = session.get(url, timeout=TIMEOUT)
-                response.raise_for_status()
-            except Exception as e:
-                print(f"  요청 실패: {e}")
-                continue
-
-            if not is_html_response(response):
-                print("  HTML 아님, 스킵")
-                continue
-
-            html = response.text
-            # 메뉴의 새창 바로가기 → 전체 soup에서 추출
-            soup_for_shortcut = BeautifulSoup(html, "html.parser")
-
-            shortcut_links = []
-
-            # 1. 본문 안 바로가기만 추출
-            soup_for_main_shortcut = BeautifulSoup(html, "html.parser")
-            remove_noise_nodes(soup_for_main_shortcut)
-            main_node_for_shortcut = select_main_content(soup_for_main_shortcut)
-
-            shortcut_links.extend(
-                extract_shortcut_links(main_node_for_shortcut, url)
-            )
-
-            # 2. 메뉴 영역의 '새창으로열림' 링크는 시작 메뉴 페이지에서만 추출
-            # 예: 정보공개 > 사하알림 페이지
-            if url in START_URL_SET:
-                soup_for_menu_shortcut = BeautifulSoup(html, "html.parser")
-
-                for a in soup_for_menu_shortcut.find_all("a", href=True):
-                    raw_text = a.get_text(" ", strip=True)
-                    text = clean_inline(raw_text)
-                    href = a.get("href", "").strip()
-
-                    if "새창" not in text and a.get("target") != "_blank":
-                        continue
-
-                    text = (
-                        text.replace("새창으로열림", "")
-                        .replace("새창", "")
-                        .strip()
-                    )
-
-                    if not text:
-                        continue
-
-                    # 저장하고 싶은 대표 새창 메뉴만 허용
-                    if text not in ["계약정보공개", "재정정보공개"]:
-                        continue
-
-                    full_url = urljoin(url, href)
-                    full_url, _ = urldefrag(full_url)
-
-                    shortcut_links.append({
-                        "text": text,
-                        "url": full_url,
-                        "raw_href": href,
-                    })
-
-            page_type = classify_page_type(url)
-            # 중복 제거
-            shortcut_dedup = {}
-            for link in shortcut_links:
-                key = (
-                    link.get("text", ""),
-                    link.get("url", ""),
-                    link.get("raw_href", ""),
-                )
-                shortcut_dedup[key] = link
-
-            shortcut_links = list(shortcut_dedup.values())
-
-            for shortcut in shortcut_links:
-                if not shortcut.get("url"):
+                if any(keyword in url for keyword in EXCLUDED_URL_KEYWORDS):
                     continue
 
-                page_title = extract_title(BeautifulSoup(html, "html.parser"))
+                if url in visited:
+                    continue
+                visited.add(url)
 
-                shortcut_doc = make_shortcut_doc(
-                    url,
-                    shortcut,
-                    menu_path,
-                    parent_title="",
-                    page_type="menu_shortcut",
+                print(f"[VISIT] {url}")
+
+                try:
+                    response = session.get(url, timeout=TIMEOUT)
+                    response.raise_for_status()
+                except Exception as e:
+                    print(f"  요청 실패: {e}")
+                    continue
+
+                if not is_html_response(response):
+                    print("  HTML 아님, 스킵")
+                    continue
+
+                html = response.text
+                final_url = response.url
+                # 리다이렉트된 최종 URL 사용
+                if final_url != url:
+                    print(f"  [REDIRECT] {url}")
+                    print(f"          -> {final_url}")
+
+                # 메뉴의 새창 바로가기 → 전체 soup에서 추출
+                soup_for_shortcut = BeautifulSoup(html, "html.parser")
+
+                shortcut_links = []
+
+                # 1. 본문 안 바로가기만 추출
+                soup_for_main_shortcut = BeautifulSoup(html, "html.parser")
+                remove_noise_nodes(soup_for_main_shortcut)
+                main_node_for_shortcut = select_main_content(soup_for_main_shortcut)
+
+                shortcut_links.extend(
+                    extract_shortcut_links(main_node_for_shortcut, url)
                 )
 
-                shortcut_key = shortcut_doc.get("shortcut_url", "")
+                # 2. 메뉴 영역의 '새창으로열림' 링크는 시작 메뉴 페이지에서만 추출
+                # 예: 정보공개 > 사하알림 페이지
+                if url in START_URL_SET:
+                    soup_for_menu_shortcut = BeautifulSoup(html, "html.parser")
 
-                if shortcut_key not in saved_shortcut_urls:
-                    out.write(json.dumps(shortcut_doc, ensure_ascii=False) + "\n")
-                    out.flush()
+                    for a in soup_for_menu_shortcut.find_all("a", href=True):
+                        raw_text = a.get_text(" ", strip=True)
+                        text = clean_inline(raw_text)
+                        href = a.get("href", "").strip()
 
-                    saved_shortcut_urls.add(shortcut_key)
-
-                    saved_doc_ids.add(shortcut_doc["doc_id"])
-
-                    saved_count += 1
-
-                    print(
-                        f"  바로가기 저장 완료 ({saved_count}): "
-                        f"{shortcut_doc['title']}"
-                    )
-            
-
-            # 링크 수집: contents든 list든 직접 클릭 메뉴까지 계속 탐색
-            links = extract_links_from_raw_html(html, url, parent_menu_path=menu_path)
-
-            # 목록형 게시판이면 최근 1년 상세글을 직접 방문해서 저장
-            if page_type == "bbs_list":
-                print("  목록형 게시판 처리")
-                for page in range(1, MAX_BOARD_PAGES_PER_LIST + 1):
-                    list_page_url = get_bbs_page_url(url, page)
-                    try:
-                        r = session.get(list_page_url, timeout=TIMEOUT)
-                        r.raise_for_status()
-                    except Exception as e:
-                        print(f"    목록 page={page} 요청 실패: {e}")
-                        continue
-
-                    rows = extract_bbs_rows(r.text, list_page_url)
-                    if not rows:
-                        if page == 1:
-                            print("    게시글 행 없음")
-                        break
-
-                    old_count = 0
-                    for row in rows:
-                        if not is_recent_row(row):
-                            old_count += 1
+                        if "새창" not in text and a.get("target") != "_blank":
                             continue
 
-                        view_url = row["url"]
-                        if view_url in visited:
-                            continue
-                        visited.add(view_url)
-
-                        print(f"    [BBS VIEW] {row.get('title', '')} / {view_url}")
-                        try:
-                            vr = session.get(view_url, timeout=TIMEOUT)
-                            vr.raise_for_status()
-                        except Exception as e:
-                            print(f"      상세 요청 실패: {e}")
-                            continue
-
-                        extra_meta = {
-                            "board_number": row.get("number", ""),
-                            "title": row.get("title", ""),
-                            "department": row.get("department", ""),
-                            "date": row.get("date", ""),
-                            "views": row.get("views"),
-                        }
-                        doc = make_doc(
-                            view_url,
-                            parent_url=url,
-                            anchor_text=row.get("title", ""),
-                            menu_path=menu_path + [row.get("title", "")],
-                            html=vr.text,
-                            extra_meta=extra_meta,
+                        text = (
+                            text.replace("새창으로열림", "")
+                            .replace("새창", "")
+                            .strip()
                         )
 
-                        if len(doc.get("text", "")) >= 80:
-                            doc_id = doc["doc_id"]
-                            if doc_id not in saved_doc_ids:
-                                out.write(json.dumps(doc, ensure_ascii=False) + "\n")
-                                out.flush()
-                                saved_doc_ids.add(doc_id)
-                                saved_count += 1
-                                print(f"      저장 완료 ({saved_count}): {doc['title']}")
+                        if not text:
+                            continue
+
+                        # 저장하고 싶은 대표 새창 메뉴만 허용
+                        if text not in ["계약정보공개", "재정정보공개"]:
+                            continue
+
+                        full_url = urljoin(url, href)
+                        full_url, _ = urldefrag(full_url)
+
+                        shortcut_links.append({
+                            "text": text,
+                            "url": full_url,
+                            "raw_href": href,
+                        })
+
+                page_type = classify_page_type(final_url)
+                # 중복 제거
+                shortcut_dedup = {}
+                for link in shortcut_links:
+                    key = (
+                        link.get("text", ""),
+                        link.get("url", ""),
+                        link.get("raw_href", ""),
+                    )
+                    shortcut_dedup[key] = link
+
+                shortcut_links = list(shortcut_dedup.values())
+
+                for shortcut in shortcut_links:
+                    if not shortcut.get("url"):
+                        continue
+
+                    page_title = extract_title(BeautifulSoup(html, "html.parser"))
+
+                    shortcut_doc = make_shortcut_doc(
+                        url,
+                        shortcut,
+                        menu_path,
+                        parent_title="",
+                        page_type="menu_shortcut",
+                    )
+
+                    shortcut_key = shortcut_doc.get("shortcut_url", "")
+
+                    if shortcut_key not in saved_shortcut_urls:
+                        existing_docs[shortcut_doc["doc_id"]] = shortcut_doc
+
+                        saved_shortcut_urls.add(shortcut_key)
+
+                        saved_doc_ids.add(shortcut_doc["doc_id"])
+
+                        saved_count += 1
+
+                        print(
+                            f"  바로가기 저장 완료 ({saved_count}): "
+                            f"{shortcut_doc['title']}"
+                        )
+                
+
+                # 링크 수집: contents든 list든 직접 클릭 메뉴까지 계속 탐색
+                links = extract_links_from_raw_html(
+                    html,
+                    final_url,
+                    parent_menu_path=menu_path
+                )
+                # 직원업무안내: 직원별 문서 생성 및 증분 저장
+                if page_type == "staff_list":
+                    print("  직원업무안내 전체 페이지 수집")
+
+                    staff_list = collect_all_staff(
+                        session,
+                        final_url,
+                        html
+                    )
+
+                    for staff in staff_list:
+                        doc = make_staff_doc(
+                            staff,
+                            final_url,
+                            menu_path
+                        )
+
+                        # 직원별 고유 상태 키
+                        state_key = f"staff:{doc['doc_id']}"
+
+                        new_hash = make_content_hash(doc["text"])
+                        old_doc = existing_docs.get(doc["doc_id"])
+
+                        old_hash = crawl_state.get(
+                            state_key, {}
+                        ).get("content_hash")
+
+                        # 기존 문서가 있으면 문서의 해시도 비교
+                        if old_hash is None and old_doc:
+                            old_hash = make_content_hash(
+                                old_doc.get("text", "")
+                            )
+
+                        if old_hash == new_hash and old_doc:
+                            continue
+
+                        doc = attach_change_metadata(
+                            doc,
+                            old_doc,
+                            new_hash
+                        )
+
+                        crawl_state[state_key] = {
+                            "content_hash": new_hash,
+                            "last_crawled": datetime.now().strftime("%Y-%m-%d")
+                        }
+
+                        delta_out.write(
+                            json.dumps(doc, ensure_ascii=False) + "\n"
+                        )
+                        delta_out.flush()
+
+                        append_change_history(doc)
+
+                        existing_docs[doc["doc_id"]] = doc
+                        saved_doc_ids.add(doc["doc_id"])
+
+                        if old_doc is None:
+                            saved_count += 1
+
+                        print(
+                            f"  [{doc['change_type']}] "
+                            f"{doc['title']} / {doc['phone']}"
+                        )
+
+                    print(
+                        f"  직원업무안내 처리 완료: "
+                        f"{len(staff_list)}건"
+                    )
+
+                # 목록형 게시판이면 최근 1년 상세글을 직접 방문해서 저장
+                elif page_type == "bbs_list":
+                    print("  목록형 게시판 처리")
+                    for page in range(1, MAX_BOARD_PAGES_PER_LIST + 1):
+                        list_page_url = get_bbs_page_url(final_url, page)
+                        try:
+                            r = session.get(list_page_url, timeout=TIMEOUT)
+                            r.raise_for_status()
+                        except Exception as e:
+                            print(f"    목록 page={page} 요청 실패: {e}")
+                            continue
+
+                        rows = extract_bbs_rows(r.text, list_page_url)
+                        if not rows:
+                            if page == 1:
+                                print("    게시글 행 없음")
+                            break
+
+                        old_count = 0
+                        for row in rows:
+                            if not is_recent_row(row):
+                                old_count += 1
+                                continue
+
+                            view_url = row["url"]
+                            if view_url in visited:
+                                continue
+                            visited.add(view_url)
+
+                            print(f"    [BBS VIEW] {row.get('title', '')} / {view_url}")
+                            try:
+                                vr = session.get(view_url, timeout=TIMEOUT)
+                                vr.raise_for_status()
+                            except Exception as e:
+                                print(f"      상세 요청 실패: {e}")
+                                continue
+
+                            extra_meta = {
+                                "board_number": row.get("number", ""),
+                                "title": row.get("title", ""),
+                                "department": row.get("department", ""),
+                                "date": row.get("date", ""),
+                                "views": row.get("views"),
+                            }
+                            doc = make_doc(
+                                view_url,
+                                parent_url=final_url,
+                                anchor_text=row.get("title", ""),
+                                menu_path=menu_path + [row.get("title", "")],
+                                html=vr.text,
+                                extra_meta=extra_meta,
+                            )
+                            # 변경 여부 확인
+                            new_hash = make_content_hash(doc["text"])
+                            old_hash = crawl_state.get(doc["url"], {}).get("content_hash")
+                            # 변경 없음이어도 저장은 생략하되 링크 추가
+                            if old_hash == new_hash:
+                                print(f"  변경 없음: {doc['title']}")
+                                skip_save = True
+                            else:
+                                skip_save = False
+
+                                old_doc = existing_docs.get(doc["doc_id"])
+                                doc = attach_change_metadata(doc, old_doc, new_hash)
+
+                                crawl_state[doc["url"]] = {
+                                    "content_hash": new_hash,
+                                    "last_crawled": datetime.now().strftime("%Y-%m-%d")
+                                }
+
+                                delta_out.write(json.dumps(doc, ensure_ascii=False) + "\n")
+                                delta_out.flush()
+                                append_change_history(doc)
+
+                            if not skip_save and len(doc.get("text", "")) >= 80:
+                                doc_id = doc["doc_id"]
+                                if doc_id not in saved_doc_ids:
+                                    existing_docs[doc["doc_id"]] = doc
+                                    saved_doc_ids.add(doc_id)
+                                    saved_count += 1
+                                    print(f"      저장 완료 ({saved_count}): {doc['title']}")
+
+                            time.sleep(REQUEST_DELAY)
+
+                        if old_count >= len(rows):
+                            print("    최근 1년 이전 게시글만 있어 목록 중단")
+                            break
 
                         time.sleep(REQUEST_DELAY)
+                # 본문이 80자 미만이어도, 제목이나 메뉴명이 있고 본문이 조금있고 예약/신청/인증 링크 같은 바로가기가 있으면 저장후보로 남김
+                elif should_save(final_url, anchor_text):
+                    try:
+                        doc = make_doc(
+                            final_url,
+                            parent_url,
+                            anchor_text,
+                            menu_path,
+                            html
+                        )
+                        is_empty_page = (
+                            not doc.get("text")
+                            and not doc.get("sections")
+                            and not doc.get("shortcut_links")
+                        )
 
-                    if old_count >= len(rows):
-                        print("    최근 1년 이전 게시글만 있어 목록 중단")
-                        break
+                        is_redirected = (
+                            normalize_url("", url)
+                            != normalize_url("", final_url)
+                        )
 
-                    time.sleep(REQUEST_DELAY)
+                        if is_empty_page and is_redirected and anchor_text:
+                            redirect_doc = make_redirect_feature_doc(
+                                original_url=url,
+                                final_url=final_url,
+                                anchor_text=anchor_text,
+                                menu_path=menu_path,
+                            )
 
-            elif should_save(url, anchor_text):
-                try:
-                    doc = make_doc(url, parent_url, anchor_text, menu_path, html)
-                    score = document_score(url, doc["title"], doc["text"], doc["sections"])
+                            if redirect_doc:
+                                doc = redirect_doc
+                                print(
+                                    f"  빈 리다이렉트 기능 페이지로 처리: "
+                                    f"{doc['title']}"
+                                )
+                                
+                        skip_save = False
+                        score = document_score(url, doc["title"], doc["text"], doc["sections"])
 
-                    print(f"  제목: {doc['title']}")
-                    print(f"  본문 길이: {len(doc['text'])}")
-                    print(f"  섹션 수: {len(doc['sections'])}")
-                    print(f"  바로가기 수: {len(doc['shortcut_links'])}")
-                    print(f"  문서 점수: {score}")
+                        print(f"  제목: {doc['title']}")
+                        print(f"  본문 길이: {len(doc['text'])}")
+                        print(f"  섹션 수: {len(doc['sections'])}")
+                        print(f"  바로가기 수: {len(doc['shortcut_links'])}")
+                        print(f"  문서 점수: {score}")
 
-                    if doc.get("text") and len(doc["text"]) >= 80 and score >= 0:
-                        doc_id = doc["doc_id"]
-                        if doc_id not in saved_doc_ids:
-                            out.write(json.dumps(doc, ensure_ascii=False) + "\n")
-                            out.flush()
+                        has_shortcut = len(doc.get("shortcut_links", [])) > 0
+                        has_title = bool(doc.get("title") or anchor_text)
+                        has_some_text = len(doc.get("text", "")) >= 20
+
+                        if (not has_some_text and not has_shortcut) or score < 0:
+                            print("  저장 안 함: 본문 부족 또는 메뉴성 페이지")
+                            continue
+
+                        # 변경감지코드
+                        new_hash = make_content_hash(doc["text"])
+                        old_hash = crawl_state.get(doc["url"], {}).get("content_hash")
+
+                        if old_hash == new_hash:
+                            print(f"  변경 없음: {doc['title']}")
+                            skip_save = True
+                        else:
+                            old_doc = existing_docs.get(doc["doc_id"])
+                            doc = attach_change_metadata(doc, old_doc, new_hash)
+
+                            crawl_state[doc["url"]] = {
+                                "content_hash": new_hash,
+                                "last_crawled": datetime.now().strftime("%Y-%m-%d")
+                            }
+
+                            delta_out.write(json.dumps(doc, ensure_ascii=False) + "\n")
+                            delta_out.flush()
+                            append_change_history(doc)
+
+                        if skip_save:
+                            print("  저장 생략: 수정사항 없음")
+                        elif doc.get("text") and len(doc["text"]) >= 80 and score >= 0:
+                            doc_id = doc["doc_id"]
+
+                            existing_docs[doc_id] = doc
                             saved_doc_ids.add(doc_id)
                             saved_count += 1
+
                             print(f"  저장 완료 ({saved_count}): {doc['title']}")
-                    else:
-                        print("  저장 안 함: 본문 부족 또는 메뉴성 페이지")
+                        else:
+                            print("  저장 안 함: 본문 부족 또는 메뉴성 페이지")
 
-                except Exception as e:
-                    print(f"  파싱 실패: {e}")
-            else:
-                print("  저장 안 함: 목록/허브 또는 범위 외 페이지")
+                    except Exception as e:
+                        print(f"  파싱 실패: {e}")
+                else:
+                    print("  저장 안 함: 목록/허브 또는 범위 외 페이지")
 
-            added = 0
-    
-            for link in links:
-                link_url = link["url"]
-
-                if link_url not in visited and link_url not in queued:
-                    queue.append(link)
-                    queued.add(link_url)
-                    added += 1
+                added = 0
         
-            print(f"  링크 추가: {added}개")
-            time.sleep(REQUEST_DELAY)
+                for link in links:
+                    link_url = link["url"]
 
+                    if any(keyword in link_url for keyword in EXCLUDED_URL_KEYWORDS):
+                        continue
+
+                    if link_url not in visited and link_url not in queued:
+                        queue.append(link)
+                        queued.add(link_url)
+                        added += 1
+            
+                print(f"  링크 추가: {added}개")
+                time.sleep(REQUEST_DELAY)
+
+    save_existing_docs(OUTPUT_JSONL, existing_docs)
+    save_crawl_state(crawl_state)
     print("\n크롤링 완료")
     print(f"- 방문 페이지 수: {len(visited)}")
     print(f"- 저장 문서 수: {saved_count}")

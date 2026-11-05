@@ -1,17 +1,30 @@
 from fastapi import FastAPI, Depends, HTTPException
 from sqlalchemy.orm import Session
+from sqlalchemy import func   # func 필요
 from typing import List
-
+from fastapi.responses import StreamingResponse
+import json
+import math   # 자주하는 질문 같은거 묶기 위해 코사인 유사도
 from app.database import engine, get_db
 from . import models
-from .api import chat  # 기존 챗봇 라우터
-from .models import Notice
+from .models import Notice, UserChatLog    # userchatlog 추가
+from .api import chat, stt, admin_auth, admin_dashboard,admin_invite  # 기존 챗봇 + 관리자 인증 라우터
 from pydantic import BaseModel
-from app.services.chat_service import ask_saha_ai
-
+from app.services.chat_service import ask_saha_ai_stream
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 import os
+from typing import Optional
+from datetime import datetime, timedelta
+from sqlalchemy import func
+from fastapi.responses import FileResponse
+
+import traceback
+import re
+
+
+SERVER_URL = 'https://snack-sanded-passover.ngrok-free.dev';
+
 app = FastAPI(title="사하구 AI 상담사 API")
 
 # 루트 경로 계산
@@ -22,11 +35,22 @@ PDF_DIR = os.path.join(PROJECT_ROOT, "data", "raw", "passport_pdfs")
 
 # 🌟 외부에서 /download/passport_pdfs/파일명.pdf 로 바로 다운로드할 수 있게
 app.mount("/download/passport_pdfs", StaticFiles(directory=PDF_DIR), name="passport_pdfs")
+# 서버
+app.mount("/assets", StaticFiles(directory="frontend/dist/assets"), name="assets")
 
 # CORS 설정
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # 실제 배포시에는 ["http://localhost:3000"] 처럼 특정 주소만 허용
+    # 허용할 프론트엔드 주소를 명시적으로 지정
+    # HttpOnly 쿠키를 사용하는 인증에서는 "*" 대신
+    # 실제 프론트엔드 주소를 지정하는 것이 필요함
+    # 실제 배포시에는 ["http://localhost:3000"] 처럼 특정 주소만 허용
+    allow_origins=[
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+        SERVER_URL,  # 현재 ngrok 주소 추가
+        "*"  # 테스팅 단계에서 간편하게 처리하려면 "*" 로 모든 출처 허용 가능
+    ],  
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -40,6 +64,13 @@ models.Base.metadata.create_all(bind=engine)
 #Pydantic 모델 (API 응답 규격)
 #서버가 사용자에게 결과를 돌려줄 때의 규격 
 # db에서 찾은 공지사항 정보를 줄 때 id, title, author 등의 형식에 맞춰서 줌
+class FeedbackCreate(BaseModel):
+    messageIndex: int
+    question: str
+    answer: str
+    rating: str          # "positive" 또는 "negative"
+    reason: Optional[str] = None  # 사유는 없을 수도 있으므로 Optional
+    
 class NoticeResponse(BaseModel): 
     id: int
     doc_id: str
@@ -67,6 +98,11 @@ class ChatRequest(BaseModel):
 
 # 3. 기존 챗봇 라우터 등록
 app.include_router(chat.router, prefix="/chat", tags=["Chat"])
+app.include_router(stt.router, tags=["STT"])
+app.include_router(admin_auth.router, prefix="/admin", tags=["Admin"])
+app.include_router(admin_dashboard.router,prefix="/admin/dashboard",tags=["Admin Dashboard"])
+app.include_router(admin_invite.router, prefix="/admin", tags=["Admin Invite"])
+
 
 # 4. 공지사항 조회 API 엔드포인트
 @app.get("/notices", response_model=List[NoticeResponse], tags=["Notices"])
@@ -83,6 +119,77 @@ def read_notice(notice_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="공지사항을 찾을 수 없습니다.")
     return notice
 
+
+# 자주 묻는 질문 Top 5
+@app.get("/frequent-questions", tags=["FAQ"])
+def get_frequent_questions(db: Session = Depends(get_db)):
+
+    # 1. DB에 저장된 질문별 빈도 조회
+    results = (
+        db.query(
+            UserChatLog.normalized_query,
+            func.count(UserChatLog.id).label("question_count")
+        )
+        .filter(UserChatLog.normalized_query.isnot(None))
+        .group_by(UserChatLog.normalized_query)
+        .all()
+    )
+
+    grouped_questions = {}
+
+    for row in results:
+        question = row.normalized_query
+        count = int(row.question_count)
+
+        # 2. 앞뒤 불필요한 따옴표 및 공백 제거
+        question = re.sub(
+            r"""^[\s'"“”‘’]+|[\s'"“”‘’]+$""",
+            "",
+            question
+        )
+
+        # 연속된 공백을 하나로 정리
+        question = re.sub(r"\s+", " ", question).strip()
+
+        if not question:
+            continue
+
+        # 3. 띄어쓰기와 대소문자 차이 무시
+        comparison_key = re.sub(
+            r"\s+", "", question
+        ).casefold()
+
+        # 4. 동일 질문의 횟수 합산
+        if comparison_key not in grouped_questions:
+            grouped_questions[comparison_key] = {
+                "question": question,
+                "count": count,
+                "representative_count": count
+            }
+        else:
+            item = grouped_questions[comparison_key]
+            item["count"] += count
+
+            # 가장 많이 사용된 표현을 대표 질문으로 선택
+            if count > item["representative_count"]:
+                item["question"] = question
+                item["representative_count"] = count
+
+    # 5. 중복 통합 후 빈도순 정렬
+    sorted_questions = sorted(
+        grouped_questions.values(),
+        key=lambda item: (-item["count"], item["question"])
+    )
+
+    # 6. 서로 다른 질문 상위 5개 반환
+    return [
+        {
+            "question": item["question"],
+            "count": item["count"]
+        }
+        for item in sorted_questions[:5]
+    ]
+
 from sqlalchemy import desc
 
 @app.get("/notices/search", tags=["Notices"])
@@ -95,7 +202,7 @@ def search_notices(
     
     # 1. 키워드 검색 (제목 또는 본문에 포함된 경우)
     if q:
-        query = query.filter(Notice.title.contains(q) | Notice.text.contains(q))
+        query = query.filter(Notice.title.contains(q) | Notice.chunk_text.contains(q))
     
     # 2. 정렬 로직
     if sort_by == "views":
@@ -112,24 +219,61 @@ def search_notices(
 
 @app.get("/", tags=["Root"])
 def root():
-    return {"status": "Saha AI Server is running!", "version": "1.0.0"}
+    return FileResponse("frontend/dist/index.html")
 
 #챗봇 api 엔드포인트 
 @app.post("/ai-chat", tags=["Chat"])
 async def chat_endpoint(request: ChatRequest):
-    try:
-        user_question = request.question
-        raw_history = [
-            {"role": msg.role, "content": msg.content} 
-            for msg in request.history
-        ]
-        result = ask_saha_ai(user_question=user_question, history=raw_history)        
-        return {
-            "question": user_question,
-            "answer": result["answer"],  # 고우니의 텍스트 답변
-            "files": result["files"]      # 파싱된 첨부파일 리스트
-        }
+    # StreamingResponse는 try-except 블록 밖에서 직접 반환해야 함. 
+    # generator 함수 내부에서 에러 처리를 해야 합니다.
+    
+    # 스트리밍 응답을 생성하는 제너레이터 정의
+    async def event_generator():
+        try:
+            user_question = request.question
+            raw_history = [{"role": msg.role, "content": msg.content} for msg in request.history]
+            
+            # ask_saha_ai_stream이 보내는 json 덩어리들을 받아서 SSE 포맷(data: ...)으로 쏴줌
+            async for chunk_data in ask_saha_ai_stream(user_question, raw_history):
+                # chunk_data는 이미 ask_saha_ai_stream 내부에서 
+                # {'type': 'text', 'content': ...} 
+                # 또는 {'type': 'files', 'content': ...} 
+                # 형태로 JSON 문자열이 되어 넘어옵니다.
+                yield f"data: {chunk_data}\n\n"
+                
+            yield "data: [DONE]\n\n"
 
-    except Exception as e:
-        print(f"🔥 백엔드 에러 발생: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        except Exception as e:
+            print(
+                f"❌ AI 챗봇 오류: {type(e).__name__}",
+                flush=True
+            )
+            traceback.print_exception(
+                type(e),
+                e,
+                e.__traceback__,
+                limit=5
+            )
+    return StreamingResponse(event_generator(), media_type="text/event-stream")
+
+# main.py 에 추가할 피드백 저장 API
+@app.post("/api/feedback", tags=["Feedback"])
+def create_feedback(feedback: FeedbackCreate, db: Session = Depends(get_db)):
+    """프론트엔드에서 보낸 챗봇 답변 만족도 피드백을 저장합니다."""
+    db_feedback = NoticeResponse # (임시 방어용 아님, 아래 models.Feedback 사용)
+    
+    # 1. DB 모델 객체 생성
+    db_feedback = models.Feedback(
+        message_index=feedback.messageIndex,
+        question=feedback.question,
+        answer=feedback.answer,
+        rating=feedback.rating,
+        reason=feedback.reason
+    )
+    
+    # 2. DB 저장
+    db.add(db_feedback)
+    db.commit()
+    db.refresh(db_feedback)
+    
+    return {"status": "success", "message": "피드백이 성공적으로 저장되었습니다.", "id": db_feedback.id}
