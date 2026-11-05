@@ -441,7 +441,7 @@ async def ask_saha_ai_stream(user_question: str, history: List[Dict[str, str]] =
                         "{\n"
                         '  "success": true 또는 false,\n'
                         '  "category": "위 [실패 유형 카테고리] 중 가장 알맞은 코드 1개",\n'
-                        '  "reason": "false인 경우 구체적인 사유 서술, true인 경우 빈 문자열(\"\")"\n'
+                        '  "reason": "false인 경우 구체적인 사유 서술, true인 경우 빈 문자열",\n'
                         '  "chat_title": "5~12자의 짧은 명사형 상담 제목"\n'
                         "}"
                     )
@@ -482,8 +482,7 @@ async def ask_saha_ai_stream(user_question: str, history: List[Dict[str, str]] =
         # 답변 생성 및 answer_success 판별 완료 후
         if is_success is False:
             final_confidence_score = 0.0 
-    
-        
+
         print(f"📊 [AI 검수 결과] 성공 여부: {is_success} / 사유: {failure_reason}")
         
         # DB에 저장할 텍스트 최종 검사

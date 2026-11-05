@@ -17,7 +17,7 @@ import type {
   SatisfactionStat,
 } from "../types/adminDashboard";
 
-const BACKEND_URL = "";
+const BACKEND_URL = "http://localhost:8000";
 
 // 관리자 질문 분석 대시보드
 function AdminDashboard() {
