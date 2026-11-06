@@ -13,7 +13,7 @@ function Header({ onGuideClick }: HeaderProps) {
 
         {/* 왼쪽: 서비스 제목 및 설명 */}
         <div className="header-text">
-          <h1>사하구 AI 민원 상담사</h1>
+          <h1>사하구 AI 상담사</h1>
 
           <p className="header-description">
             민원 신청 방법과 필요한 서류를 안내해 드립니다.
