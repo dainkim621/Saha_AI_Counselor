@@ -735,16 +735,11 @@ function App() {
     activeChatIdRef.current = nextChatIdRef.current++;
 
     // 이전 질문/답변 초기화
-    setMessages([
-      {
-        role: "assistant",
-        content: "안녕하세요! 사하구 민원 상담을 도와드릴게요.",
-      },
-    ]);
-    
+    setMessages([]);
+
     setInput("");
     setSimilarityScore(null);
-    lastSpokenIndexRef.current = 0;
+    lastSpokenIndexRef.current = -1;
     setMobileQuestionListOpen(false);
 
     // Figma Frame 1: 새 채팅 후 최근 상담 목록 표시
@@ -857,22 +852,7 @@ function App() {
             title="이용 가이드"
             aria-label="이용 가이드 열기"
           >
-            <svg
-              width="20"
-              height="20"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.8"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              aria-hidden="true"
-            >
-              <path d="M12 7v14" />
-              <path d="M3 18V5a2 2 0 0 1 2-2h3a4 4 0 0 1 4 4" />
-              <path d="M12 7a4 4 0 0 1 4-4h3a2 2 0 0 1 2 2v13" />
-              <path d="M3 18a1 1 0 0 0 1 1h4a4 4 0 0 1 4 2 4 4 0 0 1 4-2h4a1 1 0 0 0 1-1" />
-            </svg>
+            ?
           </button>
 
       {/* 글자 크기 조절 */}
@@ -1235,13 +1215,17 @@ function App() {
 
           {/* 개인정보 보호 안내 */}
           <div className="privacy-warning" role="note">
-            <span className="privacy-warning-icon" aria-hidden="true">
-              🔒
-            </span>
             <span className="privacy-warning-text">
-              개인정보 보호를 위해 주민등록번호, 연락처, 주소 등은
-              입력하지 마세요.
+              주민등록번호, 연락처 등 개인정보는 입력하지 마세요.
             </span>
+
+            <button
+              type="button"
+              className="privacy-warning-detail"
+              onClick={() => setShowPrivacy(true)}
+            >
+              상세보기
+            </button>
           </div>
         </div>
       </div>
@@ -1300,7 +1284,10 @@ function App() {
               <section className="figma-recent-section">
                 <button
                   className="figma-accordion-header"
-                  onClick={() => setHistoryOpen((prev) => !prev)}
+                  onClick={() => {
+                    setHistoryOpen((prev) => !prev);
+                    setFaqOpen(false);
+                  }}
                   aria-expanded={historyOpen}
                 >
                   최근 문의
@@ -1335,7 +1322,10 @@ function App() {
                 <button
                   type="button"
                   className="figma-accordion-header"
-                  onClick={() => setFaqOpen((prev) => !prev)}
+                  onClick={() => {
+                    setFaqOpen((prev) => !prev);
+                    setHistoryOpen(false);
+                  }}
                   aria-expanded={faqOpen}
                 >
                   <span>자주 찾는 민원</span>
@@ -1455,6 +1445,38 @@ function App() {
               </button>
             </div>
           </header>
+
+          {/* 모바일 현재 채팅 질문 목록 버튼 */}
+          {hasUserMessage && (
+            <div className="current-questions-mobile">
+              <button
+                type="button"
+                className="current-questions-mobile-button"
+                onClick={() => setMobileQuestionListOpen(true)}
+                aria-label="현재 채팅 질문 목록 열기"
+                title="현재 질문 목록"
+              >
+                <svg
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d="M8 6h13" />
+                  <path d="M8 12h13" />
+                  <path d="M8 18h13" />
+                  <path d="M3 6h.01" />
+                  <path d="M3 12h.01" />
+                  <path d="M3 18h.01" />
+                </svg>
+              </button>
+            </div>
+          )}
 
           {/* 환영 화면 / 상담 화면 */}
           <div
